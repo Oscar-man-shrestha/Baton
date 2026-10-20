@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-20",
+  "providers": {
+    "chatgpt": { "hosts": ["chatgpt.com"], "turns": ["[data-message-author-role]"], "editor": ["#prompt-textarea", "[contenteditable='true']"], "artifacts": ["[data-testid*='canvas']"] },
+    "claude": { "hosts": ["claude.ai"], "turns": ["[data-testid='user-message']", ".font-claude-response"], "editor": ["[contenteditable='true']"], "artifacts": ["[data-testid*='artifact']"] },
+    "gemini": { "hosts": ["gemini.google.com"], "turns": ["user-query", "model-response"], "editor": ["rich-textarea [contenteditable='true']", "[contenteditable='true']"], "artifacts": ["[class*='canvas']"] },
+    "deepseek": { "hosts": ["chat.deepseek.com"], "turns": ["[class*='message']"], "editor": ["textarea", "[contenteditable='true']"], "artifacts": [] },
+    "grok": { "hosts": ["grok.com"], "turns": ["[data-testid*='message']"], "editor": ["textarea", "[contenteditable='true']"], "artifacts": [] },
+    "perplexity": { "hosts": ["www.perplexity.ai"], "turns": ["[data-testid*='message']"], "editor": ["textarea", "[contenteditable='true']"], "artifacts": [] }
+  }
+}

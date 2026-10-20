@@ -1,0 +1,24 @@
+{
+  "name": "handoff-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+    ,"eval": "node evaluation/evaluate.mjs"
+  },
+  "dependencies": {
+    "gpt-tokenizer": "^3.4.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0",
+    "wxt": "^0.20.0",
+    "jsdom": "^26.0.0"
+  }
+}
