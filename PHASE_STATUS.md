@@ -30,7 +30,7 @@ These are implementation summaries, not release claims. Local checks: `npm test`
 
 - Small labeled prompt set trains a local TF-IDF logistic classifier. Core ranking includes intent, estimated capacity, and local feedback after 20 samples.
 - UI suggests a destination based on intent. Provider table includes dated verification or “unverified.”
-- The UI does not yet collect thumbs feedback or expose editable fit weights; the dataset is too small for a quality claim.
+- The popup collects useful/not-useful feedback locally; re-ranking begins after 20 samples for an intent/provider pair. Editable fit weights are not exposed and the dataset is too small for a quality claim.
 - Embeddings were not attempted because the baseline has not been evaluated as plateaued.
 - Local classifier smoke test passes; accuracy is unmeasured.
 
