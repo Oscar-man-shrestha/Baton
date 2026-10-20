@@ -1,6 +1,19 @@
 import { defineBackground } from 'wxt/utils/define-background';
 
 export default defineBackground(() => {
+  const deliverDraft = async (tabId: number, text: string) => {
+    for (let attempt = 1; attempt <= 12; attempt++) {
+      try {
+        const result = await chrome.tabs.sendMessage(tabId, { type: 'INJECT_DRAFT', text });
+        if (result?.ok) {
+          await chrome.storage.local.set({ lastDraftInsertion: { at: Date.now(), ok: true, attempts: attempt } });
+          return;
+        }
+      } catch { /* Content script or editor may still be loading. */ }
+      await new Promise(resolve => setTimeout(resolve, 750));
+    }
+    await chrome.storage.local.set({ lastDraftInsertion: { at: Date.now(), ok: false, attempts: 12 } });
+  };
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'OPEN_POPUP') {
       chrome.action.openPopup().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
@@ -13,12 +26,19 @@ export default defineBackground(() => {
     chrome.tabs.create({ url: url.toString() }, tab => {
       const id = tab?.id;
       if (!id) { sendResponse({ ok: false }); return; }
+      let started = false;
+      const startDelivery = () => {
+        if (started) return;
+        started = true;
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        void deliverDraft(id, message.text);
+      };
       const onUpdated = (updatedId: number, info: { status?: string }) => {
         if (updatedId !== id || info.status !== 'complete') return;
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        chrome.tabs.sendMessage(id, { type: 'INJECT_DRAFT', text: message.text }).catch(() => {});
+        startDelivery();
       };
       chrome.tabs.onUpdated.addListener(onUpdated);
+      chrome.tabs.get(id).then(current => { if (current.status === 'complete') startDelivery(); }).catch(() => {});
       sendResponse({ ok: true });
     });
     return true;

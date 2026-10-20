@@ -4,6 +4,8 @@ import { deleteAll, exportProjects, importProjects, listProjects, saveProject } 
 const providers = document.querySelector('#providers') as HTMLElement;
 const projectsElement = document.querySelector('#projects') as HTMLElement;
 const health = document.querySelector('#health') as HTMLElement;
+const lastInsertion = (await chrome.storage.local.get('lastDraftInsertion')).lastDraftInsertion as { at?: number; ok?: boolean; attempts?: number } | undefined;
+if (lastInsertion?.at) health.textContent = `Last draft insertion: ${lastInsertion.ok ? 'editor confirmed' : 'failed; use Copy draft'} after ${lastInsertion.attempts || '?'} attempt(s), ${new Date(lastInsertion.at).toLocaleString()}.`;
 const settings = await chrome.storage.local.get('enabledProviders');
 const enabled: Record<string, boolean> = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
 for (const id of providerIds) {

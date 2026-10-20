@@ -36,16 +36,16 @@ These are implementation summaries, not release claims. The updated source was v
 
 ## Phase 5 — Projects and UX: partial
 
-- Named projects, merge behavior, resume copy, JSON export/import, delete-all, high-contrast styling, and draft-only transfer are present.
+- Named projects, merge behavior, resume copy, JSON export/import, delete-all, high-contrast styling, and draft-only transfer are present. Destination insertion now retries for up to nine seconds and records a local success/failure diagnostic without saving the draft text in that diagnostic.
 - Grok and Perplexity adapters are synthetic best-effort, disabled in ranking by default.
-- The requested accessible limit card and three-step onboarding are not implemented.
+- An accessible notice card exists for visible limit alerts; it still needs live keyboard and screen-reader review. Three-step onboarding is not implemented.
 - Project merge unit test passes; live accessibility and destination tests remain.
 - No account switching or limit evasion exists.
 
 ## Phase 6 — Release: prepared, not ready
 
 - README, privacy-policy draft, store listing draft, permissions rationale, and manual test checklist are included.
-- Stable public privacy-policy URL is pending; no remote publication was authorized or performed.
+- The planned privacy-policy URL is in the store listing: https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md. **Pending: repo not yet published.** The user will create and push it; no remote publication or hosting was performed here.
 - Evaluation target replies and logged-in site tests are pending.
 - Store submission must wait for the checklist and quality threshold.
 - The local build succeeded; publication readiness has not been established.

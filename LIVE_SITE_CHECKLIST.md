@@ -8,4 +8,4 @@ Run on the tester's own logged-in sessions; do not capture or commit account dat
 - [ ] Test keyboard Tab/Enter/Escape, focus order, screen-reader labels, and high contrast. The present popup lacks a modal limit card and needs accessibility review.
 - [ ] Inspect Chrome permissions, network activity, and local storage; confirm no message content leaves the extension except by a user-approved destination draft or export.
 - [ ] Run the two-target, three-generation evaluation in `evaluation/`; each scenario must score at least 8/10 after human review.
-- [ ] Publish the privacy policy at a stable URL and check it without a login. Confirm store listing claims against the final build.
+- [ ] Privacy policy URL: **pending: repo not yet published**. Planned URL: https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md. After the user publishes the repository, open it without a login and confirm the final policy and store listing match. No remote or hosting setup is part of this local build.

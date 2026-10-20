@@ -6,8 +6,8 @@ Local Chrome MV3 prototype for carrying a compact project brief between distinct
 
 1. Install dependencies with `npm install`.
 2. Run `npm test`, `npm run typecheck`, and `npm run build`.
-3. Open `chrome://extensions`, enable Developer mode, and load `.output/chrome-mv3` as an unpacked extension.
-4. Open a supported chat, click Handoff, capture visible turns, review the draft and receipt, then choose a destination. If insertion fails, use Copy draft and paste it manually.
+3. Open `chrome://extensions`, enable Developer mode, and load `.output/chrome-mv3` as an unpacked extension. The packaged build ZIP must be extracted first.
+4. Open a supported chat, click Handoff, capture visible turns, review the draft and receipt, then choose a destination. The options page reports whether draft insertion succeeded after a new tab loads. If it fails, use Copy draft and paste it manually.
 
 Supported site patterns in the manifest: ChatGPT, Claude, Gemini, DeepSeek, Grok, Perplexity. The last three are best-effort only. A local selector check is available in Settings and projects. Provider DOM layouts change; synthetic fixture passing does not prove live compatibility.
 

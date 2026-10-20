@@ -172,5 +172,5 @@ The detailed phase summaries and remaining work are in `PHASE_STATUS.md`. This c
 - [ ] 1,500-token hard cap without sacrificing required latest artifact and constraints demonstrated on adversarial inputs.
 - [ ] Two-target, three-generation harness reaches at least 8/10 per generation.
 - [ ] Full UX: pre-limit card, cost badge, onboarding, feedback collection, and accessibility audit.
-- [ ] Stable privacy-policy URL published and store claims checked.
+- [ ] Planned privacy-policy URL recorded in `STORE_LISTING.md`; **pending: repo not yet published**. User will publish it later, then the URL and store claims need checking.
 - [x] No account switching, credential/cookie manipulation, auto-submit, or limit evasion implemented.
