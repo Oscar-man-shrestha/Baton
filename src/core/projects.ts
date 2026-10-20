@@ -33,6 +33,28 @@ export async function saveProject(project: Project): Promise<void> {
   if (index < 0) projects.push(project); else projects[index] = project;
   await chrome.storage.local.set({ projects });
 }
+export async function deleteProject(id: string): Promise<void> {
+  const projects = await listProjects();
+  await chrome.storage.local.set({ projects: projects.filter(project => project.id !== id) });
+}
 export async function deleteAll(): Promise<void> { await chrome.storage.local.clear(); }
+export async function pruneExpired(now = Date.now()): Promise<number> {
+  const saved = await chrome.storage.local.get(null);
+  const days = Number(saved.retentionDays || 0);
+  if (![7, 30, 90].includes(days)) return 0;
+  const cutoff = now - days * 86400000;
+  const remove: string[] = [];
+  for (const key of Object.keys(saved)) {
+    if (!key.startsWith('brief:')) continue;
+    const timestampKey = `savedAt:${key}`;
+    const timestamp = Number(saved[timestampKey]);
+    if (!Number.isFinite(timestamp) || timestamp < cutoff) remove.push(key, timestampKey, `visibleTurnsHighWater:${key}`, `archive:${key}`);
+  }
+  const projects = z.array(projectSchema).catch([]).parse(saved.projects);
+  const kept = projects.filter(project => project.updatedAt >= cutoff);
+  if (kept.length !== projects.length) await chrome.storage.local.set({ projects: kept });
+  if (remove.length) await chrome.storage.local.remove(remove);
+  return (projects.length - kept.length) + remove.length / 4;
+}
 export function exportProjects(projects: Project[]): string { return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), projects }, null, 2); }
 export function importProjects(text: string): Project[] { return z.object({ schemaVersion: z.literal(1), projects: z.array(projectSchema) }).parse(JSON.parse(text)).projects; }

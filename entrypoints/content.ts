@@ -2,6 +2,11 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
 import { extract, makeAdapter } from '../src/core/adapter';
 import { updateBrief, briefSchema } from '../src/core/brief';
+import { encode } from 'gpt-tokenizer';
+import { estimateMeter, type LimitEvent, type Meter } from '../src/core/limits';
+import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
+import type { Extraction } from '../src/core/adapter';
+import { composerStatusText, statusLinePosition } from '../src/core/composer-status';
 
 export default defineContentScript({
   matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*', 'https://chat.deepseek.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*'],
@@ -9,56 +14,153 @@ export default defineContentScript({
     const id = providerIds.find(p => bundledSelectors.providers[p].hosts.includes(location.hostname)) as ProviderId | undefined;
     if (!id) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const key = `brief:${location.origin}${location.pathname}`;
-    let noticeCard: HTMLElement | undefined;
-    const showLimitCard = (notice: string) => {
-      if (noticeCard) return;
-      noticeCard = document.createElement('div');
-      noticeCard.setAttribute('role', 'dialog');
-      noticeCard.setAttribute('aria-label', 'AI chat usage notice');
-      noticeCard.tabIndex = -1;
-      const shadow = noticeCard.attachShadow({ mode: 'closed' });
-      const style = document.createElement('style');
-      style.textContent = ':host{position:fixed;z-index:2147483647;right:20px;bottom:20px;width:min(340px,calc(100vw - 40px));font:14px system-ui;color:#102030}section{padding:16px;background:#fff;border:2px solid #234;box-shadow:0 5px 24px #0005;border-radius:12px}h2{font-size:16px;margin:0 0 6px}p{line-height:1.4}button{font:inherit;padding:7px;margin-right:6px;border:1px solid #234;border-radius:5px;background:#fff}button:focus-visible{outline:3px solid #2670d1}@media(prefers-contrast:more){section{border:3px solid #000;box-shadow:none}}';
-      const section = document.createElement('section');
-      const heading = document.createElement('h2'); heading.textContent = 'Chat usage notice';
-      const message = document.createElement('p'); message.textContent = notice;
-      const choices = document.createElement('p'); choices.textContent = 'You can wait for the provider reset, start a fresh chat, or choose another service with a reviewed brief.';
-      const handoff = document.createElement('button'); handoff.textContent = 'Open Handoff';
-      const close = document.createElement('button'); close.textContent = 'Dismiss';
-      const dismiss = () => { noticeCard?.remove(); noticeCard = undefined; };
-      handoff.addEventListener('click', async () => { const result = await chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }); if (!result?.ok) handoff.textContent = 'Click the Handoff toolbar icon'; });
-      close.addEventListener('click', dismiss);
-      section.addEventListener('keydown', event => {
-        if (event.key === 'Escape') { dismiss(); return; }
-        if (event.key === 'Tab') {
-          const buttons = [handoff, close]; const index = buttons.indexOf(shadow.activeElement as HTMLButtonElement);
-          if (event.shiftKey && index === 0) { event.preventDefault(); close.focus(); }
-          if (!event.shiftKey && index === 1) { event.preventDefault(); handoff.focus(); }
+    const pageUrl = () => location.origin + location.pathname + location.search + location.hash;
+    const storageKeys = () => { const key = `brief:${pageUrl()}`; return { key, highWaterKey: `visibleTurnsHighWater:${key}`, archiveKey: `archive:${key}` }; };
+    const limitHistoryKey = `limitEvents:${id}`;
+    let captureInProgress = false;
+    let latestMeter: Meter | undefined;
+    const statusHost = document.createElement('div');
+    statusHost.id = 'handoff-composer-status';
+    statusHost.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;display:none';
+    const shadow = statusHost.attachShadow({ mode: 'closed' });
+    const statusStyle = document.createElement('style');
+    statusStyle.textContent = ':host{all:initial}span{display:inline-block;max-width:100%;padding:2px 8px;border-radius:6px;background:#172538;color:#f7f9fc;font:11px/16px system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0003}@media(prefers-color-scheme:light){span{background:#eef3ff;color:#233754}}';
+    const statusText = document.createElement('span');
+    shadow.append(statusStyle, statusText);
+    document.body.append(statusHost);
+    let statusFrame = 0;
+    let lastPrompt = '';
+    let lastPromptTokens = 0;
+    const updateStatus = () => {
+      statusFrame = 0;
+      const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
+      if (!editor) { statusHost.style.display = 'none'; return; }
+      const editorRect = editor.getBoundingClientRect();
+      let surface: Element = editor;
+      let ancestor = editor.parentElement;
+      for (let depth = 0; ancestor && depth < 5 && !ancestor.matches('body,main'); depth++, ancestor = ancestor.parentElement) {
+        const rect = ancestor.getBoundingClientRect();
+        if (rect.width >= editorRect.width * 0.85 && rect.height <= 360 && rect.bottom >= editorRect.bottom + 10) surface = ancestor;
+      }
+      const position = statusLinePosition(surface.getBoundingClientRect(), innerWidth, innerHeight);
+      if (!position) { statusHost.style.display = 'none'; return; }
+      const below = document.elementFromPoint(position.left + Math.min(90, position.width / 2), position.top + 9);
+      if (below?.closest('button,input,textarea,select,[contenteditable="true"],[role="button"]')) { statusHost.style.display = 'none'; return; }
+      const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
+      if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
+      statusText.textContent = composerStatusText(lastPromptTokens, latestMeter);
+      statusHost.style.left = `${position.left}px`;
+      statusHost.style.top = `${position.top}px`;
+      statusHost.style.maxWidth = `${position.width}px`;
+      statusHost.style.display = 'block';
+    };
+    const scheduleStatus = () => { if (!statusFrame) statusFrame = requestAnimationFrame(updateStatus); };
+    document.addEventListener('input', scheduleStatus, true);
+    document.addEventListener('focusin', scheduleStatus, true);
+    document.addEventListener('scroll', scheduleStatus, true);
+    window.addEventListener('resize', scheduleStatus);
+    void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); });
+    setInterval(() => { void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); }); }, 30000);
+    scheduleStatus();
+    const captureOlderTurns = async (): Promise<Extraction> => {
+      const initial = extract(document, id, bundledSelectors);
+      const firstTurn = bundledSelectors.providers[id].turns.map(selector => document.querySelector(selector)).find(Boolean);
+      if (!firstTurn) return initial;
+      let container: Element | null = firstTurn.parentElement;
+      while (container && container.scrollHeight <= container.clientHeight + 40) container = container.parentElement;
+      const scroller = (container || document.scrollingElement) as Element | null;
+      if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 40) return { ...initial, warning: [initial.warning, 'Older messages could not be loaded automatically.'].filter(Boolean).join(' ') };
+
+      const originalTop = scroller.scrollTop;
+      const step = Math.max(300, Math.floor(scroller.clientHeight * 0.75));
+      let turns = initial.turns;
+      const artifacts = [...initial.artifacts];
+      let stalled = 0;
+      captureInProgress = true;
+      try {
+        for (let attempt = 0; attempt < 24; attempt++) {
+          const before = scroller.scrollTop;
+          scroller.scrollTop = Math.max(0, before - step);
+          scroller.dispatchEvent(new Event('scroll', { bubbles: true }));
+          await new Promise(resolve => setTimeout(resolve, 150));
+          const next = extract(document, id, bundledSelectors);
+          const previousCount = turns.length;
+          turns = mergeTurnWindows(next.turns, turns);
+          for (const artifact of next.artifacts) if (!artifacts.some(saved => saved.name === artifact.name && saved.content === artifact.content)) artifacts.push(artifact);
+          stalled = scroller.scrollTop === before && turns.length === previousCount ? stalled + 1 : 0;
+          if (stalled >= 3) break;
         }
-      });
-      section.append(heading, message, choices, handoff, close); shadow.append(style, section); document.body.append(noticeCard); handoff.focus();
+      } finally {
+        scroller.scrollTop = originalTop;
+        scroller.dispatchEvent(new Event('scroll', { bubbles: true }));
+        captureInProgress = false;
+      }
+      return { ...initial, turns, artifacts, incomplete: true, warning: [initial.warning, 'Older-message capture is best effort; review the draft for missing content.'].filter(Boolean).join(' ') };
     };
     const persist = async () => {
+      if (captureInProgress) return;
       const data = extract(document, id, bundledSelectors);
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
-      if (signal.kind === 'banner') showLimitCard(signal.text);
       if (!data.turns.length) return;
-      const previous = briefSchema.safeParse((await chrome.storage.local.get(key))[key]);
-      const brief = updateBrief(previous.success ? previous.data : undefined, data.turns, data.artifacts);
-      await chrome.storage.local.set({ [key]: brief, [`health:${id}`]: { at: Date.now(), turns: data.turns.length, selectorsVersion: bundledSelectors.version } });
+      const { key, highWaterKey, archiveKey } = storageKeys();
+      const saved = await chrome.storage.local.get([key, highWaterKey, archiveKey, limitHistoryKey]);
+      const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
+      const now = Date.now();
+      const reachedLimit = signal.kind === 'banner' && /(?:you.ve reached|usage limit|quota exceeded|try again|limit reached)/i.test(signal.text);
+      if (reachedLimit && !history.some(event => now - event.at < 3600000)) {
+        history.push({ at: now, approximateTokens: data.turns.reduce((sum, turn) => sum + encode(turn.text).length, 0) });
+        await chrome.storage.local.set({ [limitHistoryKey]: history.slice(-12) });
+      }
+      const archive = archiveWindow(saved[archiveKey] as TurnArchive | undefined, data.turns, now);
+      const meter = estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now);
+      latestMeter = meter;
+      scheduleStatus();
+      const previous = briefSchema.safeParse(saved[key]);
+      const brief = updateBrief(previous.success ? previous.data : undefined, archive.turns, data.artifacts);
+      await chrome.storage.local.set({ [key]: brief, [`savedAt:${key}`]: now, [highWaterKey]: Math.max(Number(saved[highWaterKey]) || 0, archive.turns.length), [`health:${id}`]: { at: now, turns: data.turns.length, selectorsVersion: bundledSelectors.version }, [`meter:${id}`]: { ...meter, at: now } });
+      try { await chrome.storage.local.set({ [archiveKey]: archive }); } catch { /* Brief remains available if local storage is full. */ }
     };
-    const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(() => { void persist(); }, 1600); });
+    const editorSelectors = bundledSelectors.providers[id].editor;
+    const inEditor = (target: Node): boolean => {
+      const element = target instanceof Element ? target : target.parentElement;
+      return !!element && editorSelectors.some(selector => element.closest(selector));
+    };
+    const observer = new MutationObserver(mutations => {
+      scheduleStatus();
+      if (mutations.every(mutation => inEditor(mutation.target))) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { void persist(); }, 1600);
+    });
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     void persist();
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type === 'EXTRACT') {
-        const result = extract(document, id, bundledSelectors);
-        chrome.storage.local.get(key).then(saved => { const previous = briefSchema.safeParse(saved[key]); sendResponse({ ...result, brief: updateBrief(previous.success ? previous.data : undefined, result.turns, result.artifacts), limit: makeAdapter(id, bundledSelectors).detectLimit(document), url: location.href }); });
+        void (async () => {
+          const { key, highWaterKey, archiveKey } = storageKeys();
+          const result = message.includeOlder ? await captureOlderTurns() : extract(document, id, bundledSelectors);
+          const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
+          const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');
+          const saved = await chrome.storage.local.get([key, highWaterKey, archiveKey, limitHistoryKey]);
+          const archive = archiveWindow(saved[archiveKey] as TurnArchive | undefined, result.turns);
+          let archiveSaved = true;
+          try { await chrome.storage.local.set({ [archiveKey]: archive }); } catch { archiveSaved = false; }
+          const previous = briefSchema.safeParse(saved[key]);
+          const hadMoreTurns = Number(saved[highWaterKey]) > archive.turns.length;
+          const warning = [result.warning, archive.incomplete ? 'Some captured windows did not overlap; transcript order or gaps need review.' : '', archive.truncated ? 'The local transcript reached its size cap; earliest text was trimmed.' : '', archiveSaved ? '' : 'Local storage is full; captured text could not be saved.', hadMoreTurns ? 'This chat previously showed more turns; older messages may be virtualized. Review the brief.' : ''].filter(Boolean).join(' ');
+          const limit = makeAdapter(id, bundledSelectors).detectLimit(document);
+          const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
+          sendResponse({ provider: id, turnCount: archive.turns.length, artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(previous.success ? previous.data : undefined, archive.turns, result.artifacts), meter: estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history), url: pageUrl() });
+        })().catch(error => sendResponse({ error: String(error) }));
         return true;
       }
       if (message?.type === 'INJECT_DRAFT' && typeof message.text === 'string') {
-        sendResponse({ ok: makeAdapter(id, bundledSelectors).injectDraft(document, message.text) });
+        if (!makeAdapter(id, bundledSelectors).injectDraft(document, message.text)) { sendResponse({ ok: false }); return; }
+        setTimeout(() => {
+          const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
+          const actual = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent;
+          sendResponse({ ok: actual === message.text });
+        }, 400);
+        return true;
       }
     });
   }

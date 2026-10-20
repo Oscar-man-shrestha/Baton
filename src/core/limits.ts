@@ -1,7 +1,7 @@
 import { encode } from 'gpt-tokenizer';
 import type { ProviderId } from './selectors';
 
-export type Meter = { provider: ProviderId; tier: 'banner' | 'history' | 'unknown'; confidence: 'high' | 'medium' | 'low'; percent?: number; resetAt?: number; feature: string; explanation: string; estimatedReplyCost?: number };
+export type Meter = { provider: ProviderId; tier: 'banner' | 'history' | 'unknown'; confidence: 'high' | 'medium' | 'low'; percent?: number; remainingPercent?: number; remainingTokens?: number; resetAt?: number; feature: string; explanation: string; estimatedReplyCost?: number };
 export type LimitEvent = { at: number; approximateTokens: number };
 
 export function parseReset(text: string, now = Date.now()): number | undefined {
@@ -19,17 +19,20 @@ export function parseReset(text: string, now = Date.now()): number | undefined {
 
 export function estimateMeter(provider: ProviderId, visibleBanner: string, turns: string[], history: LimitEvent[] = [], now = Date.now()): Meter {
   const resetAt = parseReset(visibleBanner, now);
-  const knownLimit = /(?:you.ve reached|usage limit|quota exceeded|try again|limit reached)/i.test(visibleBanner);
+  const knownLimit = /(?:you.ve reached (?:your |the )?(?:usage |message |free )?limit|reached (?:your |the )?(?:usage |message |free )?limit|limit reached|quota exceeded|try again (?:in|after))/i.test(visibleBanner);
   const nearLimit = /(?:approaching|almost|close to).{0,30}(?:limit|quota)/i.test(visibleBanner);
   const feature = provider === 'chatgpt' ? 'feature quota (text chat is generally unlimited)' : 'chat usage';
-  if (knownLimit || nearLimit) return { provider, tier: 'banner', confidence: 'high', percent: knownLimit ? 100 : undefined, resetAt, feature, explanation: knownLimit ? 'Visible provider limit notice' : 'Visible provider near-limit notice' };
-  const windowHours = provider === 'claude' || provider === 'gemini' ? 5 : undefined;
-  const recent = history.filter(e => !windowHours || now - e.at < windowHours * 3600000);
+  const remaining = visibleBanner.match(/(?:(\d{1,3})\s*%\s*(?:of (?:your )?(?:free |message |usage |chat )?(?:quota |allowance )?)?(?:remaining|left)|(?:remaining|left)\s*:?[ ]*(\d{1,3})\s*%)/i);
+  const remainingPercent = remaining && /\b(free|message|usage|quota|chat)\b/i.test(visibleBanner) ? Math.min(100, Number(remaining[1] || remaining[2])) : undefined;
+  const tokenMatch = /\b(?:free(?:[ -]tier)?|usage|quota)\b.{0,70}\b(\d[\d,]*)\s+tokens?\s+(?:remaining|left)\b/i.exec(visibleBanner);
+  const remainingTokens = tokenMatch ? Number(tokenMatch[1].replaceAll(',', '')) : undefined;
+  if (knownLimit || nearLimit || remainingPercent !== undefined || remainingTokens !== undefined) return { provider, tier: 'banner', confidence: 'high', percent: knownLimit ? 100 : remainingPercent !== undefined ? 100 - remainingPercent : undefined, remainingPercent, remainingTokens, resetAt, feature, explanation: knownLimit ? 'Visible provider limit notice' : remainingPercent !== undefined || remainingTokens !== undefined ? 'Visible provider balance' : 'Visible provider near-limit notice' };
+  const recent = history.filter(e => e.at <= now && e.approximateTokens > 0).slice(-12);
   if (provider !== 'chatgpt' && recent.length >= 2) {
     const typical = recent.reduce((sum, e) => sum + e.approximateTokens, 0) / recent.length;
     const spent = turns.reduce((sum, t) => sum + encode(t).length, 0);
     const percent = Math.max(0, Math.min(99, Math.round(spent / Math.max(typical, 1) * 100)));
-    return { provider, tier: 'history', confidence: 'low', percent, feature, explanation: 'Calibrated from local limit events; provider allowance may change', estimatedReplyCost: Math.round((encode(turns.at(-1) || '').length + spent * 0.2) / Math.max(typical, 1) * 100) };
+    return { provider, tier: 'history', confidence: 'low', percent, feature, explanation: 'Current chat compared with local chats that showed a limit notice; this is not the provider allowance', estimatedReplyCost: Math.round((encode(turns.at(-1) || '').length + spent * 0.2) / Math.max(typical, 1) * 100) };
   }
   return { provider, tier: 'unknown', confidence: 'low', feature, explanation: 'No visible quota signal or enough local history' };
 }

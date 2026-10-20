@@ -1,1 +1,33 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Handoff settings</title><style>body{font:16px system-ui;max-width:720px;margin:30px auto;padding:0 20px;color:#17212b}button,input{font:inherit}button{padding:8px;margin:6px;border:1px solid #445;border-radius:6px;background:#fff}button:focus-visible,input:focus-visible{outline:3px solid #2364c8}li{margin:8px 0}small{color:#455}@media(prefers-contrast:more){button{border:2px solid #000}}</style></head><body><h1>Handoff settings</h1><p>Choose which destinations appear. Chat content and project briefs stay in local extension storage.</p><fieldset><legend>Providers</legend><div id="providers"></div></fieldset><h2>Projects</h2><ul id="projects"></ul><button id="export">Export projects as JSON</button><label>Import projects JSON <input id="import" type="file" accept="application/json"></label><h2>Diagnostics</h2><button id="selftest">Check current chat selectors</button><p id="health" role="status"></p><h2>Retention</h2><button id="delete">Delete all local Handoff data</button><p><small>Draft insertion needs a logged-in destination and a compatible editor. No draft is submitted automatically.</small></p><script type="module" src="./main.ts"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Handoff settings</title>
+  <style>
+    :root{color-scheme:light dark;--bg:#f6f8fc;--surface:#fff;--text:#182230;--muted:#475467;--line:#8493a7;--brand:#2255c5;--focus:#1d4ed8;--danger:#b42318}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:790px;margin:auto;padding:28px 18px 50px}
+    h1{font-size:26px;line-height:1.2;margin:0 0 5px}h2{font-size:18px;margin:0 0 10px}p{margin:0 0 12px}.muted,small{color:var(--muted)}.intro{margin-bottom:23px}
+    section{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:19px;margin-bottom:16px;box-shadow:0 2px 8px #17212b0b}
+    button,input,select{font:inherit}button{min-height:40px;padding:8px 13px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font-weight:650;cursor:pointer}button:hover{border-color:var(--brand)}button.danger{color:var(--danger);border-color:var(--danger)}button.danger:hover{background:#fff1f0}
+    input[type="file"]{max-width:100%;margin-top:6px}select{min-height:40px;border:1px solid var(--line);border-radius:7px;padding:7px;background:var(--surface);color:var(--text)}label{cursor:pointer}fieldset{border:0;padding:0;margin:0}legend{font-weight:700;margin-bottom:9px}
+    #providers>div{padding:12px 0;border-top:1px solid var(--line)}#providers>div:first-child{border-top:0}#providers>div>label{font-weight:700}#providers>div>div{display:flex;flex-wrap:wrap;gap:4px 11px;margin-top:6px!important}#providers>div>div label{font-size:13px;color:var(--muted)}
+    #projects{list-style:none;padding:0}#projects li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:9px;margin:9px 0}#projects li>span{min-width:0;overflow-wrap:anywhere}#projects li>div{display:flex;gap:6px;flex:none}#projects button{min-height:32px;font-size:13px}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px}.file-label{display:inline-block;padding:8px 0}#health{min-height:25px;margin-top:10px}#project-search{width:min(100%,360px);min-height:40px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);color:var(--text)}
+    body{background:radial-gradient(circle at 50% -200px,#dce7ff,transparent 520px),var(--bg)}.intro{padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 12px 30px #17212b0b}section{transition:box-shadow .18s ease}section:hover{box-shadow:0 8px 24px #17212b12}@media(prefers-reduced-motion:reduce){section{transition:none}}
+    :is(button,input,select):focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+    @media(prefers-color-scheme:dark){:root{--bg:#101721;--surface:#1c2735;--text:#f2f5fa;--muted:#bac7d8;--line:#60738c;--brand:#8aafff;--focus:#ffd166;--danger:#ffb4ab}body{background:radial-gradient(circle at 50% -200px,#273c62,transparent 520px),var(--bg)}button.danger:hover{background:#3d2225}}
+    @media(prefers-contrast:more){:root{--line:currentColor}section,button,select{border-width:2px}section{box-shadow:none}}
+  </style>
+</head>
+<body>
+  <main>
+    <header class="intro"><h1>Handoff settings</h1><p class="muted">Choose destinations, manage projects, and control what stays on this device.</p></header>
+    <section aria-labelledby="providers-title"><h2 id="providers-title">Services and suggestions</h2><p class="muted">Turn a service on or off, then choose which tasks it may be suggested for. Availability is checked in that service.</p><fieldset><legend class="muted">Available services</legend><div id="providers"></div></fieldset></section>
+    <section aria-labelledby="projects-title"><h2 id="projects-title">Saved projects</h2><p class="muted">Reopen a project brief or remove a project you no longer need.</p><label for="project-search">Find a project</label><br><input id="project-search" type="search" placeholder="Search by name"><ul id="projects"></ul><div class="actions"><button id="export" type="button">Export projects as JSON</button><label class="file-label" for="import">Import projects JSON <input id="import" type="file" accept="application/json,.json"></label></div></section>
+    <section aria-labelledby="diagnostics-title"><h2 id="diagnostics-title">Check a chat</h2><p class="muted">Open a supported AI chat before checking its page selectors. The diagnostic file contains counts and status only.</p><div class="actions"><button id="selftest" type="button">Check current chat</button><button id="export-diagnostic" type="button">Export diagnostic</button></div><p id="health" role="status"></p></section>
+    <section aria-labelledby="retention-title"><h2 id="retention-title">Data retention</h2><label for="retention">Delete old saved briefs and projects after</label> <select id="retention"><option value="0">Never</option><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select><p><small>Expiry runs when Handoff opens. Existing briefs without a saved date are deleted if you enable expiry.</small></p><button id="delete" class="danger" type="button">Delete all local Handoff data</button></section>
+    <p class="muted">Handoff inserts a draft only. You choose when to send it in the destination chat.</p>
+  </main>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

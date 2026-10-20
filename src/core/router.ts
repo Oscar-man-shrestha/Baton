@@ -50,7 +50,10 @@ export function rankProviders(intent: Intent, source: ProviderId, table = provid
     const relevant = feedback.filter(f => f.intent === intent && f.provider === p.id);
     const learned = relevant.length >= 20 ? (relevant.filter(f => f.positive).length / relevant.length - 0.5) * 2 : 0;
     const fit = p.intents.includes(intent) ? 2 : 0;
-    const capacity = meter?.percent === undefined ? 0 : meter.percent >= 90 ? -2 : meter.percent < 70 ? 1 : 0;
-    return { id: p.id, score: fit + capacity + learned, reason: `${p.intents.includes(intent) ? `Good for ${intent}` : 'General option'}; ${meter?.percent === undefined ? 'capacity unknown' : `about ${100 - meter.percent}% estimated window left`}`, lastVerified: p.lastVerified };
+    const verifiedBalance = meter?.tier === 'banner' && meter.remainingPercent !== undefined;
+    const reachedLimit = meter?.tier === 'banner' && meter.percent === 100;
+    const capacity = reachedLimit ? -2 : verifiedBalance && meter.remainingPercent! >= 30 ? 1 : 0;
+    const capacityReason = reachedLimit ? 'visible limit notice' : verifiedBalance ? `${meter.remainingPercent}% reported remaining` : 'capacity unknown';
+    return { id: p.id, score: fit + capacity + learned, reason: `${p.intents.includes(intent) ? `Good for ${intent}` : 'General option'}; ${capacityReason}`, lastVerified: p.lastVerified };
   }).sort((a, b) => b.score - a.score).slice(0, 3);
 }
