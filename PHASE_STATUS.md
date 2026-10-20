@@ -1,11 +1,11 @@
 # Phase status — 2026-10-21
 
-These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 45/45 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
+These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 46/46 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
 
 ## Phase 1 — Foundation: partial
 
 - WXT, TypeScript, Zod, Vitest, six narrow site patterns, adapter interface, bundled selectors, and local selector diagnostics exist.
-- Synthetic fixtures cover six adapters, including user/assistant role checks; hidden attributes, CSS-hidden text, and zero-width text are stripped. Instruction-like hidden text now raises a visible capture warning.
+- Synthetic fixtures cover six adapters, including user/assistant role checks and code-block formatting; hidden attributes, CSS-hidden text, and zero-width text are stripped. Instruction-like hidden text now raises a visible capture warning.
 - Remote JSON refresh is opt-in infrastructure with HTTPS, schema, version, and SHA-256 validation, but no user flow or signature trust chain is shipped.
 - The content script now accumulates overlapping rendered turn windows into a bounded local transcript for each chat URL. It flags windows without overlap and truncation, and the popup can copy saved text. This does not guarantee capture of messages never rendered or media. The popup warns when a chat shows fewer turns than Handoff previously saw for that URL. An opt-in older-message pass now scrolls a detected conversation container, merges overlapping visible windows, and restores the starting position. It is bounded to 24 steps, remains best effort, and requires logged-in site verification. Real artifact/canvas extraction remains unverified.
 - Capture sends counts, a brief, and a usage signal to the popup rather than the full raw turn list; this reduces internal message size for long chats. The brief itself can still be large when a required artifact is large, and no live stress test has been run.

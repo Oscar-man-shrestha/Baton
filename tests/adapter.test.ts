@@ -45,6 +45,11 @@ describe('adapter fixtures', () => {
     expect(result.turns[0]?.text).toBe('Keep the visible request');
     expect(result.warning).toContain('hidden text was removed');
   });
+  it('preserves code block line breaks and indentation in a captured turn', () => {
+    const doc = new JSDOM('<div data-message-author-role="assistant"><p>Use this code:</p><pre><code>function f() {\n    return 42;\n}</code></pre></div>').window.document;
+    const turn = extract(doc, 'chatgpt', bundledSelectors).turns[0];
+    expect(turn.text).toContain('function f() {\n    return 42;\n}');
+  });
   it('inserts into a textarea without submitting', () => {
     const doc = new JSDOM('<form><textarea></textarea><button type="submit">Send</button></form>').window.document;
     let submits = 0;

@@ -29,7 +29,21 @@ function visibleClone(node: Element): Element {
 
 export function cleanNode(node: Element): string {
   const clone = visibleClone(node);
-  return (clone.textContent || '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+  const codeBlocks: string[] = [];
+  const text = (current: Node): string => {
+    if (current.nodeType === 3) return current.textContent || '';
+    if (current.nodeType !== 1) return '';
+    const element = current as Element;
+    if (element.tagName === 'BR') return '\n';
+    const children = Array.from(current.childNodes).map(text).join('');
+    if (element.tagName === 'PRE') {
+      const index = codeBlocks.push(children.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\r\n?/g, '\n').trimEnd()) - 1;
+      return `\n\uFFF0${index}\uFFF1\n`;
+    }
+    if (/^(P|DIV|LI|H[1-6]|BLOCKQUOTE)$/.test(element.tagName) && current !== clone) return `${children}\n`;
+    return children;
+  };
+  return text(clone).replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim().replace(/\uFFF0(\d+)\uFFF1/g, (_, index: string) => codeBlocks[Number(index)] || '');
 }
 
 function cleanArtifact(node: Element): string {
