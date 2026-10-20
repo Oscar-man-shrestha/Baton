@@ -6,7 +6,7 @@
 
 **Category.** A local browser extension for project continuity across AI chats. Its useful unit is a versioned project brief: goal, user-approved decisions, proposed ideas, constraints, latest artifact, open tasks, and next step, each with source provenance where possible.
 
-**Why this position.** [FreshContext](https://chromewebstore.google.com/detail/freshcontext/hggdbdifeefhpklgngdfajlloipbldki) already advertises context-window warnings and an editable handoff. [Relay](https://www.onrelay.app/docs/getting-started) already advertises project memory. [Claude Counter](https://github.com/she-llac/claude-counter) already displays native usage signals. “First meter,” “first brief,” and “first cross-chat memory” are therefore unsupported claims. The defensible wedge is **a handoff whose quality is measured and whose uncertainty is visible**.
+**Why this position.** [FreshContext](https://chromewebstore.google.com/detail/freshcontext/hggdbdifeefhpklgngdfajlloipbldki) already advertises context-window warnings and an editable handoff. [Relay](https://www.onrelay.app/docs/getting-started) already advertises project memory. [Capsule Infinity](https://github.com/ahmadiscoding/capsule-infinity-chrome-extension) implements reusable context capsules with a cloud compression path. [Claude Counter](https://github.com/she-llac/claude-counter) already displays native usage signals. “First meter,” “first brief,” and “first cross-chat memory” are therefore unsupported claims. The defensible wedge is **a local handoff whose quality is measured, whose uncertainty is visible, and whose controls stay out of the writing area**.
 
 **Product pillars.**
 

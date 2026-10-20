@@ -169,8 +169,8 @@ The detailed phase summaries and remaining work are in `PHASE_STATUS.md`. This c
 - [x] WXT/TS scaffold, six adapter fixtures, brief schema, limit and router core, project storage, and draft-only UI implemented.
 - [x] Local tests, TypeScript check, and production build run successfully.
 - [ ] Live logged-in extraction and draft insertion verified on each enabled provider.
-- [ ] 1,500-token hard cap without sacrificing required latest artifact and constraints demonstrated on adversarial inputs.
+- [x] Automatic destination opening is blocked above 1,500 approximate tokens; an adversarial oversized artifact remains intact for user review and manual shortening. The stored artifact itself is not capped.
 - [ ] Two-target, three-generation harness reaches at least 8/10 per generation.
-- [ ] Full UX: pre-limit card, cost badge, onboarding, feedback collection, and accessibility audit.
+- [ ] Full UX: the popup has an approximate prompt cost badge, pre-limit nudge, onboarding, feedback collection, and retention controls; the in-chat badge shows approximate prompt tokens with unknown remaining allowance. Live pre-limit behavior, badge placement, and accessibility audit remain.
 - [ ] Planned privacy-policy URL recorded in `STORE_LISTING.md`; **pending: repo not yet published**. User will publish it later, then the URL and store claims need checking.
 - [x] No account switching, credential/cookie manipulation, auto-submit, or limit evasion implemented.

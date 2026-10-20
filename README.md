@@ -1,20 +1,21 @@
 # Handoff browser extension
 
-Local Chrome MV3 prototype for carrying a compact project brief between distinct AI chat services. The user reviews the text and chooses when to send it. No account switching, credential/cookie access, internal provider APIs, or automatic submission is implemented.
+Local Chrome MV3 prototype for carrying a compact project brief between distinct AI chat services. The user reviews the text and chooses when to send it. A Gemini shortcut opens the service for manual choice in Google’s own account menu. Handoff never changes accounts itself, reads credentials/cookies, calls internal provider APIs, or submits messages automatically.
 
 ## Try the local build
 
-1. Install dependencies with `npm install`.
-2. Run `npm test`, `npm run typecheck`, and `npm run build`.
-3. Open `chrome://extensions`, enable Developer mode, and load `.output/chrome-mv3` as an unpacked extension. The packaged build ZIP must be extracted first.
-4. Open a supported chat, click Handoff, capture visible turns, review the draft and receipt, then choose a destination. The options page reports whether draft insertion succeeded after a new tab loads. If it fails, use Copy draft and paste it manually.
+1. For the prebuilt package, open `brave://extensions` or `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and select the sibling **`handoff-extension-unpacked`** folder. Its `manifest.json` must be directly inside the selected folder. The `handoff-extension` folder containing this README is source code and cannot be loaded directly.
+2. To build from source instead, run `npm install`, `npm test`, `npm run typecheck`, and `npm run build` in this folder, then select its `.output/chrome-mv3` folder in **Load unpacked**. If using the ZIP, extract it and select the extracted `chrome-mv3` folder.
+3. Open a supported chat, click Handoff, capture rendered turns, review the draft and receipt, then choose a destination. For a long chat, you may first select **Try to include older messages**; Handoff temporarily scrolls the chat and restores your place. This is best effort, so review for missing messages. The whole draft must fit 1,500 approximate tokens before automatic insertion; shorten an oversized artifact manually. The options page reports whether draft insertion succeeded after a new tab loads. If it fails, use Copy draft and paste it manually.
+4. You can save a brief as a local project and reopen a recent project from the popup. Settings lets you search projects, copy a readable handoff, delete one project, or export/import the library. Capture details lets you copy the locally archived rendered chat text; the archive is capped and may be incomplete.
 
 Supported site patterns in the manifest: ChatGPT, Claude, Gemini, DeepSeek, Grok, Perplexity. The last three are best-effort only. A local selector check is available in Settings and projects. Provider DOM layouts change; synthetic fixture passing does not prove live compatibility.
 
 ## Privacy and limits
 
-- Content scripts read rendered chat text on the six named sites to build local briefs. They do not read cookies or provider account identifiers.
-- `storage` saves briefs, projects, preferences, and local diagnostics. `tabs` opens a user-selected destination and `activeTab` supports the current-tab workflow. No broad all-sites access is requested.
+- Content scripts read rendered chat text on the six named sites to build a local transcript and brief. They show an approximate prompt token count below the editor when there is enough room; any free-tier percentage comes only from a visible provider notice. They do not read cookies or provider account identifiers.
+- The capture response sends a compact brief and counts to the popup rather than the full raw transcript. Optional older-message capture may temporarily scroll the chat; it restores the prior position on completion.
+- `storage` saves bounded transcripts, briefs, projects, preferences, and local diagnostics. The options page offers 7/30/90-day expiry for saved briefs and projects, checked when Handoff opens. `tabs` opens a user-selected destination and `activeTab` supports the current-tab workflow. No broad all-sites access is requested.
 - The extension does not run a server or analytics. It does not make provider API requests. Remote selector refresh code exists but is not exposed to users or enabled by default; future use would require a pinned SHA-256 hash and HTTPS.
 - The meter labels visible banner evidence or local-history inference. ChatGPT text chat and tool quotas are distinct. No estimate is exact.
 - Secret redaction is a regex safety net, not a guarantee. Users must review the draft before transferring it.
