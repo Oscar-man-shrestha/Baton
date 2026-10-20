@@ -33,7 +33,8 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
     id, selectorsVersion: bundle.version, windowHours: id === 'claude' || id === 'gemini' ? 5 : undefined,
     extractTurns(doc) {
       const nodes = s.turns.flatMap(q => Array.from(doc.querySelectorAll(q)));
-      return [...new Set(nodes)].map((node, index) => ({
+      const ordered = [...new Set(nodes)].sort((a, b) => a === b ? 0 : a.compareDocumentPosition(b) & 4 ? -1 : 1);
+      return ordered.map((node, index) => ({
         role: node.matches('[data-message-author-role="user"], [data-testid="user-message"], user-query, [class*="user"]') ? 'user' as const : 'assistant' as const,
         text: cleanNode(node), index
       })).filter(t => t.text);

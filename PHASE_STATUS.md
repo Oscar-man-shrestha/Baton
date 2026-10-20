@@ -1,6 +1,6 @@
 # Phase status — 2026-10-20
 
-These are implementation summaries, not release claims. The updated source was verified in a clean temporary checkout: `npm test` 16/16 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run.
+These are implementation summaries, not release claims. The updated source was verified in a clean temporary checkout: `npm test` 17/17 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run.
 
 ## Phase 1 — Foundation: partial
 

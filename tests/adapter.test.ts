@@ -26,4 +26,8 @@ describe('adapter fixtures', () => {
     const doc = new JSDOM('<div data-message-author-role="user">Explain usage limits and reset times</div>').window.document;
     expect(makeAdapter('chatgpt', bundledSelectors).detectLimit(doc).kind).toBe('unknown');
   });
+  it('keeps Claude user and assistant turns in document order', () => {
+    const doc = new JSDOM('<div data-testid="user-message">First</div><div class="font-claude-response">Second</div><div data-testid="user-message">Third</div>').window.document;
+    expect(makeAdapter('claude', bundledSelectors).extractTurns(doc).map(t => t.text)).toEqual(['First', 'Second', 'Third']);
+  });
 });
