@@ -1,0 +1,38 @@
+import { z } from 'zod';
+import { briefSchema, type Brief } from './brief';
+
+export const projectSchema = z.object({ id: z.string(), name: z.string(), updatedAt: z.number(), threads: z.array(z.string()), brief: briefSchema });
+export type Project = z.infer<typeof projectSchema>;
+
+export function mergeBrief(a: Brief, b: Brief): Brief {
+  const decisions = [...a.decisions];
+  for (const incoming of b.decisions) {
+    const existing = decisions.find(d => d.text === incoming.text);
+    if (existing) Object.assign(existing, incoming);
+    else decisions.push(incoming);
+  }
+  const artifacts = [...a.artifacts];
+  for (const incoming of b.artifacts) if (!artifacts.some(x => x.name === incoming.name && x.version === incoming.version)) artifacts.push(incoming);
+  return briefSchema.parse({
+    ...a, ...b,
+    goal: b.goal || a.goal, status: b.status || a.status,
+    preferences: [...new Set([...a.preferences, ...b.preferences])], decisions,
+    assumptions: [...a.assumptions, ...b.assumptions], weak_spots: [...new Set([...a.weak_spots, ...b.weak_spots])],
+    artifacts, open_tasks: [...new Set([...a.open_tasks, ...b.open_tasks])], rejected_approaches: [...new Set([...a.rejected_approaches, ...b.rejected_approaches])],
+    next_step: b.next_step || a.next_step
+  });
+}
+
+export async function listProjects(): Promise<Project[]> {
+  const value = (await chrome.storage.local.get('projects')).projects;
+  return z.array(projectSchema).catch([]).parse(value);
+}
+export async function saveProject(project: Project): Promise<void> {
+  const projects = await listProjects();
+  const index = projects.findIndex(p => p.id === project.id);
+  if (index < 0) projects.push(project); else projects[index] = project;
+  await chrome.storage.local.set({ projects });
+}
+export async function deleteAll(): Promise<void> { await chrome.storage.local.clear(); }
+export function exportProjects(projects: Project[]): string { return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), projects }, null, 2); }
+export function importProjects(text: string): Project[] { return z.object({ schemaVersion: z.literal(1), projects: z.array(projectSchema) }).parse(JSON.parse(text)).projects; }
