@@ -1,6 +1,6 @@
 # Phase status — 2026-10-20
 
-These are implementation summaries, not release claims. Local checks: `npm test` 15/15 passed; TypeScript check passed; WXT production build succeeded. Logged-in live-site tests have **not** run.
+These are implementation summaries, not release claims. The updated source was verified in a clean temporary checkout: `npm test` 16/16 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run.
 
 ## Phase 1 — Foundation: partial
 
@@ -21,7 +21,7 @@ These are implementation summaries, not release claims. Local checks: `npm test`
 ## Phase 3 — Limits: partial
 
 - Visible banner/reset parsing, honest tiers/confidence, history estimate, and ChatGPT feature distinction exist in core logic.
-- Popup reports tier and confidence. The cost badge and pre-limit nudge are core functions but not yet surfaced as a live chat card.
+- Popup reports tier and confidence. A keyboard-operable card now appears for visible provider limit notices. The cost badge and calibrated pre-limit nudge are core functions but are not yet surfaced in the chat.
 - No response interception is shipped; it would touch sensitive provider internals and is outside this build.
 - No numeric cap is asserted for services without one.
 - Parser and no-evidence behavior pass local tests; real banners need live testing.

@@ -53,9 +53,9 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
       return true;
     },
     detectLimit(doc) {
-      const text = cleanNode(doc.body);
-      const match = text.match(/(?:limit|usage|quota)[^.\n]{0,100}(?:reset|try again|refresh)[^.\n]{0,100}/i);
-      return match ? { kind: 'banner', text: match[0] } : { kind: 'unknown', text: '' };
+      const notices = Array.from(doc.querySelectorAll('[role="alert"], [aria-live="assertive"], [data-testid*="limit"], [class*="usage-limit"]'));
+      const match = notices.map(cleanNode).find(text => /(?:usage limit|quota|limit reached|approaching.{0,25}limit|try again in)/i.test(text));
+      return match ? { kind: 'banner', text: match.slice(0, 240) } : { kind: 'unknown', text: '' };
     }
   };
 }
