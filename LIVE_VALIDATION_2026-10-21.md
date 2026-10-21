@@ -50,8 +50,9 @@ Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usa
 - **0.3.22, duplicate merge:** after the reload, Capsules went 10 → 6 and Chats 12 → 8, with no repeated Grok entries.
 - **0.3.22, Perplexity:** two questions (“say hi”, “again”) were neither counted nor captured. The saved page showed no `data-testid` on messages; fixed in 0.3.23.
 - **0.3.23, Perplexity:** after the question “hi”, the card showed “1 msg in last 24 h · counted by Handoff”, and the thread was captured as “say hi · perplexity.ai”.
-- **0.3.23, ChatGPT:** the screenshot was taken while the reply was still streaming; no count line yet, so not confirmed.
-- Not yet observed live: ChatGPT send counting, a learned or stated limit, and the rescue card on a real limit.
+- **0.3.23, ChatGPT:** once the reply had finished, the user confirmed the card showed the message count; the earlier screenshot was taken mid-reply.
+- **Message counting has now been observed live on all six services:** Claude, Gemini, ChatGPT, DeepSeek, Grok and Perplexity.
+- Not yet observed live: a learned or stated limit and the rescue card, both of which need a real limit message.
 
 ## Automated checks
 
