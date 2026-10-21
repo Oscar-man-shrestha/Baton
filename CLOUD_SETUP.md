@@ -1,3 +1,5 @@
+See [GOOGLE_LOGIN_SETUP.md](GOOGLE_LOGIN_SETUP.md) for current step-by-step instructions matching the Google Console screenshot.
+
 # Current cloud setup — 2026-10-21
 
 The extension now contains the public URL and publishable key for your Supabase project `qeoduozlznznptwsfzbt`. The owner-scoped `handoff_backups` table has been applied. SQL role fixtures verified owner isolation, cross-owner write denial and anonymous read denial, then rolled back.

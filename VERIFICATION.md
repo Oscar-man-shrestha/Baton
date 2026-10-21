@@ -1,10 +1,12 @@
-# Verification — Handoff 0.3.0
+# Verification — Handoff 0.3.1
 
 Date: 2026-10-21. Local checks and remote database checks are distinct from signed-in provider acceptance.
 
 ## Passed
 
-- 106 tests in 16 files: adapters, Markdown/code preservation, capture merging, briefs, redaction, budgets, routing, usage parsing/expiry/delivery, backups, durable full-capsule snapshots and mocked Google PKCE behavior.
+- 0.3.1 adds callback separation/validation tests and direct access to the all-provider Usage dialog. Isolated UI checks cover refresh of open tabs and exact extension callback copying.
+
+- 107 tests in 16 files: adapters, Markdown/code preservation, capture merging, briefs, redaction, budgets, routing, usage parsing/expiry/delivery, backups, durable full-capsule snapshots and mocked Google PKCE behavior.
 - TypeScript check and WXT production build, including popup, sidebar, options, content script and worker. Build warns about tokenizer chunk size; it compiles successfully.
 - Isolated Brave UI fixtures: real dashboard counts and three quick actions, folder creation, manual capsule saving, quick copy/redaction, full snapshot capture, unchanged-capture deduplication, snapshot restoration after the live archive changes, full-tail copy, compact transfer review gate, search/delete, 400×600 dark/light popup, 320-pixel sidebar, separate 31%/5% Claude fixture readings and Read usage navigation. Cloud settings are mocked to verify the disabled-Google message. See sibling ui-previews/browser-checks.json.
 - Packaged content fixtures: 12 virtualized turns in order, restored scroll position, streaming update, cross-tab quota update, non-interactive below-composer usage strip and draft insertion without submit. See sibling ui-previews/content-checks.json.

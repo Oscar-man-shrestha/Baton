@@ -1,6 +1,6 @@
 # Handoff project and UI/UX report
 
-Version 0.3.0 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
+Version 0.3.1 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
 
 ## Main user journey
 
@@ -19,7 +19,7 @@ Version 0.3.0 — 2026-10-21. This is a browser extension, built with WXT, TypeS
 - Usage: separate recognized session/weekly/model/feature readings, reset countdowns, observation times, optional alerts and a non-interactive below-composer strip. Missing readings remain unknown.
 - Account/settings: local backup/restore, configured cloud actions, retention, provider preferences and diagnostics.
 
-See CHANGES_0.3.0.md for the exact competitor parity boundaries and THIRD_PARTY_NOTICES.md for the adapted layout license.
+See CHANGES_0.3.1.md for the exact competitor parity boundaries and THIRD_PARTY_NOTICES.md for the adapted layout license.
 
 ## Visual implementation
 

@@ -1,4 +1,4 @@
-# Handoff 0.3.0
+# Handoff 0.3.1
 
 Capsule-style context library: Capture Page, New Capsule, New Folder, recent copy/delete, searchable library and sidebar. Captures save full snapshots; compact handoffs can be reviewed and opened as drafts in another AI. No automatic send.
 
@@ -49,3 +49,5 @@ Open **Usage across AI chats** in the popup to see recent, directly visible limi
 - Automatically saved recent chats appear beside named projects in the popup. Optional local folders help organize projects.
 - The usage panel can open Claude's own usage page. Handoff reads a labeled session percentage there if visible, labels an older cached reading, and otherwise leaves the balance unknown. This has synthetic tests but still needs a signed-in Claude test.
 - Google sign-in and Drive backup are not in this local build. They require a remote-service decision and an OAuth client tied to the published extension ID; see `GOOGLE_SYNC_DESIGN.md`.
+
+Usage is available from the header button. See [GOOGLE_LOGIN_SETUP.md](GOOGLE_LOGIN_SETUP.md) for the exact Google Console and Supabase fields, including Copy extension callback in the app.

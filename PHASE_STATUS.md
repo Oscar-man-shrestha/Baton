@@ -1,3 +1,5 @@
+> **0.3.1:** visible Usage limits, all-provider refresh, percent-left display and Google OAuth callback setup helpers added. Google provider remains disabled; follow GOOGLE_LOGIN_SETUP.md.
+
 > **0.3.0 current:** Capsule-style dashboard and durable full snapshots implemented. Supabase table/public configuration applied; transactional owner isolation passed. Google provider is disabled and requires configuration. See VERIFICATION.md for current results; earlier phase notes below are historical.
 
 > **0.2.1:** the nine-requirement audit is in `REQUIREMENTS_STATUS.md`. Usage observation/delivery fixes are tested locally; live provider quotas, cloud configuration and real handoff evaluation remain pending.
