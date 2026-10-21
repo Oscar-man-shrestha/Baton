@@ -13,6 +13,7 @@ import { listRecentCaptures } from '../../src/core/recent';
 import { fullContext } from '../../src/core/context-export';
 
 const status = document.querySelector('#status') as HTMLElement;
+(document.querySelector('#build-version') as HTMLElement).textContent = `v${chrome.runtime.getManifest().version}`;
 const draft = document.querySelector('#draft') as HTMLTextAreaElement;
 const receipt = document.querySelector('#receipt') as HTMLElement;
 const destination = document.querySelector('#destination') as HTMLSelectElement;
