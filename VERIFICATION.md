@@ -22,7 +22,7 @@ See [LIVE_VALIDATION_2026-10-21.md](LIVE_VALIDATION_2026-10-21.md) for narrowly 
 
 - Signed-in capture/insertion on live ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity. Fixtures cannot prove compatibility with every current layout or recover never-rendered history/media.
 - Continuous live quota accuracy across all providers, actual threshold notifications and badges in real provider sessions. Claude visible settings readings matched in one live account; other provider balances remain unverified. Private provider APIs/response interception remain disabled. Claude metadata parsers are not equivalent to a live Claude Monitor connection.
-- Cross-device restore, session refresh/expiry, browser restart, cancellation, disconnect and authenticated remote deletion. Same-installation live Google OAuth/backup/restore passed; no cross-device claim is made.
+- Restore on a different computer, session refresh/expiry, browser restart, cancellation, offline restore, disconnect and authenticated remote deletion. Same-installation restore passed, and on 2026-10-21 a restore into an empty, newly created Brave profile on the same Mac passed (see `LIVE_RESTORE_TEST_2026-10-21.md`).
 - Hosted AI compression, teams and collaboration are not implemented. Local compact selection and full snapshot saving work without a paid AI backend.
 - Real two-target, three-generation handoff evaluation still lacks target responses. No superiority score is claimed.
 - Chrome Web Store approval, Google app verification, privacy-policy publication and assistive-technology audit.

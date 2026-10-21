@@ -1,6 +1,6 @@
 # Live clean-profile restore test — Handoff 0.3.3
 
-Prepared 2026-10-21. Status: **pending — not yet run.** On 2026-10-21 the user approved, in chat, replacing the cloud snapshot with the current main-profile library in step A7 (this test only). Fill in the Result lines; do not paste chat text, emails or screenshots of private chats here.
+Prepared 2026-10-21. Status: **core restore passed on 2026-10-21; signed-out, cancel, offline and repeat checks not run.** On 2026-10-21 the user approved, in chat, replacing the cloud snapshot with the current main-profile library in step A7 (this test only). Fill in the Result lines; do not paste chat text, emails or screenshots of private chats here.
 
 Goal: prove that a Brave profile with an empty Handoff library can recover saved contexts from the Supabase cloud backup, and that cancel, offline and signed-out cases leave the library unchanged.
 
@@ -65,6 +65,22 @@ Disposable marker used throughout: `HANDOFF-RESTORE-TEST-20261021`.
 1. Test profile: Account → **Disconnect** (expect `Disconnected. Local data and cloud backup were kept.`). Then Brave → Profiles → delete `Handoff Restore Test`. This removes the restored copies of your chats from that profile.
 2. Main profile (optional): delete the `HANDOFF-RESTORE-TEST-20261021` capsule and the `Restore test` folder. The cloud snapshot keeps them until your next Back up now; that is harmless.
 3. Keep or delete the safety JSON from A3 as you prefer.
+
+## Results, 2026-10-21 (reported by the user with screenshots; Claude did not drive the browser)
+
+- A1–A2 (main profile “Work”): 0.3.3 loaded from build-1. Before: Capsules 5, Folders 0, Chats 4.
+- A3: safety backup file downloaded.
+- A4–A5: `Restore test` folder and test capsule saved.
+- A6: Google sign-in → “Connected as … Nothing uploaded yet.”
+- A7: Back up now → “Saved contexts backed up to your account.” (approved upload)
+- A8: Capsules 6, Folders 1, Chats 4.
+- B1–B3: new Brave profile, only Handoff installed, 0.3.3, ID `jpjfbhobndoekfmknlhdpmcndchiilog`, library empty (0 / 0 / 0, “No capsules yet”, Local). The profile switcher later showed this window's profile name as “ok”, alongside a separate “Handoff Restore Test,” profile; the user confirmed the restore window was the newly created profile.
+- B4 signed-out restore, B6 cancel and B7 offline checks: **not run**.
+- B5 + B8: sign-in in the new profile, then Restore → “Cloud backup restored.”
+- B9: Capsules 6, Folders 1, Chats 4 (matches A8); test capsule under `Restore test · Project`; draft text exact, including `café ✓ — 東京` and `1711902849000`. The capsule shows “full transcript unavailable”, expected for a hand-written capsule.
+- B10 repeat restore: **not run**.
+- Also seen (profile not confirmed): a restored captured Gemini chat opened as a saved snapshot (2 messages, saved 2026-10-21T17:59:28Z), and Open draft in new chat put the draft into Gemini's composer without sending; the prompt strip sat below the composer, clear of the ＋, mic and Send controls.
+- Defects seen, not yet fixed: captured-chat titles can start with “##### You said The following is user-reviewed project context…” (Gemini speaker text and the Handoff wrapper are used as the goal); the account dialog says “No sign-in is needed” and still shows Sign in with Google while connected; a manual capsule is labelled “0 chats”.
 
 ## What this does and does not prove
 
