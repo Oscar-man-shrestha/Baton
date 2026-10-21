@@ -1,6 +1,6 @@
 # Phase status — 2026-10-21
 
-These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 50/50 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
+These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 56/56 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
 
 ## Phase 1 — Foundation: partial
 
@@ -25,6 +25,7 @@ These are implementation summaries, not release claims. The updated source was v
 - Popup reports tier, confidence, and a local-time approximate reset when a visible notice supplies one. The popup also shows an approximate token count for the unsent prompt and a historical reply-size comparison. A small, noninteractive status line now appears below the composer while typing or when a visible balance is present, provided there is space; it hides if it would sit over an input control. It shows approximate prompt tokens; a remaining percentage or token balance appears only when a visible service notice explicitly provides it. This replaces the earlier overlapping badge. Real provider notices still need live review.
 - No response interception is shipped; it would touch sensitive provider internals and is outside this build.
 - No numeric cap is asserted for services without one.
+- A collapsed six-service usage view and opt-in desktop notifications now use only service notices visible on pages the user opens. Numeric alerts fire at 80% and 95% used when a displayed percentage supports them; reported near/reached notices can alert without a numeric claim. Optional notification permission is requested when enabled. Cached balances expire from the UI after one hour. This has synthetic parser and alert tests but no signed-in notification test.
 - Parser and no-evidence behavior pass local tests; real banners need live testing.
 
 ## Phase 4 — Router: partial

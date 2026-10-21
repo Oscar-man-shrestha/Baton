@@ -23,3 +23,6 @@ Supported site patterns in the manifest: ChatGPT, Claude, Gemini, DeepSeek, Grok
 ## Current verification
 
 Automated tests cover synthetic DOM fixtures for six sites, visible-text sanitization, seeded secret classes, provenance, trimming behavior, meter labeling, prompt classification, and project merge semantics. `npm run eval` reports pending until real target responses are supplied. See [PHASE_STATUS.md](PHASE_STATUS.md) and [LIVE_SITE_CHECKLIST.md](LIVE_SITE_CHECKLIST.md) for the remaining release work.
+# Usage alerts in 0.1.2
+
+Open **Usage across AI chats** in the popup to see recent, directly visible limit notices for ChatGPT, Claude, Gemini, DeepSeek, Grok, and Perplexity. The balance stays unknown when a service does not show one. Turn on **Desktop alerts** there if you want browser notifications; Chrome asks for permission at that point. Handoff alerts at 80% and 95% only when a displayed service percentage supports those numbers, and it can alert on a visible near-limit or reached-limit notice. The extension does not access cookies, tokens, or private usage endpoints. Open each service at least once to observe it; balances older than one hour are shown as unknown.

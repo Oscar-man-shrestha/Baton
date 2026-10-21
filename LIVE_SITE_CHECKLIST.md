@@ -14,3 +14,10 @@ Run on the tester's own logged-in sessions; do not capture or commit account dat
 - [ ] Inspect Chrome permissions, network activity, and local storage; confirm no message content leaves the extension except by a user-approved destination draft or export.
 - [ ] Run the two-target, three-generation evaluation in `evaluation/`; each scenario must score at least 8/10 after human review.
 - [ ] Privacy policy URL: **pending: repo not yet published**. Planned URL: https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md. After the user publishes the repository, open it without a login and confirm the final policy and store listing match. No remote or hosting setup is part of this local build.
+# Usage alert checks added for 0.1.2
+
+- [ ] On each of ChatGPT, Claude, Gemini, DeepSeek, Grok, and Perplexity, inspect a signed-in page with no limit notice: popup says "No recent service limit signal" and no notification appears.
+- [ ] Where a service actually displays a balance, confirm the popup shows only that service's figure; compare the displayed percentage and reset with the page. Do not infer free-tier percentage from a prompt token count.
+- [ ] With desktop alerts turned on in the popup, verify Chrome requests optional notification permission once. Test a real 80%/95% or near/reached notice when available and confirm one alert per threshold/window, not repeated on page mutation or refresh.
+- [ ] Confirm a quoted usage-limit message inside chat text creates no usage alert. Confirm a stale cached figure disappears from the popup after one hour.
+- [ ] Check the status line is outside the composer and does not block typing, controls, or accessibility focus on all six services.

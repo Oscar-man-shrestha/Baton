@@ -10,4 +10,6 @@ The local transcript can be incomplete if messages were never rendered, windows 
 
 Handoff may recognize common key and personal-data patterns before rendering a draft, but automated detection can miss sensitive data. Users should inspect and edit the draft. Copying a draft or sending it in a provider's chat is governed by that provider's own policies.
 
+Handoff also reads visible usage notices on supported chat pages. It stores the most recent interpreted usage signal per service locally and shows it in a collapsed usage view. Balances older than one hour are shown as unknown. If you turn on desktop usage alerts, Chrome asks for optional notification permission. Handoff then notifies you once per observed threshold/window when a service visibly reports 80% or 95% usage, a near-limit notice, or a reached limit. It saves recent notification keys locally to avoid repeats. Handoff does not request a service's private usage API, session token, or cookie, and cannot determine an exact free-tier balance when the service does not display one.
+
 The source includes an opt-in, hash-verified remote selector updater, but the current interface does not enable it. If introduced later, the privacy policy and permission disclosures must be updated with the exact endpoint and data transferred.
