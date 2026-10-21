@@ -12,9 +12,16 @@
 - `tabs`: opens the destination selected by the user and sends its draft to that tab.
 - `activeTab`: checks the chat tab the user is working in.
 - `scripting`: connects the packaged Handoff content script to the active supported chat after the user opens Handoff, if that tab predates installation or update. No page reload is required.
+- `sidePanel`: opens the library/capture interface in the browser sidebar at the user’s request.
 - Optional `notifications`: requested only when the user enables desktop usage alerts; shows alerts for service-reported usage thresholds and limit notices.
 - Access to the six named AI chat hosts: reads rendered conversation text, observes visible limit notices, and inserts a reviewed draft in the destination editor. No access to unrelated websites is requested.
 
 **Privacy policy URL:** https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md
 
 **Publication status:** pending: repo not yet published. The file is in this repository root; the URL is the planned location supplied by the user. Do not submit this listing until the user publishes the repository and the URL resolves publicly to the final policy.
+
+## 0.2.0 additions and release boundary
+
+The local build adds recent contexts, folders, exact edited draft saving, full local backup/restore, rich Markdown/full-conversation export, and a responsive sidebar. It retains only rendered text and explicitly warns about missing history/media and the archive cap. The default build has no Google sign-in connection, identity permission, or Supabase host access.
+
+When configured, Google/Supabase sign-in adds `identity` and the exact configured Supabase project origin. Sign-in, manual upload/restore, disconnect and cloud deletion must be tested and disclosed before publishing that variant. Do not advertise live cloud sync or continuous exact quota tracking in the current listing. The planned privacy-policy URL above remains pending: repo not yet published.

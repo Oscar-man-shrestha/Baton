@@ -1,0 +1,182 @@
+[
+  {
+    "target": "target-a",
+    "generation": 1,
+    "case": "app-plan",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 1,
+    "case": "essay",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 1,
+    "case": "debug",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 1,
+    "case": "research",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 1,
+    "case": "design",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 2,
+    "case": "app-plan",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 2,
+    "case": "essay",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 2,
+    "case": "debug",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 2,
+    "case": "research",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 2,
+    "case": "design",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 3,
+    "case": "app-plan",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 3,
+    "case": "essay",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 3,
+    "case": "debug",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 3,
+    "case": "research",
+    "status": "pending"
+  },
+  {
+    "target": "target-a",
+    "generation": 3,
+    "case": "design",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 1,
+    "case": "app-plan",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 1,
+    "case": "essay",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 1,
+    "case": "debug",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 1,
+    "case": "research",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 1,
+    "case": "design",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 2,
+    "case": "app-plan",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 2,
+    "case": "essay",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 2,
+    "case": "debug",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 2,
+    "case": "research",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 2,
+    "case": "design",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 3,
+    "case": "app-plan",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 3,
+    "case": "essay",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 3,
+    "case": "debug",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 3,
+    "case": "research",
+    "status": "pending"
+  },
+  {
+    "target": "target-b",
+    "generation": 3,
+    "case": "design",
+    "status": "pending"
+  }
+]

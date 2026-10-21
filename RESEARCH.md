@@ -1,3 +1,5 @@
+> Current 0.2.0 update (2026-10-21): see `RESEARCH_2026-10-21.md`, `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Earlier entries below are historical and do not establish live release acceptance.
+
 # RESEARCH.md — Phase 0: Market & Technical Research
 **Date:** 2026-10-20 · **Scope:** existing tools, free-tier landscape, toolchain, store policy, reuse decisions
 **Companion doc:** `CODEX_BRIEF_v2.md`. The dated verification below supersedes conflicting claims in the original Phase 0 notes.

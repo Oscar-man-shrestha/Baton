@@ -1,3 +1,5 @@
+> **0.2.0 local build:** improved capture and Markdown, dashboard/recent contexts, full local backup, and sidebar. Google/Supabase code is prepared but not configured; exact continuous quotas across all providers are not established. See `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Load the sibling `handoff-extension-build` folder, which contains `manifest.json`.
+
 # Handoff browser extension
 
 Local Chrome MV3 prototype for carrying a compact project brief between distinct AI chat services. The user reviews the text and chooses when to send it. A Gemini shortcut opens the service for manual choice in Google’s own account menu. Handoff never changes accounts itself, reads credentials or cookies, calls internal provider APIs, or submits messages automatically.

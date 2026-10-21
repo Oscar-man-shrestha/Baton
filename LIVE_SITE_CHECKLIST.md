@@ -1,3 +1,14 @@
+## 0.2.0 additional live gates
+
+- [ ] Reload/reconnect Codex so the authenticated Supabase MCP tools appear.
+- [ ] Inspect the existing project, apply the owner-only schema if appropriate, and test two users plus an unauthenticated request. Do not expose service-role credentials.
+- [ ] Enable Google in Supabase with the correct OAuth callback and exact extension redirect. Test sign-in when the popup closes, cancellation, browser restart, and expired app session.
+- [ ] Test explicit cloud backup, second-device preview/restore, disconnect and separate cloud deletion.
+- [ ] On each enabled AI site, test an already-open page without reload, long virtualized history, a streaming response, repeated prompts, revised branches, tables/code, unsupported media, and draft-only insertion.
+- [ ] Check real session/weekly/model/tool notices, source times, unknown states, elapsed resets and manual account changes. Do not infer quotas from a third-party extension widget.
+- [ ] Test 80/95/reached alerts and toolbar snapshot badges without duplicate notices; confirm the below-composer strip never covers typing, voice, attachments or Send.
+- [ ] Test real browser sidebar opening, keyboard navigation, screen reader, light/high-contrast modes and reduced motion.
+
 # Manual live-site release checklist
 
 Run on the tester's own logged-in sessions; do not capture or commit account data. Record browser/extension version, date, provider, result, and a redacted diagnostic for failures.

@@ -1,3 +1,14 @@
+> Current 0.2.0 update (2026-10-21): see `RESEARCH_2026-10-21.md`, `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Earlier entries below are historical and do not establish live release acceptance.
+
+## 0.2.0 follow-up — current implementation and acceptance
+
+- Phase 1: rich DOM-to-Markdown and native-ID capture, anchored streaming/history merge, bounded settled scroll capture, first-load bootstrap, and alternate wrappers implemented. Live provider compatibility remains open.
+- Phase 2: section-aware extractive selection, verbatim latest code, full/compact export, explicit next task, and redaction on outbound edited drafts implemented. Two-target multi-generation scores remain pending; harness reports missing responses.
+- Phase 3: separate observed windows/features, progress/reset/source-time displays, stale/reset expiry, toolbar snapshots, and below-composer strip implemented. Claude Monitor source was inspected; private API/stream connection remains disabled. Exact continuous quotas for every provider are not achieved.
+- Phase 4: existing local intent ranking and feedback retained. No unsupported new accuracy or model-selection claim.
+- Phase 5: Stitch-informed dashboard, actual counts, quick actions, recent contexts, folders, exact edited draft save/reopen, responsive sidebar, full backup/restore, and optional Supabase/Google code added. Supabase MCP authenticated; server tools need reconnecting before database/Google setup and live isolation tests.
+- Phase 6: updated research, UI brief, project report, cloud setup, privacy/permission text, local test evidence and release checklist prepared. Store publication and live acceptance remain pending. See VERIFICATION.md for exact test boundaries.
+
 # Phase status — 2026-10-21
 
 ## 0.1.4 follow-up to the user's live screenshots

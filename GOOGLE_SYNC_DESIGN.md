@@ -1,3 +1,5 @@
+> Updated 2026-10-21: the user authorized Supabase. The prepared implementation now uses Supabase Google OAuth/PKCE rather than Drive. See `CLOUD_SETUP.md` for the current configuration and pending live tests. The Drive proposal below is historical and inactive.
+
 # Optional Google Drive backup: implementation gate
 
 Status: **not active**. Prepared 2026-10-21 from [Chrome Identity documentation](https://developer.chrome.com/docs/extensions/reference/api/identity) and [Drive appDataFolder documentation](https://developers.google.com/workspace/drive/api/guides/appdata). This is a design for the user-requested save-across-devices feature, separate from switching accounts to bypass service limits.
