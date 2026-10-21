@@ -64,14 +64,22 @@ function cleanTurn(node: Element, id: ProviderId): string {
   let result = cleanNode(content);
   if (id === 'gemini' && node.matches('user-query')) {
     const duplicate = result.match(/^#{1,6}\s+You said\b[ \t]*(.*?)\n+([\s\S]*)$/i);
-    if (duplicate && duplicate[1].trim() === duplicate[2].trim()) return duplicate[2].trim();
+    if (duplicate && (duplicate[1].trim() === duplicate[2].trim() || repeatsPreview(duplicate[1], duplicate[2]))) return duplicate[2].trim();
   }
   if (id === 'gemini' && content === node) {
     result = result.replace(/^(?:#{1,6}\s*)?(?:You|Gemini) said\b[ \t]*:?[ \t]*(?:\n)?/i, '').trim();
     const lines = result.split('\n').map(line => line.trim()).filter(Boolean);
     if (lines.length === 2 && lines[0].replace(/^You said\s*:?\s*/i, '') === lines[1]) result = lines[1];
+    else if (lines.length > 1 && repeatsPreview(lines[0], lines.slice(1).join(' '))) result = result.slice(result.indexOf('\n')).trim();
   }
   return result;
+}
+
+/** Gemini's hidden heading previews the prompt and cuts it off with an ellipsis. */
+function repeatsPreview(preview: string, body: string): boolean {
+  const flat = (text: string) => text.replace(/\s+/g, ' ').trim();
+  const shown = flat(preview.replace(/(?:\.{3}|…)$/, ''));
+  return /(?:\.{3}|…)$/.test(preview.trim()) && shown.length >= 8 && flat(body).startsWith(shown);
 }
 
 function cleanArtifact(node: Element): string {

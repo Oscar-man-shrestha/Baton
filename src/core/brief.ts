@@ -78,7 +78,7 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
   const safeArtifacts = artifacts.map(a => ({ ...a, content: redact(a.content).text }));
   const lastUser = [...safeTurns].reverse().find(t => t.role === 'user');
   const lastAssistant = [...safeTurns].reverse().find(t => t.role === 'assistant');
-  if (!base.goal) base.goal = safeTurns.find(turn => turn.role === 'user')?.text.slice(0, 300) || '';
+  if (!base.goal) base.goal = goalFromUserText(safeTurns.find(turn => turn.role === 'user')?.text || '').slice(0, 300);
   const assistantIsLatest = safeTurns.at(-1)?.role === 'assistant';
   base.open_questions = assistantIsLatest ? unansweredQuestions(lastAssistant?.text || '') : [];
   base.status = base.open_questions.length ? 'The assistant asked questions; the user has not answered yet.' : base.status === 'The assistant asked questions; the user has not answered yet.' ? '' : base.status;
@@ -143,6 +143,21 @@ export function renderBrief(brief: Brief, cap = 1500): { text: string; receipt: 
   if (encode(redacted.text).length > cap) warnings.push('Required content exceeds the 1,500-token budget. Review or shorten it manually; latest artifact and constraints were retained.');
   if (/ignore (?:all|previous) instructions|system prompt|developer message/i.test(raw)) warnings.push('Possible instruction embedded in source conversation; review before sending.');
   return { text: redacted.text, receipt: { approximateTokens: encode(redacted.text).length, dropped, redactions: redacted.kinds, warnings } };
+}
+
+const handoffIntro = 'The following is user-reviewed project context from another chat.';
+
+/** The user's real goal when their first message is a pasted Handoff draft or carries Gemini's speaker heading. */
+export function goalFromUserText(text: string, depth = 0): string {
+  let goal = text.replace(/^\s*#{1,6}\s+You said\b[^\n]*?(?=\s*The following is user-reviewed)/i, '').trim();
+  const intro = goal.indexOf(handoffIntro);
+  if (intro < 0 || intro > 300 || depth > 2) return goal;
+  goal = goal.slice(intro);
+  const inner = goal.match(/<(HANDOFF_[0-9a-f]+)>\n([\s\S]*?)(?:\n<\/\1>|$)/)?.[2] || '';
+  const compact = inner.match(/^Goal: ([\s\S]*?)(?=\n\n|(?![\s\S]))/m)?.[1];
+  if (compact) return compact.trim();
+  const firstUser = inner.match(/^## \d+\. You\n\n([\s\S]*?)(?=\n\n## \d+\. (?:You|Assistant)\n|(?![\s\S]))/m)?.[1];
+  return firstUser ? goalFromUserText(firstUser, depth + 1) : '';
 }
 
 export function wrapHandoff(briefText: string): string {

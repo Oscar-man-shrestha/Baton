@@ -1,4 +1,4 @@
-import { briefSchema, type Brief } from './brief';
+import { briefSchema, goalFromUserText, type Brief } from './brief';
 
 export type RecentCapture = { url: string; title: string; savedAt: number; brief: Brief };
 
@@ -12,7 +12,8 @@ export function recentCapturesFromStorage(saved: Record<string, unknown>, limit 
     const url = briefKey.slice('brief:'.length);
     let host: string;
     try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { continue; }
-    const title = parsed.data.goal.replace(/\s+/g, ' ').trim().slice(0, 72);
+    // Older captures saved a pasted Handoff wrapper as the goal; clean the title without rewriting the saved brief.
+    const title = goalFromUserText(parsed.data.goal).replace(/\s+/g, ' ').trim().slice(0, 72) || 'Continued handoff';
     captures.push({ url, title: `${title} · ${host}`, savedAt: value, brief: parsed.data });
   }
   return captures.sort((a, b) => b.savedAt - a.savedAt).slice(0, limit);
