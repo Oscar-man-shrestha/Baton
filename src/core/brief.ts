@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { encode } from 'gpt-tokenizer';
 import type { Artifact, Turn } from './adapter';
+import { selectEvidence, fencedCode } from './extractive';
 
 const decision = z.object({ text: z.string(), rationale: z.string().default(''), status: z.enum(['ratified_by_user', 'proposed_by_ai', 'superseded']), source_turn: z.number(), confidence: z.number().min(0).max(1) });
 export const briefSchema = z.object({
@@ -18,6 +19,13 @@ export type Receipt = { approximateTokens: number; dropped: string[]; redactions
 function luhn(value: string): boolean {
   const digits = value.replace(/\D/g, '');
   if (digits.length < 13 || digits.length > 19) return false;
+  // A checksum alone also matches some timestamps and ordinary numeric IDs.
+  const recognizedIssuer = /^4/.test(digits) && [13, 16, 19].includes(digits.length)
+    || /^(?:5[1-5]|2[2-7])/.test(digits) && digits.length === 16
+    || /^3[47]/.test(digits) && digits.length === 15
+    || /^(?:6011|65|64[4-9]|35|62)/.test(digits) && digits.length >= 16
+    || /^3(?:0[0-5]|[68])/.test(digits) && digits.length === 14;
+  if (!recognizedIssuer) return false;
   let sum = 0, double = false;
   for (let i = digits.length - 1; i >= 0; i--) { let n = Number(digits[i]); if (double) { n *= 2; if (n > 9) n -= 9; } sum += n; double = !double; }
   return sum % 10 === 0;
@@ -34,7 +42,10 @@ export function redact(input: string, includeContact = true): { text: string; ki
   replace('JWT', /\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g);
   replace('connection string', /\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s"']+/gi);
   text = text.replace(/\b(?:\d[ -]?){13,19}\b/g, raw => { if (!luhn(raw)) return raw; kinds.push('payment card'); return '[REDACTED payment card]'; });
-  if (includeContact) { replace('email', /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi); replace('phone', /\b\+?\d[\d .()-]{8,}\d\b/g); }
+  if (includeContact) {
+    replace('email', /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi);
+    replace('phone', /(?<!\w)(?:\+\d{10,15}|(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)|\d{2,4})[ .-]\d{2,4}[ .-]\d{3,4})(?!\w)/g);
+  }
   return { text, kinds: [...new Set(kinds)] };
 }
 
@@ -60,11 +71,6 @@ function unansweredQuestions(text: string): string[] {
   return [...new Set(questions)].slice(0, 6);
 }
 
-function assistantFindings(text: string): string[] {
-  const lines = text.split('\n').map(line => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, '').replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').trim()).filter(Boolean);
-  const useful = lines.filter(line => !line.endsWith('?') && line.length >= 12 && line.length <= 240 && /(?:edge case|solution|auto.save|localstorage|database|filter|drag|inline edit|shortcut|priority|date|text|race|empty state|feature|stack|platform|persistence|structure|micro.interaction|whitespace|color|typography)/i.test(line));
-  return [...new Set(useful)].slice(0, 12);
-}
 
 export function updateBrief(previous: Brief | undefined, turns: Turn[], artifacts: Artifact[]): Brief {
   const base = previous ? structuredClone(previous) : briefSchema.parse({});
@@ -77,12 +83,18 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
   base.open_questions = assistantIsLatest ? unansweredQuestions(lastAssistant?.text || '') : [];
   base.status = base.open_questions.length ? 'The assistant asked questions; the user has not answered yet.' : base.status === 'The assistant asked questions; the user has not answered yet.' ? '' : base.status;
   base.last_exchange = { user: lastUser?.text.slice(0, 600) || '', assistant: assistantOverview(lastAssistant?.text || '') };
-  base.key_findings = assistantIsLatest ? assistantFindings(lastAssistant?.text || '') : [];
+  base.key_findings = assistantIsLatest ? selectEvidence(lastAssistant?.text || '', `${base.goal} ${lastUser?.text || ''}`) : [];
   for (const turn of safeTurns) {
     if (turn.role !== 'user') continue;
-    if (/\b(must|always|never|do not|don't)\b/i.test(turn.text) && !base.preferences.includes(turn.text.slice(0, 180))) base.preferences.push(turn.text.slice(0, 180));
-    if (/\b(decide|chose|agreed|use|will use)\b/i.test(turn.text) && !base.decisions.some(d => d.text === turn.text.slice(0, 180))) base.decisions.push({ text: turn.text.slice(0, 180), rationale: '', status: 'ratified_by_user', source_turn: turn.index, confidence: 0.7 });
-    if (/\b(todo|next|please|need to)\b/i.test(turn.text) && !base.open_tasks.includes(turn.text.slice(0, 180))) base.open_tasks.push(turn.text.slice(0, 180));
+    const statements = turn.text.split(/\n+|(?<=[.!?])\s+/).map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+    for (const statement of statements) {
+      if (/\b(must|always|never|do not|don't|only|prefer)\b/i.test(statement) && !base.preferences.includes(statement)) base.preferences.push(statement);
+      if (!statement.endsWith('?') && !/\b(never|do not|don't|should|might|could)\b/i.test(statement) && /\b(?:(?:we|i) (?:decided|choose|chose|agreed)|will use)\b|^(?:let'?s )?use\b/i.test(statement) && !base.decisions.some(d => d.text === statement)) base.decisions.push({ text: statement, rationale: '', status: 'ratified_by_user', source_turn: turn.index, confidence: 0.8 });
+      if (/\b(todo|next|please|need to)\b/i.test(statement) && !base.open_tasks.includes(statement)) base.open_tasks.push(statement);
+    }
+  }
+  if (lastAssistant) for (const [index, code] of fencedCode(lastAssistant.text).entries()) {
+    if (!safeArtifacts.some(artifact => artifact.content.trim() === code.content.trim())) safeArtifacts.push({ name: `Latest reply code block ${index + 1}`, kind: code.language, content: code.content, version: lastAssistant.index + 1 });
   }
   for (const artifact of safeArtifacts) {
     if (!base.artifacts.some(a => a.name === artifact.name && a.version === artifact.version)) base.artifacts.push({ name: artifact.name, kind: artifact.kind, content_verbatim: artifact.content, version: artifact.version });

@@ -101,7 +101,7 @@ describe('adapter fixtures', () => {
     expect(result.turns).toHaveLength(2);
     expect(result.turns[0].text).toBe('Hey I wanna make to do list beautiful that works in all edge cases');
     expect(result.turns[1].text).toContain('## 1. Handling the Edge Cases');
-    expect(result.turns[1].text).toContain('- Extremely Long Text: Wrap task names.');
+    expect(result.turns[1].text).toContain('- **Extremely Long Text:** Wrap task names.');
     expect(result.turns[1].text).toContain('1. Inline editing');
     expect(result.turns[1].text).toContain('```\n{\n  "completed": false\n}\n```');
     expect(result.turns[1].text).not.toContain('Gemini said');

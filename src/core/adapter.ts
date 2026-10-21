@@ -1,6 +1,7 @@
 import type { ProviderId, SelectorBundle } from './selectors';
+import { messageMarkdown } from './markdown';
 
-export type Turn = { role: 'user' | 'assistant'; text: string; index: number };
+export type Turn = { role: 'user' | 'assistant'; text: string; index: number; id?: string };
 export type Artifact = { name: string; kind: string; content: string; version: number };
 export type Extraction = { provider: ProviderId; turns: Turn[]; artifacts: Artifact[]; incomplete: boolean; warning?: string };
 export type LimitSignal = { kind: 'banner' | 'unknown'; text: string; resetAt?: number };
@@ -14,8 +15,18 @@ export interface ProviderAdapter {
   detectLimit(doc: Document): LimitSignal;
 }
 
+function hiddenByAncestor(node: Element): boolean {
+  for (let element: Element | null = node; element; element = element.parentElement) {
+    if (element.hasAttribute('hidden') || element.getAttribute('aria-hidden') === 'true') return true;
+    const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse' || style?.opacity === '0') return true;
+  }
+  return false;
+}
+
 function visibleClone(node: Element): Element {
   const clone = node.cloneNode(true) as Element;
+  if (hiddenByAncestor(node)) { clone.textContent = ''; return clone; }
   const originals = [node, ...Array.from(node.querySelectorAll('*'))];
   const copies = [clone, ...Array.from(clone.querySelectorAll('*'))];
   const getStyle = node.ownerDocument.defaultView?.getComputedStyle;
@@ -23,43 +34,26 @@ function visibleClone(node: Element): Element {
     const style = getStyle.call(node.ownerDocument.defaultView, originals[i]);
     if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse' || style.opacity === '0') copies[i].textContent = '';
   }
-  clone.querySelectorAll('script,style,button,input,textarea,[hidden],[aria-hidden="true"], [style*="display:none"], [style*="display: none"], [style*="visibility:hidden"]').forEach(e => e.remove());
+  clone.querySelectorAll('input[type="checkbox"]').forEach(input => input.replaceWith(clone.ownerDocument.createTextNode(input.hasAttribute('checked') ? '[x] ' : '[ ] ')));
+  clone.querySelectorAll('script,style,button,svg,input,textarea,[hidden],[aria-hidden="true"], [style*="display:none"], [style*="display: none"], [style*="visibility:hidden"]').forEach(e => e.remove());
   return clone;
 }
 
 export function cleanNode(node: Element): string {
-  const clone = visibleClone(node);
-  const codeBlocks: string[] = [];
-  const text = (current: Node): string => {
-    if (current.nodeType === 3) return current.textContent || '';
-    if (current.nodeType !== 1) return '';
-    const element = current as Element;
-    if (element.tagName === 'BR') return '\n';
-    const children = Array.from(current.childNodes).map(text).join('');
-    if (element.tagName === 'PRE') {
-      const index = codeBlocks.push(children.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\r\n?/g, '\n').trimEnd()) - 1;
-      return `\n\uFFF0${index}\uFFF1\n`;
-    }
-    if (/^H[1-6]$/.test(element.tagName)) return `\n${'#'.repeat(Number(element.tagName[1]))} ${children.trim()}\n`;
-    if (element.tagName === 'LI') {
-      const parent = element.parentElement;
-      const prefix = parent?.tagName === 'OL' ? `${Array.from(parent.children).indexOf(element) + Number(parent.getAttribute('start') || 1)}. ` : '- ';
-      return `\n${prefix}${children.trim().replace(/\n/g, '\n  ')}\n`;
-    }
-    if (element.tagName === 'BLOCKQUOTE') return `\n> ${children.trim().replace(/\n/g, '\n> ')}\n`;
-    if (/^(P|DIV)$/.test(element.tagName) && current !== clone) return `${children}\n`;
-    return children;
-  };
-  return text(clone).replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim().replace(/\uFFF0(\d+)\uFFF1/g, (_, index: string) => `\`\`\`\n${codeBlocks[Number(index)] || ''}\n\`\`\``);
+  return messageMarkdown(visibleClone(node));
 }
 
 function messageContent(node: Element, id: ProviderId): Element {
   if (id === 'deepseek') return node.querySelector('.ds-markdown') || node;
   if (id === 'gemini') {
-    const selector = node.matches('user-query')
-      ? '.query-text, .query-content, [class*="query-text"], [class*="query-content"]'
-      : '.model-response-text, .response-container, message-content, .markdown, [class*="response-content"]';
-    return node.querySelector(selector) || node;
+    const selectors = node.matches('user-query')
+      ? ['.query-text', '[class*="query-text"]', '.query-content', '[class*="query-content"]']
+      : ['.model-response-text', 'message-content', '.markdown', '[class*="response-content"]', '.response-container'];
+    for (const selector of selectors) {
+      const content = Array.from(node.querySelectorAll(selector)).find(element => !hiddenByAncestor(element));
+      if (content) return content;
+    }
+    return node;
   }
   if (id === 'claude') return node.querySelector('.standard-markdown, .progressive-markdown') || node;
   return node;
@@ -68,10 +62,10 @@ function messageContent(node: Element, id: ProviderId): Element {
 function cleanTurn(node: Element, id: ProviderId): string {
   const content = messageContent(node, id);
   let result = cleanNode(content);
-  if (id === 'gemini') {
-    result = result.replace(/^(?:You|Gemini) said\s*\n?/i, '').trim();
+  if (id === 'gemini' && content === node) {
+    result = result.replace(/^(?:You|Gemini) said\s*:?\s*\n/i, '').trim();
     const lines = result.split('\n').map(line => line.trim()).filter(Boolean);
-    if (lines.length === 2 && lines[0] === lines[1]) result = lines[0];
+    if (lines.length === 2 && lines[0].replace(/^You said\s*:?\s*/i, '') === lines[1]) result = lines[1];
   }
   return result;
 }
@@ -87,7 +81,7 @@ export function collectTurnNodes(doc: Document, id: ProviderId, bundle: Selector
   const scopedRoot = id === 'deepseek' ? doc.querySelector('main, [role="main"]') : null;
   const collect = (root: Document | Element) => selectors.flatMap(selector => Array.from(root.querySelectorAll(selector)));
   const nodes = collect(scopedRoot || doc);
-  if (id === 'claude' && nodes.length === 0) nodes.push(...Array.from(doc.querySelectorAll('.font-user-message, [data-testid="human-message"], [data-testid="message-human"], [data-testid="ai-message"], [data-testid="assistant-message"], [data-testid="message-assistant"], .font-claude-message')));
+  if (id === 'claude') nodes.push(...Array.from(doc.querySelectorAll('.font-user-message, [data-testid="human-message"], [data-testid="message-human"], [data-testid="ai-message"], [data-testid="assistant-message"], [data-testid="message-assistant"], .font-claude-message')));
   const fallback = scopedRoot && nodes.length === 0 ? collect(doc) : nodes;
   const allowed = [...new Set(fallback)].filter(node => !node.closest('nav, aside, [role="navigation"], [class*="sidebar" i], [id*="sidebar" i]'));
   const preferred = id === 'deepseek' && allowed.some(node => node.matches('.ds-message')) ? allowed.filter(node => node.matches('.ds-message')) : allowed;
@@ -110,6 +104,17 @@ function turnRole(node: Element, id: ProviderId): Turn['role'] {
   return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"]') ? 'user' : 'assistant';
 }
 
+function messageIdentity(node: Element, role: Turn['role']): string | undefined {
+  const own = node.getAttribute('data-message-id') || node.getAttribute('data-turn-id') || node.getAttribute('data-message-uuid');
+  if (own) return `${role}:${own}`;
+  const turn = node.closest('[data-turn-id], [data-turn-id-container]');
+  const turnId = turn?.getAttribute('data-turn-id') || turn?.getAttribute('data-turn-id-container');
+  if (turnId) return `${role}:${turnId}`;
+  // Gemini commonly uses stable query/response element IDs; avoid generic container IDs.
+  if (/^(?:user-query|model-response)$/.test(node.tagName.toLowerCase()) && node.id) return `${role}:${node.id}`;
+  return undefined;
+}
+
 export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAdapter {
   const s = bundle.providers[id];
   const first = (doc: Document, selectors: string[]) => selectors.map(q => doc.querySelector(q)).find(Boolean) as Element | undefined;
@@ -118,7 +123,8 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
     extractTurns(doc) {
       return collectTurnNodes(doc, id, bundle).map((node, index) => ({
         role: turnRole(node, id),
-        text: cleanTurn(node, id), index
+        text: cleanTurn(node, id), index,
+        id: messageIdentity(node, turnRole(node, id))
       })).filter(t => t.text);
     },
     extractArtifacts(doc) {
