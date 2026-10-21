@@ -34,7 +34,10 @@ Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usa
   - Claude: Session 49% used, resets in 3h 3m (the session reset now appears); Weekly 7%, 2d 23h; Full reset (expires Oct 22) 1 left.
   - Gemini: Session 6% used, resets in 3h 21m; Weekly 0%, 6d 13h. Another usage extension on the same page independently showed 6% / 0%.
 - **0.3.15, side by side with Claude's own Usage page:** Current session 51% used, resets in 2 hr 56 min, and All models 7% used, resets Sun 12:30 AM, plus Full reset expiring Oct 22. Handoff showed Session 51% used (49% left), resets in 2h 56m; Weekly 7% used, resets in 2d 23h; Full reset 1 left. The toolbar badge showed 51%. Exact match.
-- Not yet observed live: send counting and the “≈ … est.” estimate between readings.
+- **0.3.16, DeepSeek:** sidebar card showed “2 msgs in last 24 h · counted by Handoff” after two sends.
+- **0.3.17, Grok capture:** fixed against the real page; chats such as “do grok shows usage · grok.com” were captured live.
+- **0.3.20, Grok send counting:** after sending “just say ok”, the line under Grok's composer and the Grok card both showed “1 msg in last 2 h (counted by Handoff)”. Earlier attempts failed: 0.3.17 relied on the page settling, 0.3.18 picked Grok's hidden textarea, and 0.3.19 relied on key events.
+- Not yet observed live: the “≈ … est.” estimate between Claude readings, refresh after send, a learned limit, and the rescue card on a real limit.
 
 ## Automated checks
 
