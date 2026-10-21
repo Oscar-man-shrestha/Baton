@@ -9,4 +9,4 @@
 - The closing instruction is now one shared constant, so the wrapper and the filter cannot drift apart. Draft text is unchanged.
 - Three regression tests in `tests/handoff-title.test.ts`.
 
-Verified: 127 tests in 18 files, typecheck, WXT build; build-1 synced. Not checked live. Briefs saved before this fix keep their stored preferences and tasks; they refresh only for new captures.
+Verified: 127 tests in 18 files, typecheck, WXT build; build-1 synced. Not checked live. A chat's rolling brief is rebuilt from its turns whenever Handoff observes or captures it, so older briefs correct themselves the next time that chat is open. Saved capsules keep their stored brief unchanged.
