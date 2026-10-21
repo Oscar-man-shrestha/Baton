@@ -21,3 +21,10 @@ Run on the tester's own logged-in sessions; do not capture or commit account dat
 - [ ] With desktop alerts turned on in the popup, verify Chrome requests optional notification permission once. Test a real 80%/95% or near/reached notice when available and confirm one alert per threshold/window, not repeated on page mutation or refresh.
 - [ ] Confirm a quoted usage-limit message inside chat text creates no usage alert. Confirm a stale cached figure disappears from the popup after one hour.
 - [ ] Check the status line is outside the composer and does not block typing, controls, or accessibility focus on all six services.
+
+## Already-open tab and prompt-line checks for 0.1.3
+
+- [ ] Keep a supported ChatGPT conversation tab open, update/reload Handoff in Brave, **do not reload ChatGPT**, open the Handoff popup, and capture. It should connect, capture visible messages, and keep watching new messages. Repeat on a second supported service.
+- [ ] On a fresh Gemini `/app` page with no user message, click Capture. The status should say Handoff is connected and watching, not “original user message was not captured.” Send a message, then capture again without reloading.
+- [ ] On a chat where an assistant message is visible but the original user message is not, transfer remains blocked with older-message/paste recovery. No old archive from a generic new-chat route may be reused.
+- [ ] Verify the status line says **Usage left: unknown** below an empty prompt bar when the service provides no balance. When typing, verify the approximate prompt-token count precedes that line. Test ChatGPT at the bottom edge of the viewport and Gemini beside another usage bar; no control or other widget should be covered.

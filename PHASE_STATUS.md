@@ -1,6 +1,6 @@
 # Phase status — 2026-10-21
 
-These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 56/56 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
+These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 59/59 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
 
 ## Phase 1 — Foundation: partial
 
@@ -10,6 +10,7 @@ These are implementation summaries, not release claims. The updated source was v
 - The content script now accumulates overlapping rendered turn windows into a bounded local transcript for each chat URL. It flags windows without overlap and truncation, and the popup can copy saved text. This does not guarantee capture of messages never rendered or media. The popup warns when a chat shows fewer turns than Handoff previously saw for that URL. An opt-in older-message pass now scrolls a detected conversation container, merges overlapping visible windows, and restores the starting position. It is bounded to 24 steps, remains best effort, and requires logged-in site verification. DeepSeek capture now prefers top-level chat turns, excludes sidebars, recognizes rendered user and assistant roles, and refuses an assistant-only transfer. Existing unversioned transcript archives are rebuilt with selector bundle v2. Real artifact/canvas extraction remains unverified.
 - Capture sends counts, a brief, and a usage signal to the popup rather than the full raw turn list; this reduces internal message size for long chats. The brief itself can still be large when a required artifact is large, and no live stress test has been run.
 - Local tests pass; user-session Playwright captures were unavailable.
+- After a user opens the popup on an already-open supported chat, Handoff now connects the packaged content script to that active tab if no receiver exists. A new empty Gemini chat reports a ready/watching state; generic `/app` archives are not reused across new chats. This still needs a live Brave retest.
 
 ## Phase 2 — Brief: partial
 
@@ -25,6 +26,7 @@ These are implementation summaries, not release claims. The updated source was v
 - Popup reports tier, confidence, and a local-time approximate reset when a visible notice supplies one. The popup also shows an approximate token count for the unsent prompt and a historical reply-size comparison. A small, noninteractive status line now appears below the composer while typing or when a visible balance is present, provided there is space; it hides if it would sit over an input control. It shows approximate prompt tokens; a remaining percentage or token balance appears only when a visible service notice explicitly provides it. This replaces the earlier overlapping badge. Real provider notices still need live review.
 - No response interception is shipped; it would touch sensitive provider internals and is outside this build.
 - No numeric cap is asserted for services without one.
+- The in-page line now shows an explicit unknown usage state below an empty prompt bar when space permits, and uses a shorter 17px layout for cramped bottom-edge composers. A narrow collision check shifts it below a nearby compact widget. Real provider layouts remain unverified.
 - A collapsed six-service usage view and opt-in desktop notifications now use only service notices visible on pages the user opens. Numeric alerts fire at 80% and 95% used when a displayed percentage supports them; reported near/reached notices can alert without a numeric claim. Optional notification permission is requested when enabled. Cached balances expire from the UI after one hour. This has synthetic parser and alert tests but no signed-in notification test.
 - Parser and no-evidence behavior pass local tests; real banners need live testing.
 

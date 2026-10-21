@@ -11,6 +11,7 @@
 - `storage`: keeps bounded local transcripts, briefs, settings, project records, and diagnostics.
 - `tabs`: opens the destination selected by the user and sends its draft to that tab.
 - `activeTab`: checks the chat tab the user is working in.
+- `scripting`: connects the packaged Handoff content script to the active supported chat after the user opens Handoff, if that tab predates installation or update. No page reload is required.
 - Optional `notifications`: requested only when the user enables desktop usage alerts; shows alerts for service-reported usage thresholds and limit notices.
 - Access to the six named AI chat hosts: reads rendered conversation text, observes visible limit notices, and inserts a reviewed draft in the destination editor. No access to unrelated websites is requested.
 
