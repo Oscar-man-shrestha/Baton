@@ -4,11 +4,13 @@ import { isUsagePageUrl, readUsageWindows, usagePageUrl } from '../src/core/usag
 import { parseReset } from '../src/core/limits';
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdom');
 
-// Modelled on gemini.google.com/usage as seen in Brave on 2026-10-22 (free account, labels only, no account data).
-const page = (session: string, weekly: string) => `<main><h1>Usage limits</h1><p>Your plan's limits determine how much you can use Gemini over time.</p><p>Updated just now</p>
-  <div class="card"><div class="row"><span class="title">Current usage <mat-icon>info</mat-icon></span><span>${session}</span></div><div role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div><span>Resets at 04:40</span></div>
-  <div class="card"><div><div class="title">Weekly limit</div><div>Resets on 28 Oct at 14:40</div></div><span>${weekly}</span></div>
-  <div class="upsell">Get 2x more usage with AI Plus</div></main>`;
+// Trimmed from gemini.google.com/usage saved in Brave on 2026-10-22 (free account): only the two usage boxes,
+// Angular attributes and styling classes removed, no account data. The info icon renders no text.
+const page = (session: string, weekly: string) => `<main><usage-metrics-window><div class="usage-metrics-container"><div class="usage-metrics-header"><h2>Usage limits</h2>
+  <p>Your plan's limits determine how much you can use Gemini over time.</p><p>Updated 3 min ago</p></div>
+  <div class="gxu-items-container"><div data-test-id="gxu-currently" class="gxu-currently"><div class="gxu-item-header"><div class="current-usage"><p>Current usage</p><usage-info><div><button aria-label="Information about usage limits"><gem-icon><mat-icon role="img" aria-hidden="true" fonticon="info"></mat-icon></gem-icon></button></div></usage-info></div><p>${session}</p></div><div class="progress-track"><div class="progress-indicator" style="width: 0%;"></div></div><p class="reset-time-luminous">Resets at 04:40</p></div>
+  <div data-test-id="gxu-weekly" class="gxu-weekly"><div><p>Weekly limit</p><p class="reset-time-luminous">Resets on 28 Oct at 14:40</p></div><p>${weekly}</p></div></div>
+  <upsell-muted><div class="upsell-banner"><div class="title">Get 2x more usage with AI Plus</div></div></upsell-muted></div></usage-metrics-window></main>`;
 const now = new Date(2026, 9, 22, 1, 0).getTime();
 const read = (html: string, url = 'https://gemini.google.com/usage') => readUsageWindows(new JSDOM(html, { url }).window.document, 'gemini', [], now);
 

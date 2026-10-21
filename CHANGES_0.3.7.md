@@ -7,4 +7,4 @@
 - The content script reads a usage page about 1.5 s after it opens instead of waiting up to 30 s.
 - Ten tests in `tests/gemini-usage.test.ts`.
 
-Built from a screenshot of the live page (free account, 0% used, 22 Oct 2026). The real page markup has not been inspected, so the test fixture's structure is an assumption; confirm live and, if possible, with a saved copy of the page.
+Checked against a copy of the live page saved in Brave on 22 Oct 2026 (free account): the reader returned Session 0% resetting 22 Oct 04:40 and Weekly 0% resetting 28 Oct 14:40, local time. The test fixture is now a trimmed copy of that real markup (usage boxes only, no account data). Still to confirm in the installed extension: the reading appearing in the Usage window, and a non-zero percentage.
