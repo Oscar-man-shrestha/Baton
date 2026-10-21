@@ -6,7 +6,7 @@ import { providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
-import { activeWindows, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
+import { activeWindows, isCurrentReading, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
@@ -60,7 +60,7 @@ const setView = (view: 'capture' | 'saved') => {
   document.querySelector('#tab-capture')?.setAttribute('aria-pressed', String(view === 'capture'));
   document.querySelector('#tab-saved')?.setAttribute('aria-pressed', String(view === 'saved'));
 };
-document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false; setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
+document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false; (document.querySelector('#usage-panel') as HTMLElement).hidden = false; setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
 document.querySelector('#tab-saved')?.addEventListener('click', () => setView('saved'));
 const activeChatTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknown): Promise<T> => sendWithBootstrap(
@@ -72,6 +72,7 @@ const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknow
     await chrome.scripting.executeScript({ target: { tabId: id }, files: [script] });
   }
 );
+let activeProvider: ProviderId | undefined;
 let captureStarted = false;
 let activeWindowId: number | undefined;
 void activeChatTab().then(async tab => {
@@ -79,8 +80,10 @@ void activeChatTab().then(async tab => {
   if (!tab || !isSupportedChatUrl(tab.url)) return;
   const response = await sendToChat<{ ready?: boolean; provider?: ProviderId }>(tab, { type: 'PING' });
   if (response.ready && !captureStarted) {
+    activeProvider = response.provider;
+    await showUsage();
     const name = providerNames[response.provider || 'chatgpt'];
-    status.textContent = `Connected to ${name}. Ready to capture.`;
+    status.textContent = '';
     (document.querySelector('#source-label') as HTMLElement).textContent = `${name} · active tab`;
   }
 }).catch(() => { /* The capture button will show a useful error if connection fails. */ });
@@ -88,6 +91,7 @@ const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 
 async function showUsage() {
   const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`]));
   usageList.replaceChildren();
+  renderActiveUsage(saved);
   for (const id of providerIds) {
     const row = document.createElement('div'); row.className = 'usage-row';
     const name = document.createElement('strong'); name.textContent = providerNames[id];
@@ -105,6 +109,56 @@ async function showUsage() {
   }
 }
 void showUsage();
+async function readVisibleUsage() {
+  const button = document.querySelector('#read-active-usage') as HTMLButtonElement;
+  button.disabled = true;
+  const note = document.querySelector('#active-usage-note') as HTMLElement;
+  note.textContent = 'Checking visible service readings…';
+  try {
+    const tabs = await chrome.tabs.query({});
+    const usageTab = tabs.find(tab => tab.url && /^https:\/\/claude\.ai\/settings\/usage\/?(?:[?#].*)?$/.test(tab.url));
+    if (activeProvider === 'claude' || !activeProvider) {
+      if (usageTab?.id && usageTab.status !== 'loading') {
+        await sendToChat(usageTab, { type: 'REFRESH_USAGE' });
+        await showUsage();
+        note.textContent += ' Checked the open usage page.';
+      } else {
+        await chrome.tabs.create({ url: 'https://claude.ai/settings/usage' });
+      }
+    } else {
+      const tab = await activeChatTab();
+      await sendToChat(tab, { type: 'REFRESH_USAGE' });
+      await showUsage();
+    }
+  } catch {
+    note.textContent = 'Could not read this page. Open the service’s usage screen and try again.';
+  } finally { button.disabled = false; }
+}
+function renderActiveUsage(saved: Record<string, any>) {
+  const card = document.querySelector('#active-usage') as HTMLElement;
+  card.hidden = !activeProvider;
+  if (!activeProvider) return;
+  (document.querySelector('#active-usage-title') as HTMLElement).textContent = `${providerNames[activeProvider]} usage`;
+  const container = document.querySelector('#active-usage-values') as HTMLElement;
+  const note = document.querySelector('#active-usage-note') as HTMLElement;
+  const windows = activeWindows(saved[`usageWindows:${activeProvider}`] || []);
+  const meter = saved[`meter:${activeProvider}`] as Meter | undefined;
+  const readings = windows.length ? windows : isCurrentReading(meter) && (meter.percent !== undefined || meter.remainingTokens !== undefined) ? [meter] : [];
+  container.replaceChildren();
+  for (const reading of readings) {
+    const row = document.createElement('div'); row.className = 'active-usage-reading';
+    const label = document.createElement('span'); label.textContent = reading.feature;
+    const value = document.createElement('strong'); value.textContent = reading.percent !== undefined ? `${Number(reading.percent.toFixed(1))}% used` : `${reading.remainingTokens?.toLocaleString()} tokens left`;
+    row.append(label, value);
+    if (reading.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = reading.percent; bar.setAttribute('aria-label', `${reading.feature}: ${reading.percent}% used`); row.append(bar); }
+    const detail = document.createElement('small'); detail.textContent = windowLabel(reading as UsageWindow).split(' · ').slice(1).join(' · '); row.append(detail);
+    container.append(row);
+  }
+  if (!readings.length) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
+  note.textContent = readings.length ? `Service reading · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}. Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
+  (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = activeProvider === 'claude' ? 'Read usage ↗' : 'Refresh';
+}
+document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
 document.querySelector('#check-claude-usage')?.addEventListener('click', () => { void chrome.tabs.create({ url: 'https://claude.ai/settings/usage' }); });
 chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
@@ -127,6 +181,7 @@ const showDraftBudget = () => {
   openDraft.disabled = !draft.value.trim() || (reviewed && !budget.fits);
   openDraft.textContent = reviewed ? 'Open draft in new chat ↗' : 'Review & continue ↗';
   captureCard.hidden = !flow.hidden;
+  (document.querySelector('#usage-panel') as HTMLElement).hidden = !flow.hidden;
   destinationPanel.hidden = !reviewed;
   actionBar.hidden = activeView !== 'capture' || flow.hidden;
   (document.querySelector('#idle-footer') as HTMLElement).hidden = !actionBar.hidden;
@@ -156,6 +211,7 @@ const refreshContext = async () => {
   modeDrafts = { compact: currentBrief ? wrapHandoff(renderBrief(currentBrief).text) : draft.value, full: completeContext?.draft || '' };
   contextMode.value = 'compact'; previousMode = 'compact';
   draft.value = modeDrafts.compact;
+  (document.querySelector('#context-goal') as HTMLElement).textContent = currentBrief?.goal || 'Your pasted context';
   (document.querySelector('#summary-goal') as HTMLElement).textContent = currentBrief?.goal || 'Your pasted context';
   (document.querySelector('#summary-progress') as HTMLElement).textContent = currentBrief?.status || currentBrief?.last_exchange.assistant || 'Review the context before continuing.';
   (document.querySelector('#summary-next') as HTMLElement).textContent = currentBrief?.next_step || 'Choose your next step in the destination chat.';
@@ -179,10 +235,7 @@ const showLibrary = async () => {
     ...recent.map(capture => ({ name: capture.title, brief: capture.brief, url: capture.url, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
   ];
   (document.querySelector('#saved-count') as HTMLElement).textContent = String(items.length);
-  (document.querySelector('#chat-count') as HTMLElement).textContent = String(recent.length);
-  (document.querySelector('#project-count') as HTMLElement).textContent = String(projects.length);
   const folders = await listFolders();
-  (document.querySelector('#folder-count') as HTMLElement).textContent = String(folders.length);
   const folderOptions = document.querySelector('#folder-options') as HTMLElement; folderOptions.replaceChildren();
   for (const folder of folders) { const option = document.createElement('option'); option.value = folder; folderOptions.append(option); }
   const recentList = document.querySelector('#recent-list') as HTMLElement; recentList.replaceChildren();
