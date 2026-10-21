@@ -9,6 +9,8 @@ describe('usage alerts', () => {
     const first = usageAlert(meter, [], now);
     expect(first?.message).toContain('84% used');
     expect(usageAlert(meter, [first!.key], now)).toBeUndefined();
+    const changedCountdown = estimateMeter('claude', 'Session usage: 85% used. Resets in 2 hours', [], [], now + 600000);
+    expect(usageAlert(changedCountdown, [first!.key], now + 600000)).toBeUndefined();
     expect(usageAlert(estimateMeter('claude', 'Session usage: 96% used. Resets in 2 hours', [], [], now), [first!.key], now)?.key).toContain(':95');
   });
   it('does not alert from token history or unknown quotas', () => {

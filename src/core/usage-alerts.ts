@@ -9,7 +9,14 @@ export function usageAlert(meter: Meter, delivered: readonly string[], now = Dat
   const level = meter.percent === 100 ? 'reached' : meter.percent !== undefined && meter.percent >= 95 ? '95' : meter.percent !== undefined && meter.percent >= 80 ? '80' : meter.nearLimit ? 'near' : undefined;
   if (!level) return;
   const key = `${meter.provider}:${meter.feature}:${window}:${level}`;
-  if (delivered.includes(key)) return;
+  // Relative countdowns are rounded by sites, so their computed reset can drift.
+  const prefix = `${meter.provider}:${meter.feature}:`;
+  if (delivered.some(previous => {
+    if (previous === key) return true;
+    if (!previous.startsWith(prefix) || !previous.endsWith(`:${level}`)) return false;
+    const oldWindow = previous.slice(prefix.length, -level.length - 1);
+    return /^\d+$/.test(window) && /^\d+$/.test(oldWindow) && Math.abs(Number(window) - Number(oldWindow)) <= 16;
+  })) return;
   const name = meter.provider === 'chatgpt' ? 'ChatGPT' : meter.provider === 'deepseek' ? 'DeepSeek' : meter.provider[0].toUpperCase() + meter.provider.slice(1);
   const detail = level === 'reached' ? 'The service reports a limit.' : level === 'near' ? 'The service reports you are close to a limit.' : `The service shows ${meter.percent}% used for this limit.`;
   return { key, title: `${name} usage alert`, message: `${detail}${meter.resetAt ? ` Resets around ${new Date(meter.resetAt).toLocaleString()}.` : ''}` };
