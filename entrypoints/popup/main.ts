@@ -6,12 +6,13 @@ import { providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
-import { activeWindows, isCurrentReading, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
+import { activeWindows, isCurrentReading, isClaudeUsageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
 import { saveCapturedCapsule } from '../../src/core/capsules';
 import { fullContext } from '../../src/core/context-export';
+import { createActiveChatTracker } from '../../src/core/active-chat';
 
 const status = document.querySelector('#status') as HTMLElement;
 (document.querySelector('#build-version') as HTMLElement).textContent = `v${chrome.runtime.getManifest().version}`;
@@ -77,18 +78,21 @@ const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknow
 let activeProvider: ProviderId | undefined;
 let captureStarted = false;
 let activeWindowId: number | undefined;
-void activeChatTab().then(async tab => {
+const refreshActiveChat = createActiveChatTracker(activeChatTab, tab => sendToChat(tab, { type: 'PING' }), (tab, provider) => {
   activeWindowId = tab?.windowId;
-  if (!tab || !isSupportedChatUrl(tab.url)) return;
-  const response = await sendToChat<{ ready?: boolean; provider?: ProviderId }>(tab, { type: 'PING' });
-  if (response.ready && !captureStarted) {
-    activeProvider = response.provider;
-    await showUsage();
-    const name = providerNames[response.provider || 'chatgpt'];
-    status.textContent = '';
-    (document.querySelector('#source-label') as HTMLElement).textContent = `${name} · active tab`;
+  activeProvider = provider;
+  void showUsage();
+  if (!captureStarted) {
+    status.textContent = provider ? '' : isSupportedChatUrl(tab?.url) ? 'Connecting to your AI chat…' : 'Open an AI chat to get started.';
+    (document.querySelector('#source-label') as HTMLElement).textContent = provider ? `${providerNames[provider]} · active tab` : 'Open a supported AI conversation';
   }
-}).catch(() => { /* The capture button will show a useful error if connection fails. */ });
+}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture Page or paste a capsule.'; });
+const refreshChat = () => { void refreshActiveChat().catch(() => { /* Capture provides recovery guidance. */ }); };
+refreshChat();
+chrome.tabs.onActivated?.addListener(info => { if (activeWindowId === undefined || info.windowId === activeWindowId) refreshChat(); });
+chrome.tabs.onUpdated?.addListener((_id, change, tab) => {
+  if (tab.active && (activeWindowId === undefined || tab.windowId === activeWindowId) && (change.url || change.status === 'complete')) refreshChat();
+});
 const usageDialog = document.querySelector('#usage-dialog') as HTMLDialogElement;
 document.querySelector('#show-usage')?.addEventListener('click', () => { usageDialog.showModal(); void showUsage(); });
 document.querySelector('#close-usage')?.addEventListener('click', () => usageDialog.close());
@@ -135,7 +139,7 @@ async function readVisibleUsage() {
   note.textContent = 'Checking visible service readings…';
   try {
     const tabs = await chrome.tabs.query({});
-    const usageTab = tabs.find(tab => tab.url && /^https:\/\/claude\.ai\/settings\/usage\/?(?:[?#].*)?$/.test(tab.url));
+    const usageTab = tabs.find(tab => isClaudeUsageUrl(tab.url));
     if (activeProvider === 'claude' || !activeProvider) {
       if (usageTab?.id && usageTab.status !== 'loading') {
         await sendToChat(usageTab, { type: 'REFRESH_USAGE' });

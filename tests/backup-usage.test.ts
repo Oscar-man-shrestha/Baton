@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 import { exportBackup, previewBackup, mergeBackup } from '../src/core/backup';
 import { briefSchema } from '../src/core/brief';
-import { parseClaudeUsage, activeWindows, readUsageWindows, resetCountdown } from '../src/core/usage-windows';
+import { parseClaudeUsage, activeWindows, readUsageWindows, resetCountdown, isClaudeUsageUrl } from '../src/core/usage-windows';
 import { parseReset, estimateMeter } from '../src/core/limits';
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdom');
 const now = Date.UTC(2026, 9, 21, 9);
@@ -53,11 +53,17 @@ describe('real quota windows', () => {
 
 
 describe('Claude settings text rows', () => {
-  it('reads plain nested session and weekly rows without mixing their values', () => {
-    const doc = new JSDOM(`<main><h2>Usage limits</h2><section><div><div><span>Current session</span><p>Resets in 2 hours 45 minutes</p></div><span>31% used</span></div><div><div><span>All models</span><p>Resets in 3 days</p></div><span>5% used</span></div></section></main>`, { url: 'https://claude.ai/settings/usage' }).window.document;
+  it.each(['https://claude.ai/settings/usage', 'https://claude.ai/new#settings/usage'])('reads plain nested rows in the page or settings overlay: %s', url => {
+    const doc = new JSDOM(`<main></main><div role="dialog"><h2>Usage limits</h2><section><div><div><span>Current session</span><p>Resets in 2 hours 45 minutes</p></div><span>31% used</span></div><div><div><span>All models</span><p>Resets in 3 days</p></div><span>5% used</span></div></section></div>`, { url }).window.document;
     const windows = readUsageWindows(doc, 'claude', [], now);
     expect(windows.map(win => [win.feature, win.percent])).toEqual([['Session',31],['Weekly',5]]);
     expect(windows[0].resetAt).toBe(now + 165 * 60000);
+  });
+  it('recognizes only native Claude usage destinations', () => {
+    expect(isClaudeUsageUrl('https://claude.ai/new#settings/usage')).toBe(true);
+    expect(isClaudeUsageUrl('https://claude.ai/settings/usage')).toBe(true);
+    expect(isClaudeUsageUrl('https://claude.ai.evil.example/new#settings/usage')).toBe(false);
+    expect(isClaudeUsageUrl('https://claude.ai/chat/usage')).toBe(false);
   });
   it('does not invent a quota from an unavailable row or hidden competing extension', () => {
     const doc = new JSDOM(`<main><div><span>Current session</span><p>Not available on your plan</p></div><div data-extension><span>All models</span><p>0% used</p></div></main>`, { url: 'https://claude.ai/settings/usage' }).window.document;

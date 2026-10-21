@@ -2,6 +2,13 @@ import type { ProviderId } from './selectors';
 import { estimateMeter, type Meter } from './limits';
 
 export type UsageWindow = Meter & { key: string; remainingCount?: number; source: 'provider-page' | 'provider-response'; evidenceKey?: string };
+export function isClaudeUsageUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'claude.ai' && (/^\/settings\/usage\/?$/.test(url.pathname) || /^#\/?settings\/usage\/?$/.test(url.hash));
+  } catch { return false; }
+}
 export function isCurrentReading(meter: Meter | undefined, now = Date.now()): meter is Meter & { at: number } {
   if (!meter || meter.tier !== 'banner' || meter.confidence !== 'high' || typeof meter.at !== 'number' || !Number.isFinite(meter.at) || meter.at > now || now - meter.at >= 3600000) return false;
   for (const value of [meter.percent, meter.remainingPercent]) if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)) return false;
@@ -56,12 +63,14 @@ export function readUsageWindows(doc: Document, provider: ProviderId, turnNodes:
   const textOf = (node: Element) => ((node as HTMLElement).innerText || Array.from(node.childNodes).map(child => child.textContent || '').join(' ')).replace(/\s+/g, ' ').trim();
   const rowLabels = new Map<Element, string>();
   const candidates = Array.from(doc.querySelectorAll('progress,[role="progressbar"],[role="alert"],[aria-live="assertive"],[data-testid*="usage" i],[data-testid*="limit" i]'));
-  if (provider === 'claude' && /^\/settings\/usage\/?$/.test(doc.location.pathname)) {
+  const claudeUsagePage = provider === 'claude' && isClaudeUsageUrl(doc.location.href);
+  if (claudeUsagePage) {
     // Claude's settings page also uses plain text rows, without semantic progressbars.
     // Start from an exact feature label and stop at the smallest numeric row.
-    for (const heading of Array.from(doc.querySelectorAll('main h2,main h3,main h4,main p,main span,main div'))) {
+    for (const heading of Array.from(doc.querySelectorAll('h2,h3,h4,p,span,div'))) {
       const title = textOf(heading);
       if (!/^(?:current session|weekly limits|all models|sonnet only|opus only|session usage|weekly usage)$/i.test(title)) continue;
+      if (excluded(heading) || !visible(heading)) continue;
       for (let row = heading.parentElement, depth = 0; row && depth < 5 && !row.matches('main,body'); row = row.parentElement, depth++) {
         const text = textOf(row);
         // Never combine two quota windows into one reading.
@@ -77,7 +86,7 @@ export function readUsageWindows(doc: Document, provider: ProviderId, turnNodes:
   for (const node of candidates) {
     if (excluded(node) || !visible(node) || candidates.some(other => other !== node && node.contains(other))) continue;
     let label = node.getAttribute('aria-label') || rowLabels.get(node) || '';
-    if (!label && provider === 'claude' && /^\/settings\/usage\/?$/.test(doc.location.pathname)) {
+    if (!label && claudeUsagePage) {
       for (let scope: Element | null = node.parentElement, depth = 0; scope && depth < 4 && !scope.matches('main,body'); scope = scope.parentElement, depth++) {
         const text = scope.textContent || '';
         const session = /current session|session usage|5.hour session/i.test(text);

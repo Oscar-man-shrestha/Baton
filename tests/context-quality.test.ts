@@ -31,6 +31,16 @@ describe('context fidelity', () => {
     const doc = new JSDOM('<user-query><div class="query-text">You said this should work. Explain why.</div></user-query>').window.document;
     expect(extract(doc, 'gemini', bundledSelectors).turns[0].text).toBe('You said this should work. Explain why.');
   });
+  it.each([false, true])('removes Gemini speaker headings and repeated prompts, broad wrapper: %s', broadWrapper => {
+    const request = 'Hey I wanna make to do list beautiful that works in all edge cases';
+    const user = `<h5>You said ${request}</h5><p>${request}</p>`;
+    const doc = new JSDOM(`<user-query>${broadWrapper ? `<div class="query-content">${user}</div>` : user}</user-query><model-response><h6>Gemini said</h6><p>Keep every edge case.</p><pre><code>const tasks = [];</code></pre><p>Which platform should we use?</p></model-response>`).window.document;
+    const turns = extract(doc, 'gemini', bundledSelectors).turns;
+    expect(turns[0].text).toBe(request);
+    expect(turns[1].text).not.toContain('Gemini said');
+    expect(turns[1].text).toContain('const tasks = [];');
+    expect(turns[1].text).toContain('Which platform should we use?');
+  });
   it('captures Claude when primary user and alternate assistant wrappers coexist', () => {
     const doc = new JSDOM('<div data-testid="user-message">Build an app</div><div data-testid="assistant-message">Use a task reducer.</div>').window.document;
     expect(extract(doc, 'claude', bundledSelectors).turns.map(turn => turn.role)).toEqual(['user', 'assistant']);

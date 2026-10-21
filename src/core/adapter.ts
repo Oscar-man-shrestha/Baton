@@ -62,8 +62,12 @@ function messageContent(node: Element, id: ProviderId): Element {
 function cleanTurn(node: Element, id: ProviderId): string {
   const content = messageContent(node, id);
   let result = cleanNode(content);
+  if (id === 'gemini' && node.matches('user-query')) {
+    const duplicate = result.match(/^#{1,6}\s+You said\b[ \t]*(.*?)\n+([\s\S]*)$/i);
+    if (duplicate && duplicate[1].trim() === duplicate[2].trim()) return duplicate[2].trim();
+  }
   if (id === 'gemini' && content === node) {
-    result = result.replace(/^(?:You|Gemini) said\s*:?\s*\n/i, '').trim();
+    result = result.replace(/^(?:#{1,6}\s*)?(?:You|Gemini) said\b[ \t]*:?[ \t]*(?:\n)?/i, '').trim();
     const lines = result.split('\n').map(line => line.trim()).filter(Boolean);
     if (lines.length === 2 && lines[0].replace(/^You said\s*:?\s*/i, '') === lines[1]) result = lines[1];
   }

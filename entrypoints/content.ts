@@ -46,6 +46,9 @@ export default defineContentScript({
       const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
       if (!editor || !composerUsageEnabled) { statusHost.style.display = 'none'; return; }
       const editorRect = editor.getBoundingClientRect();
+      const exposed = document.elementFromPoint(editorRect.left + Math.min(20, editorRect.width / 2), editorRect.top + Math.min(10, editorRect.height / 2));
+      // A settings dialog can cover the composer while it remains in the DOM.
+      if (!exposed || !editor.contains(exposed)) { statusHost.style.display = 'none'; return; }
       let surface: Element = editor;
       let ancestor = editor.parentElement;
       for (let depth = 0; ancestor && depth < 5 && !ancestor.matches('body,main'); depth++, ancestor = ancestor.parentElement) {
@@ -266,6 +269,7 @@ export default defineContentScript({
           const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
           const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');
           if (!result.turns.length && !result.artifacts.length) {
+            if (collectTurnNodes(document, id, bundledSelectors).length) throw new Error('The conversation is hidden by the page layout. Close the service’s sidebar or dialog, then capture again.');
             sendResponse({ provider: id, turnCount: 0, hasUserTurn: false, artifactCount: 0, incomplete: false, archiveSaved: true, warning: '', pendingPrompt: pendingPrompt.trim().slice(0, 8000), meter: estimateMeter(id, makeAdapter(id, bundledSelectors).detectLimit(document).text, [], []), url: pageUrl() });
             return;
           }
