@@ -21,7 +21,8 @@ export default defineContentScript({
     if (!id) return;
     document.getElementById('handoff-composer-status')?.remove();
     let timer: number | undefined;
-    const pageUrl = () => location.origin + location.pathname + location.search + location.hash;
+    // Site and path only: query strings such as Grok's “?rid=…” change with every reply.
+    const pageUrl = () => location.origin + location.pathname;
     const storageKeys = () => { const key = `brief:${pageUrl()}`; return { key, highWaterKey: `visibleTurnsHighWater:${key}`, archiveKey: `archive:${key}` }; };
     const genericNewChat = () => id === 'gemini' && location.pathname === '/app';
     const limitHistoryKey = `limitEvents:${id}`;

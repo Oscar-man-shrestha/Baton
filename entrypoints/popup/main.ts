@@ -285,8 +285,8 @@ const showLibrary = async () => {
   const dismissed = (await chrome.storage.local.get('dismissedRecentUrls')).dismissedRecentUrls;
   const dismissedUrls: string[] = Array.isArray(dismissed) ? dismissed.filter((url): url is string => typeof url === 'string') : [];
   const items = [
-    ...projects.map(project => ({ id: project.id, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
-    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
+    ...projects.map(project => ({ id: project.id, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', variants: undefined as string[] | undefined, draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
+    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, variants: capture.variants, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
   ];
   (document.querySelector('#saved-count') as HTMLElement).textContent = String(items.length);
   (document.querySelector('#chat-count') as HTMLElement).textContent = String(items.length);
@@ -345,7 +345,7 @@ const showLibrary = async () => {
           await deleteProject(item.id);
           if (item.id.startsWith('capture:')) await chrome.storage.local.set({ dismissedRecentUrls: [...new Set([...dismissedUrls, item.url])].slice(-5000) });
         }
-        else await chrome.storage.local.remove([`brief:${item.url}`, `savedAt:brief:${item.url}`, `archive:brief:${item.url}`, `visibleTurnsHighWater:brief:${item.url}`]);
+        else await chrome.storage.local.remove((item.variants || [item.url]).flatMap(url => [`brief:${url}`, `savedAt:brief:${url}`, `archive:brief:${url}`, `visibleTurnsHighWater:brief:${url}`]));
         await showLibrary();
       });
       actions.append(copy, remove); row.append(open, actions); return row;
