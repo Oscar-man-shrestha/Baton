@@ -1,12 +1,14 @@
-# Handoff 0.3.1
+# Handoff 0.3.2
 
 Capsule-style context library: Capture Page, New Capsule, New Folder, recent copy/delete, searchable library and sidebar. Captures save full snapshots; compact handoffs can be reviewed and opened as drafts in another AI. No automatic send.
 
-Supabase owner-scoped storage is configured and SQL isolation checks passed. **Google provider is disabled** in the project; finish Google/client/redirect configuration before sign-in. Local saves and full backup/restore require no account. Exact hidden provider quotas remain unavailable.
+Supabase owner-scoped storage is configured and SQL isolation checks passed. Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested. Local saves and full backup/restore require no account. Exact hidden provider quotas remain unavailable.
 
 See [CHANGES_0.3.0.md](CHANGES_0.3.0.md), [VERIFICATION.md](VERIFICATION.md), [CLOUD_SETUP.md](CLOUD_SETUP.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-## Development and earlier architecture notes
+See [LIVE_VALIDATION_2026-10-21.md](LIVE_VALIDATION_2026-10-21.md) for the installed build and live cloud evidence. The 0.3.2 sidebar follows tab changes without replacing an edited draft.
+
+## Development and earlier architecture notes (historical)
 
 > **0.2.1 follow-up:** see `REQUIREMENTS_STATUS.md` for all nine requested outcomes, including incomplete cloud and quota integration. This release fixes reset drift, alert races, stale badges, malformed quota parsing, and cross-tab reading updates.
 
@@ -18,7 +20,7 @@ Local Chrome MV3 prototype for carrying a compact project brief between distinct
 
 ## Try the local build
 
-1. For the prebuilt package, open `brave://extensions` or `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and select the sibling **`handoff-extension-build`** folder. Its `manifest.json` must be directly inside the selected folder. The `handoff-extension` folder containing this README is source code and cannot be loaded directly.
+1. **Existing Brave installation:** keep `handoff-extension-build-1` and reload it to retain extension ID `jpjfbhobndoekfmknlhdpmcndchiilog` and saved data. Loading a different folder creates a different identity. For a new installation of the prebuilt package, open `brave://extensions` or `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and select the sibling **`handoff-extension-build`** folder. Its `manifest.json` must be directly inside the selected folder. The `handoff-extension` folder containing this README is source code and cannot be loaded directly.
 2. To build from source instead, run `npm install`, `npm test`, `npm run typecheck`, and `npm run build` in this folder, then select its `.output/chrome-mv3` folder in **Load unpacked**. If using the ZIP, extract it and select the folder with `manifest.json` at its root.
 3. Open a supported chat, click Handoff, capture rendered turns, review the draft and receipt, then choose a destination. The destination prompt continues naturally instead of requesting a “Ready” acknowledgment. For a long chat, you may first select **Try to include older messages**; Handoff temporarily scrolls the chat and restores your place. This is best effort, so review for missing messages. If Handoff cannot find the original user message, it stops the transfer and asks you to try older-message capture or paste the request. The whole draft must fit 1,500 approximate tokens before automatic insertion; shorten an oversized artifact manually. The options page reports whether draft insertion succeeded after a new tab loads. If it fails, use Copy draft and paste it manually.
 4. You can save a brief as a local project and reopen a recent project from the popup. Settings lets you search projects, copy a readable handoff, delete one project, or export/import the library. Capture details lets you copy the locally archived rendered chat text; the archive is capped and may be incomplete.
@@ -48,6 +50,6 @@ Open **Usage across AI chats** in the popup to see recent, directly visible limi
 - Gemini capture removes duplicated speaker chrome and retains useful Markdown structure. The compact handoff carries more of a long answer's actionable details.
 - Automatically saved recent chats appear beside named projects in the popup. Optional local folders help organize projects.
 - The usage panel can open Claude's own usage page. Handoff reads a labeled session percentage there if visible, labels an older cached reading, and otherwise leaves the balance unknown. This has synthetic tests but still needs a signed-in Claude test.
-- Google sign-in and Drive backup are not in this local build. They require a remote-service decision and an OAuth client tied to the published extension ID; see `GOOGLE_SYNC_DESIGN.md`.
+- Historical 0.1.4 status: Google sign-in was not implemented then. Current Google/Supabase backup is configured and live-tested as described above. Google Drive backup is not implemented.
 
 Usage is available from the header button. See [GOOGLE_LOGIN_SETUP.md](GOOGLE_LOGIN_SETUP.md) for the exact Google Console and Supabase fields, including Copy extension callback in the app.

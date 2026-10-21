@@ -11,7 +11,7 @@
 - `storage`: keeps bounded local transcripts, briefs, settings, project records, and diagnostics.
 - `tabs`: opens the destination selected by the user and sends its draft to that tab.
 - `activeTab`: checks the chat tab the user is working in.
-- `scripting`: connects the packaged Handoff content script to the active supported chat after the user opens Handoff, if that tab predates installation or update. No page reload is required.
+- `scripting`: connects the packaged Handoff content script to the active supported chat after the user opens Handoff, if that tab predates installation or update. Explicit host access to the same six supported chat sites allows the persistent sidebar to reconnect on tab changes. No page reload is required.
 - `sidePanel`: opens the library/capture interface in the browser sidebar at the user’s request.
 - Optional `notifications`: requested only when the user enables desktop usage alerts; shows alerts for service-reported usage thresholds and limit notices.
 - Access to the six named AI chat hosts: reads rendered conversation text, observes visible limit notices, and inserts a reviewed draft in the destination editor. No access to unrelated websites is requested.
@@ -22,6 +22,6 @@
 
 ## 0.2.0 additions and release boundary
 
-The local build adds recent contexts, folders, exact edited draft saving, full local backup/restore, rich Markdown/full-conversation export, and a responsive sidebar. It retains only rendered text and explicitly warns about missing history/media and the archive cap. The default build has no Google sign-in connection, identity permission, or Supabase host access.
+The local build adds recent contexts, folders, exact edited draft saving, full local backup/restore, rich Markdown/full-conversation export, and a responsive sidebar. It retains only rendered text and explicitly warns about missing history/media and the archive cap. The configured build includes optional Google sign-in, identity permission and the exact Supabase project origin; local use remains available without an account.
 
-When configured, Google/Supabase sign-in adds `identity` and the exact configured Supabase project origin. Sign-in, manual upload/restore, disconnect and cloud deletion must be tested and disclosed before publishing that variant. Do not advertise live cloud sync or continuous exact quota tracking in the current listing. The planned privacy-policy URL above remains pending: repo not yet published.
+When configured, Google/Supabase sign-in adds `identity` and the exact configured Supabase project origin. Installed Google sign-in, manual upload and same-installation restore passed live in Brave. Cross-device restore, disconnect, session lifecycle and cloud deletion still need acceptance before publication. Do not advertise live cloud sync or continuous exact quota tracking in the current listing. The planned privacy-policy URL above remains pending: repo not yet published.

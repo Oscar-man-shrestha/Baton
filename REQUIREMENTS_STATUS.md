@@ -1,10 +1,10 @@
-# Your nine requirements — Handoff 0.3.1
+# Your nine requirements — Handoff 0.3.2
 
 Checked 2026-10-21 against the source and test evidence. “Implemented” below means present in the local build; it does not mean verified on every signed-in provider page. No requirement is silently treated as complete.
 
 ## 1. Learn from Claude Monitor and use the same clear usage display
 
-**Display implemented; equivalent live data integration incomplete.** Version 0.3.1 puts active-provider usage on Home, adds a Claude usage-page action and handles plain settings rows; live authenticated verification is still pending. Read its website, README, background usage requests, page stream reader and security notes at a pinned commit. Handoff provides separate observed windows, thin progress bars, source times, reset countdowns, toolbar snapshots and optional threshold alerts, including a small below-composer strip. All six supported services use the same display rules.
+**Display implemented; equivalent live data integration incomplete.** Version 0.3.1 puts active-provider usage on Home, adds a Claude usage-page action and handles plain settings rows; one live Claude account now matches its native settings figures; continuous API integration remains incomplete. Read its website, README, background usage requests, page stream reader and security notes at a pinned commit. Handoff provides separate observed windows, thin progress bars, source times, reset countdowns, toolbar snapshots and optional threshold alerts, including a small below-composer strip. All six supported services use the same display rules.
 
 Claude Monitor's data comes from private Claude usage APIs and reply metadata. Handoff has a tested numeric-shape parser, but the private API/stream connection remains disabled under the original brief and your condition about legal/account risk. Copying its UI does not establish permission or produce the same data on other providers. Sources: [Claude Monitor](https://claude-monitor.com/), [repository](https://github.com/claude-monitor/claude-monitor-browser-extension).
 
@@ -36,13 +36,13 @@ Store review pages were not retrievable for several cited listings. A low score 
 
 ## 7. Account sign-in and saved contexts
 
-**Local persistence works; live cloud sign-in remains incomplete.** Supabase Google OAuth/PKCE, manual backup/restore, disconnect and separate remote deletion are coded. A private owner-only table migration is prepared. The app session is separate from all AI provider credentials.
+**Local persistence and live Google sign-in/backup/restore work in the installed Brave build.** Supabase Google OAuth/PKCE, manual backup/restore, disconnect and separate remote deletion are coded. A private owner-only table migration is prepared. The app session is separate from all AI provider credentials.
 
-Supabase tools are now connected. The owner-scoped backup table is applied, transactional RLS checks passed and the public project key is configured. Google provider is disabled: enable/configure the Google OAuth client and extension redirect, then complete live OAuth and cross-device backup/restore checks. See CLOUD_SETUP.md.
+Supabase tools are now connected. The owner-scoped backup table is applied, transactional RLS checks passed and the public project key is configured. Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested. See CLOUD_SETUP.md.
 
 ## 8. Sidebar option
 
-**Implemented.** The header has a sidebar button. The browser side-panel entry uses the same app and was checked at 320 pixels without horizontal overflow. Unsupported browsers get a workspace-tab fallback. Native side-panel opening still needs a check in the user's actual Brave/Chrome installation.
+**Implemented.** The header has a sidebar button. The browser side-panel entry uses the same app and was checked at 320 pixels without horizontal overflow. Unsupported browsers get a workspace-tab fallback. Native side-panel opening passed in the installed Brave browser; 0.3.2 fixes following active-tab changes. Other browser versions remain untested.
 
 ## 9. Professional, minimal frontend with restrained animation
 
@@ -54,4 +54,4 @@ Read VERIFICATION.md and sibling ui-previews reports for exact test results. Iso
 
 ## 0.3.1 update: Capsule-style workflow and cloud setup
 
-Dashboard, quick actions, recent copy/delete, manual capsule form, six recent cards and sidebar now follow Capsule Infinity’s library structure. Full captures save durable content-fingerprinted snapshots and keep exact full text alongside compact handoffs. Supabase owner-scoped backup storage is applied and SQL isolation checks passed; public configuration is installed. Google remains disabled in Supabase and requires provider/client/redirect setup before live sign-in. Teams, hosted compression and exact hidden quota readings remain incomplete, as detailed in CHANGES_0.3.1.md.
+Dashboard, quick actions, recent copy/delete, manual capsule form, six recent cards and sidebar now follow Capsule Infinity’s library structure. Full captures save durable content-fingerprinted snapshots and keep exact full text alongside compact handoffs. Supabase owner-scoped backup storage is applied and SQL isolation checks passed; public configuration is installed. Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested. Teams, hosted compression and exact hidden quota readings remain incomplete, as detailed in CHANGES_0.3.1.md.

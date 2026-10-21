@@ -1,6 +1,6 @@
 # Handoff project and UI/UX report
 
-Version 0.3.1 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
+Version 0.3.2 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider compatibility, cross-device/cloud lifecycle checks, and real multi-model handoff evaluation remain open. Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested.
 
 ## Main user journey
 
@@ -8,7 +8,7 @@ Version 0.3.1 — 2026-10-21. This is a browser extension, built with WXT, TypeS
 2. Capture Page collects visible and older rendered chat messages by default, bounded by the documented capture limits. Reading position is restored. Available full text is saved as an immutable, redacted snapshot; unchanged captures deduplicate.
 3. Open a saved capsule, review full or compact context, choose a destination and open an unsent draft. Full copy/download remain available above the insertion budget. The compact action never replaces the stored full snapshot.
 4. New Capsule opens a short form with name, context and optional folder. Recent cards offer copy/delete, and View All searches names and folders. Existing saved projects and recent chats remain accessible.
-5. Account/backups offers local export/restore. Google/Supabase backup has a configured public project and owner-scoped table; Google provider/client/redirect setup and live testing remain pending and uploads are explicit. No account is needed locally.
+5. Account/backups offers local export/restore. Google/Supabase backup has a configured public project and owner-scoped table; Google sign-in, explicit cloud upload, and same-installation restore passed live in Brave; cross-device checks remain pending. No account is needed locally.
 
 ## Interface inventory
 
@@ -52,7 +52,7 @@ Claude Monitor was audited at a pinned public commit. Its private usage APIs and
 ## What is not implemented or not established
 
 - Automatic AI account switching, cookie/credential manipulation, quota bypass, and automatic submission: prohibited and absent. A normal Gemini link leaves account selection to the provider UI.
-- Google/Supabase live authentication and cross-device restore: public configuration and database isolation checks complete; Google provider/client/redirect setup and real authenticated backup/restore tests remain pending.
+- Google/Supabase live authentication and cross-device restore: public configuration and database isolation checks complete; Google sign-in and real authenticated backup/restore passed in the installed Brave browser; cross-device and session lifecycle tests remain pending.
 - Continuous exact quota data for every provider: not established. A uniform display does not create access to hidden balances.
 - Teams, shared cloud folders, cloud revision history, automatic background cloud sync, semantic embedding search, and attachment/media reconstruction: not implemented. Screenshot-only team counters are not added as fake functionality.
 - Optional paid/model-backed summarization and on-device generative ML: not enabled. The default works without a paid API key.

@@ -1,6 +1,6 @@
 # Finish Google login for Handoff
 
-Current project: qeoduozlznznptwsfzbt. The Supabase database and public key are configured. Google was disabled when last checked; no Google client secret is in this project.
+Current project: qeoduozlznznptwsfzbt. The Supabase database and public key are configured. Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested. No Google client secret belongs in extension source.
 
 ## 1. Google Cloud — the screen in your screenshot
 
@@ -22,7 +22,7 @@ Enable Google, paste the Google client ID and client secret into the provider se
 
 ## 3. Supabase — extension redirect
 
-Reload Handoff 0.3.1, click Local/account → Google sign-in and backup → Google login setup → Copy extension callback.
+Reload the current Handoff build, click Local/account → Google sign-in and backup → Google login setup → Copy extension callback.
 
 In Supabase Authentication → URL Configuration → Redirect URLs, add the copied address exactly. It has the form `https://<your-extension-id>.chromiumapp.org/supabase`. Do not put the Supabase callback from step 1 in this field instead. Loading the unpacked extension from a different path/browser may produce a different extension ID and require another exact callback.
 

@@ -1,12 +1,16 @@
+> **0.3.2 current:** Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested. Live sidebar testing found stale active-tab state; a revision-guarded connection tracker now follows tab activation/navigation and ignores late responses. See LIVE_VALIDATION_2026-10-21.md.
+
+## Historical phase notes
+
 > **0.3.1:** visible Usage limits, all-provider refresh, percent-left display and Google OAuth callback setup helpers added. Google provider remains disabled; follow GOOGLE_LOGIN_SETUP.md.
 
-> **0.3.0 current:** Capsule-style dashboard and durable full snapshots implemented. Supabase table/public configuration applied; transactional owner isolation passed. Google provider is disabled and requires configuration. See VERIFICATION.md for current results; earlier phase notes below are historical.
+> **0.3.0 historical:** Capsule-style dashboard and durable full snapshots implemented. Supabase table/public configuration applied; transactional owner isolation passed. Google provider is disabled and requires configuration. See VERIFICATION.md for current results; earlier phase notes below are historical.
 
 > **0.2.1:** the nine-requirement audit is in `REQUIREMENTS_STATUS.md`. Usage observation/delivery fixes are tested locally; live provider quotas, cloud configuration and real handoff evaluation remain pending.
 
 > Current 0.2.0 update (2026-10-21): see `RESEARCH_2026-10-21.md`, `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Earlier entries below are historical and do not establish live release acceptance.
 
-## 0.2.0 follow-up — current implementation and acceptance
+## 0.2.0 follow-up — historical implementation and acceptance
 
 - Phase 1: rich DOM-to-Markdown and native-ID capture, anchored streaming/history merge, bounded settled scroll capture, first-load bootstrap, and alternate wrappers implemented. Live provider compatibility remains open.
 - Phase 2: section-aware extractive selection, verbatim latest code, full/compact export, explicit next task, and redaction on outbound edited drafts implemented. Two-target multi-generation scores remain pending; harness reports missing responses.

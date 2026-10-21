@@ -1,3 +1,15 @@
+# Live results — 2026-10-21
+
+- [x] Installed Brave Handoff updated in place; original identity and local library retained.
+- [x] Google provider enabled, both callbacks matched and extension return URL saved.
+- [x] Human completed Google consent; installed extension reported connected.
+- [x] Approved explicit upload succeeded; server metadata confirmed one backup.
+- [x] Same-installation restore validated one conversation and zero named projects, completed and retained the saved library.
+- [x] Native Brave sidebar opened; tab-switch bug found and fixed in 0.3.2 (retest recorded separately).
+- [ ] Cross-device and full cloud lifecycle acceptance remain pending.
+
+The checklists below retain earlier release gates; unchecked broader items do not override the specific passes above.
+
 ## 0.2.0 additional live gates
 
 - [ ] Reload/reconnect Codex so the authenticated Supabase MCP tools appear.
