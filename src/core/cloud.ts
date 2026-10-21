@@ -26,6 +26,13 @@ function client(): SupabaseClient {
   });
   return instance;
 }
+export function googleOAuthSetup() {
+  checkCloudConfig(config.url, config.publishableKey);
+  const extensionCallback = chrome.identity.getRedirectURL('supabase');
+  const callback = new URL(extensionCallback);
+  if (callback.protocol !== 'https:' || !callback.hostname.endsWith('.chromiumapp.org') || callback.pathname !== '/supabase' || callback.search || callback.hash) throw new Error('Invalid extension callback.');
+  return { googleCallback: `${config.url}/auth/v1/callback`, extensionCallback, providerSettings: `https://supabase.com/dashboard/project/${new URL(config.url).hostname.split('.')[0]}/auth/providers` };
+}
 export async function googleSignInAvailable(): Promise<boolean> {
   checkCloudConfig(config.url, config.publishableKey);
   const response = await fetch(`${config.url}/auth/v1/settings`, { headers: { apikey: config.publishableKey }, signal: AbortSignal.timeout(10000) });
@@ -36,7 +43,7 @@ export async function googleSignInAvailable(): Promise<boolean> {
 export async function signInGoogle(): Promise<string> {
   if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local capsules are saved normally.');
   const supabase = client();
-  const redirect = chrome.identity.getRedirectURL('supabase');
+  const redirect = googleOAuthSetup().extensionCallback;
   const result = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirect, skipBrowserRedirect: true } });
   if (result.error || !result.data.url) throw new Error(result.error?.message || 'Could not start Google sign-in.');
   const returned = await chrome.identity.launchWebAuthFlow({ url: result.data.url, interactive: true });

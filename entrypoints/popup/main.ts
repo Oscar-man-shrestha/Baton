@@ -62,7 +62,7 @@ const setView = (view: 'capture' | 'saved') => {
   document.querySelector('#tab-capture')?.setAttribute('aria-pressed', String(view === 'capture'));
   document.querySelector('#tab-saved')?.setAttribute('aria-pressed', String(view === 'saved'));
 };
-document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false; (document.querySelector('#usage-panel') as HTMLElement).hidden = false; setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
+document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false;  setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
 document.querySelector('#tab-saved')?.addEventListener('click', () => setView('saved'));
 const activeChatTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknown): Promise<T> => sendWithBootstrap(
@@ -89,6 +89,23 @@ void activeChatTab().then(async tab => {
     (document.querySelector('#source-label') as HTMLElement).textContent = `${name} · active tab`;
   }
 }).catch(() => { /* The capture button will show a useful error if connection fails. */ });
+const usageDialog = document.querySelector('#usage-dialog') as HTMLDialogElement;
+document.querySelector('#show-usage')?.addEventListener('click', () => { usageDialog.showModal(); void showUsage(); });
+document.querySelector('#close-usage')?.addEventListener('click', () => usageDialog.close());
+document.querySelector('#refresh-all-usage')?.addEventListener('click', async () => {
+  const button = document.querySelector('#refresh-all-usage') as HTMLButtonElement;
+  const message = document.querySelector('#usage-refresh-status') as HTMLElement;
+  button.disabled = true; message.textContent = 'Checking open AI tabs…';
+  try {
+    const tabs = (await chrome.tabs.query({})).filter(tab => isSupportedChatUrl(tab.url));
+    const results = await Promise.allSettled(tabs.map(tab => sendToChat<{ ok?: boolean }>(tab, { type: 'REFRESH_USAGE' })));
+    const connected = results.filter(result => result.status === 'fulfilled' && result.value?.ok).length;
+    await showUsage();
+    message.textContent = tabs.length ? `Checked ${connected} of ${tabs.length} open AI tabs. Only service-reported readings are shown.` : 'Open a supported AI chat to read its usage notices.';
+  } catch { message.textContent = 'Could not check open tabs. Try again.'; }
+  finally { button.disabled = false; }
+});
+window.setInterval(() => { void showUsage(); }, 60000);
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 async function showUsage() {
   const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`]));
@@ -150,10 +167,11 @@ function renderActiveUsage(saved: Record<string, any>) {
   for (const reading of readings) {
     const row = document.createElement('div'); row.className = 'active-usage-reading';
     const label = document.createElement('span'); label.textContent = reading.feature;
-    const value = document.createElement('strong'); value.textContent = reading.percent !== undefined ? `${Number(reading.percent.toFixed(1))}% used` : `${reading.remainingTokens?.toLocaleString()} tokens left`;
+    const count = (reading as UsageWindow).remainingCount;
+    const value = document.createElement('strong'); value.textContent = reading.percent !== undefined ? `${Number((100 - reading.percent).toFixed(1))}% left` : count !== undefined ? `${count.toLocaleString()} left` : reading.remainingTokens !== undefined ? `${reading.remainingTokens.toLocaleString()} tokens left` : 'Balance unknown';
     row.append(label, value);
     if (reading.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = reading.percent; bar.setAttribute('aria-label', `${reading.feature}: ${reading.percent}% used`); row.append(bar); }
-    const detail = document.createElement('small'); detail.textContent = windowLabel(reading as UsageWindow).split(' · ').slice(1).join(' · '); row.append(detail);
+    const detail = document.createElement('small'); detail.textContent = windowLabel(reading as UsageWindow); row.append(detail);
     container.append(row);
   }
   if (!readings.length) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
@@ -185,7 +203,6 @@ const showDraftBudget = () => {
   openDraft.textContent = reviewed ? 'Open draft in new chat ↗' : 'Review & continue ↗';
   captureCard.hidden = !flow.hidden;
   (document.querySelector('#tab-capture') as HTMLElement).hidden = flow.hidden && activeView === 'capture';
-  (document.querySelector('#usage-panel') as HTMLElement).hidden = !flow.hidden;
   destinationPanel.hidden = !reviewed;
   actionBar.hidden = activeView !== 'capture' || flow.hidden;
   (document.querySelector('#idle-footer') as HTMLElement).hidden = !actionBar.hidden;
@@ -472,18 +489,29 @@ document.querySelector('#sidebar')?.addEventListener('click', async () => {
 const accountDialog = document.querySelector('#account-dialog') as HTMLDialogElement;
 let cloudReady = false;
 const backupStatus = document.querySelector('#backup-status') as HTMLElement;
-document.querySelector('#account')?.addEventListener('click', () => {
-  accountDialog.showModal();
-  if (cloudReady && cloudConfigured) {
-    const button = document.querySelector('#google-sign-in') as HTMLButtonElement;
-    button.disabled = true;
-    cloudStatus.textContent = 'Checking Google sign-in setup…';
-    void import('../../src/core/cloud').then(cloud => cloud.googleSignInAvailable()).then(available => {
-      button.disabled = !available;
-      cloudStatus.textContent = available ? 'Google is available. Sign in to back up your saved capsules.' : 'Cloud storage is configured. Enable Google in Supabase Authentication → Providers to finish sign-in setup. Local capsules and backups already work.';
-    }).catch(() => { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. You can retry sign-in; local capsules are safe.'; });
-  }
+async function refreshGoogleSetup() {
+  if (!cloudReady || !cloudConfigured) return;
+  const button = document.querySelector('#google-sign-in') as HTMLButtonElement;
+  button.disabled = true;
+  cloudStatus.textContent = 'Checking Google sign-in setup…';
+  try {
+    const cloud = await import('../../src/core/cloud');
+    const setup = cloud.googleOAuthSetup();
+    (document.querySelector('#google-callback') as HTMLInputElement).value = setup.googleCallback;
+    (document.querySelector('#extension-callback') as HTMLInputElement).value = setup.extensionCallback;
+    const available = await cloud.googleSignInAvailable();
+    button.disabled = !available;
+    (document.querySelector('#google-setup') as HTMLDetailsElement).open = !available;
+    cloudStatus.textContent = available ? 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' : 'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local capsules are already saved.';
+  } catch { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. Try Check Google setup again. Local capsules are safe.'; }
+}
+document.querySelector('#account')?.addEventListener('click', () => { accountDialog.showModal(); void refreshGoogleSetup(); });
+document.querySelector('#retry-google-setup')?.addEventListener('click', () => { void refreshGoogleSetup(); });
+document.querySelector('#copy-extension-callback')?.addEventListener('click', async () => {
+  try { const setup = (await import('../../src/core/cloud')).googleOAuthSetup(); await navigator.clipboard.writeText(setup.extensionCallback); cloudStatus.textContent = 'Extension callback copied. Add it to Supabase Authentication → URL Configuration → Redirect URLs.'; }
+  catch { cloudStatus.textContent = 'Callback unavailable. Reload the configured Handoff build and try again.'; }
 });
+document.querySelector('#open-google-provider')?.addEventListener('click', async () => { const setup = (await import('../../src/core/cloud')).googleOAuthSetup(); await chrome.tabs.create({ url: setup.providerSettings }); });
 document.querySelector('#close-account')?.addEventListener('click', () => accountDialog.close());
 document.querySelector('#backup-all')?.addEventListener('click', async () => {
   const { exportBackup } = await import('../../src/core/backup');

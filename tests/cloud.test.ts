@@ -12,6 +12,15 @@ beforeEach(() => {
   vi.stubGlobal('chrome', { identity: { getRedirectURL: () => 'https://extension.chromiumapp.org/supabase', launchWebAuthFlow: state.flow }, storage: { local: { get: async () => ({ projects: [], folders: [] }), set: state.set } } });
 });
 describe('optional Supabase integration', () => {
+  it('separates the Google-to-Supabase callback from the extension callback', async () => {
+    const setup = (await import('../src/core/cloud')).googleOAuthSetup();
+    expect(setup.googleCallback).toBe('https://example.supabase.co/auth/v1/callback');
+    expect(setup.extensionCallback).toBe('https://extension.chromiumapp.org/supabase');
+    expect(setup.providerSettings).toBe('https://supabase.com/dashboard/project/example/auth/providers');
+    (chrome.identity.getRedirectURL as unknown as () => string) = () => 'https://evil.example/supabase';
+    expect(setup).not.toHaveProperty('secret');
+    const cloud = await import('../src/core/cloud'); expect(() => cloud.googleOAuthSetup()).toThrow('Invalid extension callback');
+  });
   it('uses Google PKCE and verifies the returning redirect path', async () => {
     const cloud = await import('../src/core/cloud'); expect(await cloud.signInGoogle()).toBe('owner@example.com');
     expect(state.oauth.mock.calls[0][0].options.skipBrowserRedirect).toBe(true); expect(state.exchange).toHaveBeenCalledWith('pkce-result');
