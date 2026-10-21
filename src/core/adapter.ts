@@ -202,7 +202,7 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
       if (match) return { kind: 'banner', text: match.slice(0, 240) };
       // Many services print the limit as plain text beside the composer. Accept only short, visible, strict wording
       // outside conversation turns, navigation, the editor and other extensions.
-      const reached = /(?:you(?:'|’)?ve|you have|you(?:'|’)?re|you are)\s+(?:reached|hit|run out of|out of)\b[^.]{0,60}?(?:limit|cap|messages)|(?:usage|message|rate)\s+limit\s+(?:reached|exceeded)/i;
+      const reached = /(?:you(?:'|’)?ve|you have|you(?:'|’)?re|you are)\s+(?:reached|hit|run out of|out of)\b[^.]{0,60}?(?:limit|cap|messages)|(?:usage|message|rate)\s+limit\s+(?:reached|exceeded)|(?<![\d.,])\d{1,5}\s+(?:pro\s+)?(?:searches|search|queries|query|messages?|responses?|questions?|prompts?|requests?)\s+(?:left|remaining)\b/i;
       const walker = doc.createTreeWalker(doc.body, 4);
       for (let text = walker.nextNode(); text; text = walker.nextNode()) {
         const value = (text.nodeValue || '').trim();

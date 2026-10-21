@@ -128,11 +128,11 @@ for (const [buttonId, statusId] of [['#refresh-all-usage', '#usage-refresh-statu
 window.setInterval(() => { void showUsage(); }, 60000);
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 // Messages Handoff counted in the service's window, with the limit learned from past limit notices.
-const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Handoff` : ''; };
+const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], Date.now(), saved[`statedLimit:${id}`]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Handoff` : ''; };
 // Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
 const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
 async function showUsage() {
-  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`]));
+  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`]));
   usageList.replaceChildren();
   renderActiveUsage(saved);
   for (const id of providerIds) {
@@ -189,7 +189,7 @@ function renderActiveUsage(saved: Record<string, any>) {
   const note = document.querySelector('#active-usage-note') as HTMLElement;
   const windows = shownWindows(saved, activeProvider);
   const meter = saved[`meter:${activeProvider}`] as Meter | undefined;
-  const readings = windows.length ? windows : isCurrentReading(meter) && (meter.percent !== undefined || meter.remainingTokens !== undefined) ? [meter] : [];
+  const readings = windows.length ? windows : isCurrentReading(meter) && (meter.percent !== undefined || meter.remainingTokens !== undefined || meter.remainingCount !== undefined) ? [meter] : [];
   container.replaceChildren();
   for (const reading of readings) {
     const row = document.createElement('div'); row.className = 'active-usage-reading';
@@ -210,7 +210,7 @@ function renderActiveUsage(saved: Record<string, any>) {
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
 for (const provider of ['claude', 'gemini', 'chatgpt'] as const) document.querySelector(`#check-${provider}-usage`)?.addEventListener('click', () => { void chrome.tabs.create({ url: usagePageUrl(provider)! }); });
-chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`])) void showUsage(); });
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`] || changes[`statedLimit:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
   if (desktopAlerts.checked) {

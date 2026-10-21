@@ -6,7 +6,7 @@ import { saveCapturedCapsule } from '../src/core/capsules';
 import { accountSwitch, newChatUrls, providerNames, reachedLimit, rescueOptions } from '../src/core/rescue';
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
-import { estimateMeter, type LimitEvent, type Meter } from '../src/core/limits';
+import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
@@ -31,12 +31,13 @@ export default defineContentScript({
     let latestHistory: UsageHistory = {};
     let latestSends: number[] = [];
     let latestHits: LimitHit[] = [];
+    let latestStated: StatedLimit | undefined;
     // When the service shows its limit, remember how many messages were sent in the window; this teaches the learned limit.
     const noteLimitHit = async () => {
       if (!reachedLimit({ [`usageWindows:${id}`]: latestWindows, [`meter:${id}`]: latestMeter }, id)) return;
       const key = `limitHits:${id}`;
       const hits = ((await chrome.storage.local.get(key))[key] || []) as LimitHit[];
-      const next = recordLimitHit(hits, latestSends, id, Date.now());
+      const next = recordLimitHit(hits, latestSends, id, Date.now(), latestStated);
       if (next !== hits) { latestHits = next; await chrome.storage.local.set({ [key]: next }); }
     };
     let composerUsageEnabled = true;
@@ -85,7 +86,7 @@ export default defineContentScript({
       return redact(wrapHandoff(renderBrief(brief, 1400).text)).text;
     };
     const updateRescue = async () => {
-      const saved = await chrome.storage.local.get([...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`]), 'enabledProviders']);
+      const saved = await chrome.storage.local.get([...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders']);
       const limit = reachedLimit(saved, id);
       const signature = limit ? `${limit.feature}:${limit.resetAt ?? ''}` : '';
       if (!limit || signature === dismissedRescue) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); rescueSignature = ''; return; }
@@ -178,7 +179,7 @@ export default defineContentScript({
         });
       } else {
         const text = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
-        const counted = messageSummary(id, latestSends, latestHits);
+        const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
         // Services that show no numbers: say what Handoff counted instead of only “unknown”.
         statusText.textContent = text.endsWith('Usage left: unknown') && (counted.count || counted.learnedLimit !== undefined) ? text.replace('Usage left: unknown', `${counted.text} (counted by Handoff)`) : text;
       }
@@ -194,7 +195,7 @@ export default defineContentScript({
     ctx.addEventListener(document, 'focusin', scheduleStatus, { capture: true });
     ctx.addEventListener(document, 'scroll', scheduleStatus, { capture: true });
     ctx.addEventListener(window, 'resize', scheduleStatus);
-    void chrome.storage.local.get([`usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`]).then(saved => { latestHistory = (saved[`usageHistory:${id}`] || {}) as UsageHistory; latestSends = (saved[`usageSends:${id}`] || []) as number[]; latestHits = (saved[`limitHits:${id}`] || []) as LimitHit[]; scheduleStatus(); });
+    void chrome.storage.local.get([`usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`]).then(saved => { latestStated = saved[`statedLimit:${id}`] as StatedLimit | undefined; latestHistory = (saved[`usageHistory:${id}`] || {}) as UsageHistory; latestSends = (saved[`usageSends:${id}`] || []) as number[]; latestHits = (saved[`limitHits:${id}`] || []) as LimitHit[]; scheduleStatus(); });
     void chrome.storage.local.get([`meter:${id}`, `usageWindows:${id}`, 'composerUsageEnabled']).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; latestWindows = (saved[`usageWindows:${id}`] || []) as UsageWindow[]; composerUsageEnabled = saved.composerUsageEnabled !== false; scheduleStatus(); });
     ctx.setInterval(() => { void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); }); }, 30000);
     const observeUsage = async (force = false) => {
@@ -227,6 +228,9 @@ export default defineContentScript({
       latestMeter = meter;
       scheduleStatus();
       await chrome.storage.local.set({ [`meter:${id}`]: meter });
+      // A limit message that states the allowance (“limit of 20 messages per 2 hours”) is kept for counting.
+      const stated = parseStatedLimit(signal.text);
+      if (stated) { latestStated = stated; await chrome.storage.local.set({ [`statedLimit:${id}`]: stated }); }
       await noteLimitHit();
       if (meter.tier === 'banner') void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
     };
@@ -240,6 +244,7 @@ export default defineContentScript({
       if (changes[`usageHistory:${id}`]) latestHistory = (changes[`usageHistory:${id}`].newValue || {}) as UsageHistory;
       if (changes[`usageSends:${id}`]) latestSends = (changes[`usageSends:${id}`].newValue || []) as number[];
       if (changes[`limitHits:${id}`]) latestHits = (changes[`limitHits:${id}`].newValue || []) as LimitHit[];
+      if (changes[`statedLimit:${id}`]) latestStated = changes[`statedLimit:${id}`].newValue as StatedLimit | undefined;
       scheduleStatus();
     };
     chrome.storage.onChanged.addListener(settingsChanged);

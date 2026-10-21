@@ -2,6 +2,8 @@ import type { ProviderId } from './selectors';
 import { providerIds } from './selectors';
 import type { Meter } from './limits';
 import { activeWindows, isCurrentReading, resetCountdown, type UsageWindow } from './usage-windows';
+import { messageSummary, type LimitHit } from './message-counts';
+import type { StatedLimit } from './limits';
 
 export const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 export const newChatUrls: Record<ProviderId, string> = { chatgpt: 'https://chatgpt.com/', claude: 'https://claude.ai/new', gemini: 'https://gemini.google.com/app', deepseek: 'https://chat.deepseek.com/', grok: 'https://grok.com/', perplexity: 'https://www.perplexity.ai/' };
@@ -38,7 +40,15 @@ export function rescueOptions(source: ProviderId, saved: Record<string, unknown>
     const limit = reachedLimit(saved, id, now);
     if (limit) return { provider: id, status: 'limited', ...(limit.resetAt ? { resetAt: limit.resetAt } : {}), detail: `limit reached${limit.resetAt ? ` · resets in ${resetCountdown(limit.resetAt, now)}` : ''}` };
     const left = readings(saved, id, now).map(reading => reading.remainingPercent ?? (reading.percent === undefined ? undefined : 100 - reading.percent)).filter((value): value is number => value !== undefined);
-    if (!left.length) return { provider: id, status: 'unknown', detail: 'no limit shown' };
+    if (!left.length) {
+      // No official balance: use messages counted against a stated or learned limit, labelled as counted.
+      const counted = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], now, saved[`statedLimit:${id}`] as StatedLimit | undefined);
+      if (counted.learnedLimit && counted.left !== undefined) {
+        const detail = `≈${counted.left} of ${counted.learnedLimit} left (counted)`;
+        return counted.left > 0 ? { provider: id, status: 'room', remainingPercent: counted.left / counted.learnedLimit * 100, detail } : { provider: id, status: 'unknown', detail };
+      }
+      return { provider: id, status: 'unknown', detail: 'no limit shown' };
+    }
     const remainingPercent = Math.min(...left);
     return { provider: id, status: 'room', remainingPercent, detail: `${Number(remainingPercent.toFixed(1))}% left` };
   });

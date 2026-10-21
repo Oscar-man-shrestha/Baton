@@ -1,7 +1,7 @@
 import { encode } from 'gpt-tokenizer';
 import type { ProviderId } from './selectors';
 
-export type Meter = { provider: ProviderId; tier: 'banner' | 'history' | 'unknown'; confidence: 'high' | 'medium' | 'low'; percent?: number; remainingPercent?: number; remainingTokens?: number; resetAt?: number; feature: string; explanation: string; estimatedReplyCost?: number; nearLimit?: boolean; at?: number };
+export type Meter = { provider: ProviderId; tier: 'banner' | 'history' | 'unknown'; confidence: 'high' | 'medium' | 'low'; percent?: number; remainingPercent?: number; remainingTokens?: number; remainingCount?: number; resetAt?: number; feature: string; explanation: string; estimatedReplyCost?: number; nearLimit?: boolean; at?: number };
 export type LimitEvent = { at: number; approximateTokens: number };
 
 export function parseReset(text: string, now = Date.now()): number | undefined {
@@ -55,6 +55,22 @@ function calendarReset(text: string, now: number): number | undefined | null {
   return at.getTime();
 }
 
+export type StatedLimit = { count: number; hours: number };
+const unitHours = (amount: number, unit: string) => /^min/i.test(unit) ? amount / 60 : /^d/i.test(unit) ? amount * 24 : /^w/i.test(unit) ? amount * 168 : amount;
+/** “…limit of 20 messages per 2 hours”: the allowance a service states in its own limit message. */
+export function parseStatedLimit(text: string): StatedLimit | undefined {
+  const m = text.match(/limit of (\d{1,5})\s+(?:pro\s+)?(?:messages?|queries|requests|questions|prompts|searches|chats?|responses)\s+(?:per|every|each|in(?:\s+a)?)\s+(\d{1,4}\s*)?(hours?|hrs?|h|minutes?|mins?|days?|weeks?)\b/i);
+  if (!m) return;
+  const count = Number(m[1]);
+  const hours = Math.round(unitHours(m[2] ? Number(m[2]) : 1, m[3]) * 100) / 100;
+  return count >= 1 && hours > 0 && hours <= 720 ? { count, hours } : undefined;
+}
+/** “3 Pro searches left”, “You have 2 responses left”, “1 message remaining”. */
+export function parseRemainingCount(text: string): { count: number; what: string } | undefined {
+  const m = text.match(/(?<![\d.,])(\d{1,5})\s+((?:pro\s+)?(?:searches|search|queries|query|messages?|responses?|questions?|prompts?|requests?))\s+(?:left|remaining)\b/i);
+  return m ? { count: Number(m[1]), what: m[2].replace(/^pro\b/i, 'Pro') } : undefined;
+}
+
 export function estimateMeter(provider: ProviderId, visibleBanner: string, turns: string[], history: LimitEvent[] = [], now = Date.now()): Meter {
   const resetAt = parseReset(visibleBanner, now);
   const knownLimit = /(?:you(?:'|’)?ve|you have|you(?:'|’)?re|you are)\s+(?:reached|hit|run out of|out of)\b[^.]{0,60}?(?:limit|cap|messages)|you.ve reached (?:your |the )?(?:usage |message |free )?limit|reached (?:your |the )?(?:usage |message |free )?limit|limit reached|(?:usage|message|rate) limit exceeded|quota exceeded/i.test(visibleBanner);
@@ -69,6 +85,11 @@ export function estimateMeter(provider: ProviderId, visibleBanner: string, turns
   const tokenMatch = /\b(?:free(?:[ -]tier)?|usage|quota)\b.{0,70}(?<![-\d.,])(\d[\d,]*)\s+tokens?\s+(?:remaining|left)\b/i.exec(visibleBanner);
   const tokenValue = tokenMatch ? Number(tokenMatch[1].replaceAll(',', '')) : undefined;
   const remainingTokens = tokenValue !== undefined && Number.isSafeInteger(tokenValue) && tokenValue >= 0 ? tokenValue : undefined;
+  const counted = parseRemainingCount(visibleBanner);
+  if (counted) {
+    const noneLeft = counted.count === 0;
+    return { provider, tier: 'banner', confidence: 'high', remainingCount: counted.count, ...(noneLeft || knownLimit ? { percent: 100, remainingPercent: 0 } : {}), resetAt, feature: /pro search/i.test(counted.what) ? 'Pro searches' : feature, explanation: noneLeft ? 'Visible provider limit notice' : 'Visible provider count' };
+  }
   if (knownLimit || nearLimit || remainingPercent !== undefined || usedPercent !== undefined || remainingTokens !== undefined) return { provider, tier: 'banner', confidence: 'high', percent: knownLimit ? 100 : remainingPercent !== undefined ? 100 - remainingPercent : usedPercent, remainingPercent: remainingPercent ?? (usedPercent === undefined ? undefined : 100 - usedPercent), remainingTokens, resetAt, feature, nearLimit: nearLimit && !knownLimit, explanation: knownLimit ? 'Visible provider limit notice' : remainingPercent !== undefined || usedPercent !== undefined || remainingTokens !== undefined ? 'Visible provider balance' : 'Visible provider near-limit notice' };
   const recent = history.filter(e => e.at <= now && e.approximateTokens > 0).slice(-12);
   if (provider !== 'chatgpt' && recent.length >= 2) {
