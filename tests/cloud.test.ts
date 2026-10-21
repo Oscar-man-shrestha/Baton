@@ -8,6 +8,7 @@ beforeEach(() => {
   state.oauth.mockResolvedValue({ data: { url: 'https://example.supabase.co/auth/v1/authorize?provider=google' } });
   state.exchange.mockResolvedValue({ data: {}, error: null }); state.upsert.mockResolvedValue({ error: null }); state.signOut.mockResolvedValue({ error: null });
   state.flow.mockResolvedValue('https://extension.chromiumapp.org/supabase?code=pkce-result');
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ external: { google: true } }) }));
   vi.stubGlobal('chrome', { identity: { getRedirectURL: () => 'https://extension.chromiumapp.org/supabase', launchWebAuthFlow: state.flow }, storage: { local: { get: async () => ({ projects: [], folders: [] }), set: state.set } } });
 });
 describe('optional Supabase integration', () => {
@@ -15,6 +16,11 @@ describe('optional Supabase integration', () => {
     const cloud = await import('../src/core/cloud'); expect(await cloud.signInGoogle()).toBe('owner@example.com');
     expect(state.oauth.mock.calls[0][0].options.skipBrowserRedirect).toBe(true); expect(state.exchange).toHaveBeenCalledWith('pkce-result');
     state.flow.mockResolvedValue('https://extension.chromiumapp.org/supabase-evil?code=bad'); await expect(cloud.signInGoogle()).rejects.toThrow('unexpected'); expect(state.exchange).toHaveBeenCalledTimes(1);
+  });
+  it('does not open an auth flow when Google is disabled on the project', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ external: { google: false } }) }));
+    await expect((await import('../src/core/cloud')).signInGoogle()).rejects.toThrow('not enabled');
+    expect(state.flow).not.toHaveBeenCalled(); expect(state.oauth).not.toHaveBeenCalled();
   });
   it('does not write a backup without a verified signed-in owner', async () => {
     state.getUser.mockResolvedValue({ data: { user: null }, error: null });

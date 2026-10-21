@@ -26,7 +26,15 @@ function client(): SupabaseClient {
   });
   return instance;
 }
+export async function googleSignInAvailable(): Promise<boolean> {
+  checkCloudConfig(config.url, config.publishableKey);
+  const response = await fetch(`${config.url}/auth/v1/settings`, { headers: { apikey: config.publishableKey }, signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error('Could not check Google sign-in availability.');
+  const settings = await response.json();
+  return settings.external?.google === true;
+}
 export async function signInGoogle(): Promise<string> {
+  if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local capsules are saved normally.');
   const supabase = client();
   const redirect = chrome.identity.getRedirectURL('supabase');
   const result = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirect, skipBrowserRedirect: true } });
