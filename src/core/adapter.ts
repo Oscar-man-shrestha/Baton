@@ -40,6 +40,19 @@ function visibleClone(node: Element): Element {
   return clone;
 }
 
+/**
+ * The composer the user is using: the one holding the event target or focus, else a visible one.
+ * Some pages keep a hidden, empty textarea next to the real editor (Grok), so “first match” is not enough.
+ */
+export function findEditor(doc: Document, selectors: string[], target?: Node | null): HTMLElement | undefined {
+  const within = (node: Node | null | undefined) => { const element = node?.nodeType === 1 ? node as Element : node?.parentElement; for (const selector of selectors) { const hit = element?.closest(selector); if (hit) return hit as HTMLElement; } return undefined; };
+  const direct = within(target) || within(doc.activeElement);
+  if (direct) return direct;
+  const all = selectors.flatMap(selector => Array.from(doc.querySelectorAll<HTMLElement>(selector)));
+  const shown = all.filter(element => !hiddenByAncestor(element) && !element.closest('.hidden, .sr-only'));
+  return shown.find(element => element.getClientRects().length > 0) || shown[0] || all[0];
+}
+
 export function cleanNode(node: Element): string {
   return messageMarkdown(visibleClone(node));
 }
@@ -139,7 +152,6 @@ function messageIdentity(node: Element, role: Turn['role']): string | undefined 
 
 export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAdapter {
   const s = bundle.providers[id];
-  const first = (doc: Document, selectors: string[]) => selectors.map(q => doc.querySelector(q)).find(Boolean) as Element | undefined;
   return {
     id, selectorsVersion: bundle.version, windowHours: id === 'claude' || id === 'gemini' ? 5 : undefined,
     extractTurns(doc) {
@@ -153,7 +165,7 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
       return s.artifacts.flatMap(q => Array.from(doc.querySelectorAll(q))).map((e, version) => ({ name: e.getAttribute('aria-label') || `Artifact ${version + 1}`, kind: 'visible DOM', content: cleanArtifact(e), version: version + 1 })).filter(a => a.content);
     },
     injectDraft(doc, text) {
-      const editor = first(doc, s.editor);
+      const editor = findEditor(doc, s.editor);
       if (!editor) return false;
       (editor as HTMLElement).focus();
       if (editor.tagName === 'TEXTAREA') {

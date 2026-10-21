@@ -22,3 +22,22 @@ describe('Grok capture', () => {
     expect(extract(doc, 'grok', bundledSelectors).turns.some(turn => turn.text.includes('Old chat title'))).toBe(false);
   });
 });
+
+import { findEditor, makeAdapter } from '../src/core/adapter';
+describe('Grok composer', () => {
+  // grok.com keeps a hidden, empty textarea next to its real editor; the first selector used to pick it.
+  const composer = '<textarea class="hidden" aria-hidden="true"></textarea><div data-testid="chat-input"><div contenteditable="true" class="tiptap ProseMirror"><p>an</p></div></div>';
+  it('uses the visible editor, or the one the key press came from', () => {
+    const doc = new JSDOM(page('') + composer, { url: 'https://grok.com/c/x' }).window.document;
+    const real = doc.querySelectorAll('[contenteditable="true"]')[1] as HTMLElement;
+    expect(findEditor(doc, bundledSelectors.providers.grok.editor)).toBe(doc.querySelector('[contenteditable="true"]'));
+    expect(findEditor(doc, bundledSelectors.providers.grok.editor, real.firstChild)).toBe(real);
+    expect(findEditor(doc, bundledSelectors.providers.grok.editor)?.tagName).not.toBe('TEXTAREA');
+  });
+  it('inserts a draft into the real editor, not the hidden textarea', () => {
+    const doc = new JSDOM(`<main>${composer}</main>`, { url: 'https://grok.com/' }).window.document;
+    makeAdapter('grok', bundledSelectors).injectDraft(doc, 'Continue my project');
+    expect((doc.querySelector('textarea') as HTMLTextAreaElement).value).toBe('');
+    expect(doc.querySelector('[contenteditable="true"]')?.textContent).toContain('Continue my project');
+  });
+});

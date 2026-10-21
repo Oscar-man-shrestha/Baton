@@ -1,6 +1,6 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
-import { collectTurnNodes, extract, makeAdapter } from '../src/core/adapter';
+import { collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/adapter';
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule } from '../src/core/capsules';
 import { accountSwitch, newChatUrls, providerNames, reachedLimit, rescueOptions } from '../src/core/rescue';
@@ -66,7 +66,7 @@ export default defineContentScript({
     const positionRescue = () => {
       if (rescueHost.style.display === 'none') return;
       const width = Math.min(420, innerWidth - 32);
-      const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
+      const editor = findEditor(document, bundledSelectors.providers[id].editor);
       const rect = editor ? (editor.closest('form') || editor).getBoundingClientRect() : undefined;
       const left = rect && rect.width ? rect.left + (rect.width - width) / 2 : (innerWidth - width) / 2;
       const bottom = rect && rect.height ? innerHeight - rect.top + 10 : 24;
@@ -134,7 +134,7 @@ export default defineContentScript({
     const updateStatus = () => {
       statusFrame = 0;
       positionRescue();
-      const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
+      const editor = findEditor(document, bundledSelectors.providers[id].editor);
       if (!editor || !composerUsageEnabled) { statusHost.style.display = 'none'; return; }
       const editorRect = editor.getBoundingClientRect();
       const exposed = document.elementFromPoint(editorRect.left + Math.min(20, editorRect.width / 2), editorRect.top + Math.min(10, editorRect.height / 2));
@@ -366,8 +366,8 @@ export default defineContentScript({
       // Lets the background refresh this service's usage page shortly after (throttled, user setting).
       void chrome.runtime.sendMessage({ type: 'REFRESH_AFTER_SEND' }).catch(() => {});
     };
-    const watchForSend = () => {
-      const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
+    const watchForSend = (target?: EventTarget | null) => {
+      const editor = findEditor(document, bundledSelectors.providers[id].editor, target instanceof Node ? target : undefined);
       const typed = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '';
       if (watchingSend || !typed.trim()) return;
       watchingSend = true;
@@ -383,7 +383,7 @@ export default defineContentScript({
         if (sent) void recordSend(at).catch(() => {});
       }, 1500);
     };
-    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.target instanceof Node && inEditor(event.target)) watchForSend(); }, { capture: true });
+    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.target instanceof Node && inEditor(event.target)) watchForSend(event.target); }, { capture: true });
     ctx.addEventListener(document, 'click', event => {
       const button = event.target instanceof Element ? event.target.closest('button') : null;
       if (button && (button.getAttribute('type') === 'submit' || /send|submit/i.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''}`))) watchForSend();
@@ -408,7 +408,7 @@ export default defineContentScript({
           const { key, highWaterKey, archiveKey } = storageKeys();
           const result = message.includeOlder ? await captureOlderTurns() : extract(document, id, bundledSelectors);
           if (captureUrl !== pageUrl()) throw new Error('The chat changed during capture. Capture the current conversation again.');
-          const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
+          const editor = findEditor(document, bundledSelectors.providers[id].editor);
           const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');
           if (!result.turns.length && !result.artifacts.length) {
             if (collectTurnNodes(document, id, bundledSelectors).length) throw new Error('The conversation is hidden by the page layout. Close the service’s sidebar or dialog, then capture again.');
@@ -437,7 +437,7 @@ export default defineContentScript({
       if (message?.type === 'INJECT_DRAFT' && typeof message.text === 'string') {
         if (!makeAdapter(id, bundledSelectors).injectDraft(document, message.text)) { sendResponse({ ok: false }); return; }
         setTimeout(() => {
-          const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
+          const editor = findEditor(document, bundledSelectors.providers[id].editor);
           const actual = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent;
           sendResponse({ ok: actual === message.text });
         }, 400);

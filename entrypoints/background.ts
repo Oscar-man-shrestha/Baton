@@ -42,10 +42,11 @@ export default defineBackground(() => {
       try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [script] }); } catch { /* Discarded/restricted tabs connect when opened. */ }
     }
   })().catch(() => {}); });
-  // Usage pages load in a minimised window so nothing flashes in the user's tab bar; it closes with its only tab.
+  // Usage pages load in a background tab of the current window (focus stays put) and close once read.
+  // A minimised window was tried in 0.3.18: on macOS it pulled the user into the new window.
   const usageDeps = () => ({
     tabs: () => chrome.tabs.query({}),
-    open: async (url: string) => (await chrome.windows.create({ url, focused: false, state: 'minimized' }))?.tabs?.[0]?.id,
+    open: async (url: string) => (await chrome.tabs.create({ url, active: false })).id,
     close: async (tabId: number) => { await chrome.tabs.remove(tabId); },
     ask: async (tabId: number) => !!(await chrome.tabs.sendMessage(tabId, { type: 'REFRESH_USAGE' }))?.ok,
     readingAt: async (provider: ProviderId) => Math.max(0, ...((((await chrome.storage.local.get(`usageWindows:${provider}`))[`usageWindows:${provider}`] || []) as UsageWindow[]).map(win => Number(win.at) || 0))),
