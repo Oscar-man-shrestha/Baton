@@ -6,7 +6,8 @@ import { providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
-import { activeWindows, isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
+import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
+import { displayLabel, displayWindows, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
@@ -98,9 +99,8 @@ chrome.tabs.onUpdated?.addListener((_id, change, tab) => {
 const usageDialog = document.querySelector('#usage-dialog') as HTMLDialogElement;
 document.querySelector('#show-usage')?.addEventListener('click', () => { usageDialog.showModal(); void showUsage(); });
 document.querySelector('#close-usage')?.addEventListener('click', () => usageDialog.close());
-document.querySelector('#refresh-all-usage')?.addEventListener('click', async () => {
-  const button = document.querySelector('#refresh-all-usage') as HTMLButtonElement;
-  const message = document.querySelector('#usage-refresh-status') as HTMLElement;
+// Shared by the Usage window's Refresh all and the dashboard's Refresh usage button.
+async function refreshAllUsage(button: HTMLButtonElement, message: HTMLElement) {
   button.disabled = true; message.textContent = 'Checking open AI tabs and each service’s usage page…';
   try {
     const tabs = (await chrome.tabs.query({})).filter(tab => isSupportedChatUrl(tab.url));
@@ -112,24 +112,30 @@ document.querySelector('#refresh-all-usage')?.addEventListener('click', async ()
     message.textContent = `${tabs.length ? `Checked ${connected} of ${tabs.length} open AI tabs. ` : ''}${pageSummary ? `Usage pages: ${pageSummary}.` : 'No usage pages to check.'} Services without a usage page update when they show a limit.`;
   } catch { message.textContent = 'Could not refresh. Try again.'; }
   finally { button.disabled = false; }
-});
+}
+for (const [buttonId, statusId] of [['#refresh-all-usage', '#usage-refresh-status'], ['#dashboard-refresh-usage', '#dashboard-refresh-status']]) {
+  const button = document.querySelector(buttonId) as HTMLButtonElement | null;
+  button?.addEventListener('click', () => { void refreshAllUsage(button, document.querySelector(statusId) as HTMLElement); });
+}
 window.setInterval(() => { void showUsage(); }, 60000);
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
+// Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
+const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
 async function showUsage() {
-  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`]));
+  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`]));
   usageList.replaceChildren();
   renderActiveUsage(saved);
   for (const id of providerIds) {
     const row = document.createElement('div'); row.className = 'usage-row';
     const name = document.createElement('strong'); name.textContent = providerNames[id];
     const value = document.createElement('span'); value.textContent = meterSummary(saved[`meter:${id}`] as Meter | undefined);
-    const windows = activeWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[]);
+    const windows = shownWindows(saved, id);
     if (windows.length) {
       value.className = 'usage-detail'; value.replaceChildren();
       for (const win of windows) {
-        const bucket = document.createElement('span'); bucket.className = 'usage-window'; bucket.textContent = windowLabel(win);
+        const bucket = document.createElement('span'); bucket.className = 'usage-window'; bucket.textContent = displayLabel(win) || windowLabel(win);
         if (win.percent !== undefined) { const progress = document.createElement('progress'); progress.className = 'usage-gauge'; progress.max = 100; progress.value = win.percent; progress.setAttribute('aria-label', `${win.feature}: ${win.percent}% used`); bucket.append(progress); }
-        const source = document.createElement('small'); source.textContent = `Shown on service page · ${win.at ? new Date(win.at).toLocaleTimeString() : ''}`; bucket.append(source); value.append(bucket);
+        const source = document.createElement('small'); source.textContent = win.estimate ? 'Estimated from messages you sent since the last service reading' : `Shown on service page · ${win.at ? new Date(win.at).toLocaleTimeString() : ''}`; bucket.append(source); value.append(bucket);
       }
     }
     row.append(name, value); usageList.append(row);
@@ -169,7 +175,7 @@ function renderActiveUsage(saved: Record<string, any>) {
   (document.querySelector('#active-usage-title') as HTMLElement).textContent = `${providerNames[activeProvider]} usage`;
   const container = document.querySelector('#active-usage-values') as HTMLElement;
   const note = document.querySelector('#active-usage-note') as HTMLElement;
-  const windows = activeWindows(saved[`usageWindows:${activeProvider}`] || []);
+  const windows = shownWindows(saved, activeProvider);
   const meter = saved[`meter:${activeProvider}`] as Meter | undefined;
   const readings = windows.length ? windows : isCurrentReading(meter) && (meter.percent !== undefined || meter.remainingTokens !== undefined) ? [meter] : [];
   container.replaceChildren();
@@ -177,19 +183,20 @@ function renderActiveUsage(saved: Record<string, any>) {
     const row = document.createElement('div'); row.className = 'active-usage-reading';
     const label = document.createElement('span'); label.textContent = reading.feature;
     const count = (reading as UsageWindow).remainingCount;
-    const value = document.createElement('strong'); value.textContent = reading.percent !== undefined ? `${Number((100 - reading.percent).toFixed(1))}% left` : count !== undefined ? `${count.toLocaleString()} left` : reading.remainingTokens !== undefined ? `${reading.remainingTokens.toLocaleString()} tokens left` : 'Balance unknown';
+    const guess = (reading as DisplayWindow).estimate?.perMessage !== undefined && (reading as DisplayWindow).estimate!.sends ? '≈' : '';
+    const value = document.createElement('strong'); value.textContent = reading.percent !== undefined ? `${guess}${Number((100 - reading.percent).toFixed(1))}% left` : count !== undefined ? `${count.toLocaleString()} left` : reading.remainingTokens !== undefined ? `${reading.remainingTokens.toLocaleString()} tokens left` : 'Balance unknown';
     row.append(label, value);
     if (reading.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = reading.percent; bar.setAttribute('aria-label', `${reading.feature}: ${reading.percent}% used`); row.append(bar); }
-    const detail = document.createElement('small'); detail.textContent = windowLabel(reading as UsageWindow); row.append(detail);
+    const detail = document.createElement('small'); detail.textContent = displayLabel(reading as DisplayWindow) || windowLabel(reading as UsageWindow); row.append(detail);
     container.append(row);
   }
   if (!readings.length) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
-  note.textContent = readings.length ? `Service reading · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}. Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Handoff shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
+  note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Handoff shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
   (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
 for (const provider of ['claude', 'gemini', 'chatgpt'] as const) document.querySelector(`#check-${provider}-usage`)?.addEventListener('click', () => { void chrome.tabs.create({ url: usagePageUrl(provider)! }); });
-chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`])) void showUsage(); });
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
   if (desktopAlerts.checked) {
@@ -541,12 +548,12 @@ document.querySelector('#backup-all')?.addEventListener('click', async () => {
   } catch (error) { backupStatus.textContent = `Could not restore: ${String(error)}`; }
 });
 
-// Opt-in: opening Handoff refreshes usage pages, never more than once per 30 minutes (signed-out services never update).
+// On by default (user can switch off): opening Handoff refreshes usage pages, at most every 10 minutes (signed-out services never update).
 const autoRefresh = document.querySelector('#auto-refresh-usage') as HTMLInputElement;
 const autoSettings = await chrome.storage.local.get(['autoRefreshUsage', 'lastAutoUsageRefresh']);
-autoRefresh.checked = autoSettings.autoRefreshUsage === true;
+autoRefresh.checked = autoSettings.autoRefreshUsage !== false;
 autoRefresh.addEventListener('change', () => { void chrome.storage.local.set({ autoRefreshUsage: autoRefresh.checked }); });
-if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefresh) || 0) >= 1800000) {
+if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefresh) || 0) >= 600000) {
   void chrome.storage.local.set({ lastAutoUsageRefresh: Date.now() })
     .then(() => chrome.runtime.sendMessage({ type: 'REFRESH_ALL_USAGE' }))
     .then(() => showUsage()).catch(() => {});

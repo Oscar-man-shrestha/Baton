@@ -11,6 +11,7 @@ import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/c
 import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText, statusLinePosition } from '../src/core/composer-status';
+import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
 
 export default defineContentScript({
   matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*', 'https://chat.deepseek.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*'],
@@ -26,6 +27,8 @@ export default defineContentScript({
     let captureInProgress = false;
     let latestMeter: Meter | undefined;
     let latestWindows: UsageWindow[] = [];
+    let latestHistory: UsageHistory = {};
+    let latestSends: number[] = [];
     let composerUsageEnabled = true;
     const statusHost = document.createElement('div');
     statusHost.id = 'handoff-composer-status';
@@ -151,7 +154,7 @@ export default defineContentScript({
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
       const fresh = isCurrentReading(latestMeter);
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
-      const windows = activeWindows(latestWindows);
+      const windows = displayWindows(latestWindows, latestHistory, latestSends);
       const current = latestMeter;
       if (isCurrentReading(current) && !windows.some(win => win.feature === current.feature)) windows.push({ ...current, key: `${id}:notice`, source: 'provider-page' });
       windows.sort((a, b) => (b.percent || 0) - (a.percent || 0));
@@ -160,11 +163,11 @@ export default defineContentScript({
         if (lastPromptTokens) statusText.append(`≈${lastPromptTokens} prompt tokens · `);
         windows.slice(0, 2).forEach((win, index) => {
           if (index) statusText.append(' · ');
-          statusText.append(windowLabel(win));
+          statusText.append(displayLabel(win) || windowLabel(win));
           if (win.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = win.percent; bar.setAttribute('aria-label', `${win.feature}: ${win.percent}% used`); statusText.append(bar); }
         });
       } else statusText.textContent = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
-      statusText.title = windows.length ? windows.map(win => `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
+      statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
       statusHost.setAttribute('aria-label', `Handoff: ${statusText.textContent}`);
       statusHost.style.left = `${position.left}px`;
       statusHost.style.top = `${position.top}px`;
@@ -176,6 +179,7 @@ export default defineContentScript({
     ctx.addEventListener(document, 'focusin', scheduleStatus, { capture: true });
     ctx.addEventListener(document, 'scroll', scheduleStatus, { capture: true });
     ctx.addEventListener(window, 'resize', scheduleStatus);
+    void chrome.storage.local.get([`usageHistory:${id}`, `usageSends:${id}`]).then(saved => { latestHistory = (saved[`usageHistory:${id}`] || {}) as UsageHistory; latestSends = (saved[`usageSends:${id}`] || []) as number[]; scheduleStatus(); });
     void chrome.storage.local.get([`meter:${id}`, `usageWindows:${id}`, 'composerUsageEnabled']).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; latestWindows = (saved[`usageWindows:${id}`] || []) as UsageWindow[]; composerUsageEnabled = saved.composerUsageEnabled !== false; scheduleStatus(); });
     ctx.setInterval(() => { void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); }); }, 30000);
     const observeUsage = async (force = false) => {
@@ -183,6 +187,9 @@ export default defineContentScript({
       const visibleWindows = readUsageWindows(document, id, collectTurnNodes(document, id, bundledSelectors), now);
       if (visibleWindows.length) {
         latestWindows = mergeUsageWindows(latestWindows, visibleWindows, now);
+        // Each official reading calibrates the estimate shown between readings.
+        latestHistory = recordReadings(((await chrome.storage.local.get(`usageHistory:${id}`))[`usageHistory:${id}`] || {}) as UsageHistory, visibleWindows);
+        await chrome.storage.local.set({ [`usageHistory:${id}`]: latestHistory });
         const strongest = activeWindows(latestWindows, now).sort((a, b) => (b.percent || 0) - (a.percent || 0))[0];
         latestMeter = strongest || { ...estimateMeter(id, '', [], [], now), at: now };
         scheduleStatus();
@@ -213,6 +220,8 @@ export default defineContentScript({
       if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
       if (changes[`usageWindows:${id}`]) latestWindows = (changes[`usageWindows:${id}`].newValue || []) as UsageWindow[];
       if (changes[`meter:${id}`]) latestMeter = changes[`meter:${id}`].newValue as Meter | undefined;
+      if (changes[`usageHistory:${id}`]) latestHistory = (changes[`usageHistory:${id}`].newValue || {}) as UsageHistory;
+      if (changes[`usageSends:${id}`]) latestSends = (changes[`usageSends:${id}`].newValue || []) as number[];
       scheduleStatus();
     };
     chrome.storage.onChanged.addListener(settingsChanged);
@@ -291,6 +300,7 @@ export default defineContentScript({
       ].filter(Boolean).join(' ') };
     };
 
+    let noteSends: (turns: { role: string; text: string; id?: string }[]) => Promise<void> = async () => {};
     const persist = async () => {
       if (captureInProgress || ctx.isInvalid) return;
       await observeUsage();
@@ -298,6 +308,7 @@ export default defineContentScript({
       const data = extract(document, id, bundledSelectors);
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       if (!data.turns.length) return;
+      await noteSends(data.turns);
       const { key, highWaterKey, archiveKey } = storageKeys();
       const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey, `meter:${id}`]);
       if (captureUrl !== pageUrl()) return;
@@ -325,6 +336,26 @@ export default defineContentScript({
     const inEditor = (target: Node): boolean => {
       const element = target instanceof Element ? target : target.parentElement;
       return !!element && editorSelectors.some(selector => element.closest(selector));
+    };
+    // A send counts only after Enter in the composer or a Send button, followed by a new user turn within 20 s.
+    // Opening an old chat, scrolling history in, or switching chats never counts.
+    let sendIntentAt = 0;
+    const knownUserTurns = new Set<string>();
+    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.target instanceof Node && inEditor(event.target)) sendIntentAt = Date.now(); }, { capture: true });
+    ctx.addEventListener(document, 'click', event => {
+      const button = event.target instanceof Element ? event.target.closest('button') : null;
+      if (button && /send|submit/i.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''}`)) sendIntentAt = Date.now();
+    }, { capture: true });
+    noteSends = async turns => {
+      const keys = turns.filter(turn => turn.role === 'user').map(turn => turn.id || `${turn.text.length}:${turn.text.slice(0, 120)}`);
+      const fresh = keys.filter(key => !knownUserTurns.has(key));
+      keys.forEach(key => knownUserTurns.add(key));
+      if (!fresh.length || !sendIntentAt || Date.now() - sendIntentAt > 20000) return;
+      sendIntentAt = 0;
+      const key = `usageSends:${id}`;
+      latestSends = [...(((await chrome.storage.local.get(key))[key] || []) as number[]), Date.now()].slice(-300);
+      await chrome.storage.local.set({ [key]: latestSends });
+      scheduleStatus();
     };
     const observer = new MutationObserver(mutations => {
       scheduleStatus();
