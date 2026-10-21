@@ -35,7 +35,8 @@ function visibleClone(node: Element): Element {
     if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse' || style.opacity === '0') copies[i].textContent = '';
   }
   clone.querySelectorAll('input[type="checkbox"]').forEach(input => input.replaceWith(clone.ownerDocument.createTextNode(input.hasAttribute('checked') ? '[x] ' : '[ ] ')));
-  clone.querySelectorAll('script,style,button,svg,input,textarea,[hidden],[aria-hidden="true"], [style*="display:none"], [style*="display: none"], [style*="visibility:hidden"]').forEach(e => e.remove());
+  // data-no-copy marks page chrome inside a message, such as Grok's hidden “You” heading.
+  clone.querySelectorAll('script,style,button,svg,input,textarea,[hidden],[aria-hidden="true"],[data-no-copy="true"], [style*="display:none"], [style*="display: none"], [style*="visibility:hidden"]').forEach(e => e.remove());
   return clone;
 }
 
@@ -88,6 +89,15 @@ function cleanArtifact(node: Element): string {
   return (clone.textContent || '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim();
 }
 
+// A real sidebar, not a layout wrapper: Grok wraps its whole app in “group/sidebar-wrapper”.
+function inSidebar(node: Element): boolean {
+  for (let element: Element | null = node.parentElement; element; element = element.parentElement) {
+    const tokens = (element.getAttribute('class') || '').split(/\s+/).filter(token => /sidebar/i.test(token));
+    if (tokens.some(token => !/wrapper|inset|provider|layout|container|trigger|rail/i.test(token))) return true;
+  }
+  return false;
+}
+
 export function collectTurnNodes(doc: Document, id: ProviderId, bundle: SelectorBundle): Element[] {
   const selectors = bundle.providers[id].turns;
   const scopedRoot = id === 'deepseek' ? doc.querySelector('main, [role="main"]') : null;
@@ -95,7 +105,7 @@ export function collectTurnNodes(doc: Document, id: ProviderId, bundle: Selector
   const nodes = collect(scopedRoot || doc);
   if (id === 'claude') nodes.push(...Array.from(doc.querySelectorAll('.font-user-message, [data-testid="human-message"], [data-testid="message-human"], [data-testid="ai-message"], [data-testid="assistant-message"], [data-testid="message-assistant"], .font-claude-message')));
   const fallback = scopedRoot && nodes.length === 0 ? collect(doc) : nodes;
-  const allowed = [...new Set(fallback)].filter(node => !node.closest('nav, aside, [role="navigation"], [class*="sidebar" i], [id*="sidebar" i]'));
+  const allowed = [...new Set(fallback)].filter(node => !node.closest('nav, aside, [role="navigation"], [id*="sidebar" i]') && !inSidebar(node));
   const preferred = id === 'deepseek' && allowed.some(node => node.matches('.ds-message')) ? allowed.filter(node => node.matches('.ds-message')) : allowed;
   const candidates = new Set(preferred);
   return preferred.filter(node => {
