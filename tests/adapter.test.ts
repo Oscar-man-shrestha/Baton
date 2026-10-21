@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdom');
 import { bundledSelectors } from '../src/core/selectors';
 import { extract, makeAdapter } from '../src/core/adapter';
+import { estimateMeter } from '../src/core/limits';
 
 describe('adapter fixtures', () => {
   const cases = [
@@ -44,6 +45,16 @@ describe('adapter fixtures', () => {
   it('reads a provider balance only from a visible notice', () => {
     const doc = new JSDOM('<div role="alert">Usage quota: 42% remaining</div><div data-message-author-role="user">My project is 99% complete</div>').window.document;
     expect(makeAdapter('chatgpt', bundledSelectors).detectLimit(doc).text).toBe('Usage quota: 42% remaining');
+  });
+  it('ignores a false limit notice inside a captured assistant reply', () => {
+    const doc = new JSDOM('<div data-message-author-role="assistant"><div role="alert">Usage quota: 1% remaining</div></div>').window.document;
+    expect(makeAdapter('chatgpt', bundledSelectors).detectLimit(doc).kind).toBe('unknown');
+  });
+  it('reads a labeled provider usage progress bar outside the chat', () => {
+    const doc = new JSDOM('<div role="progressbar" aria-label="Session usage" aria-valuenow="81" aria-valuemax="100"></div>').window.document;
+    const text = makeAdapter('claude', bundledSelectors).detectLimit(doc).text;
+    expect(text).toContain('81% used');
+    expect(estimateMeter('claude', text, []).remainingPercent).toBe(19);
   });
   it('keeps Claude user and assistant turns in document order', () => {
     const doc = new JSDOM('<div data-testid="user-message">First</div><div class="font-claude-response">Second</div><div data-testid="user-message">Third</div>').window.document;

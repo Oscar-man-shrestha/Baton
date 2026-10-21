@@ -32,6 +32,8 @@ export default defineContentScript({
     let statusFrame = 0;
     let lastPrompt = '';
     let lastPromptTokens = 0;
+    let lastLimitText: string | undefined;
+    let lastLimitCheck = 0;
     const updateStatus = () => {
       statusFrame = 0;
       const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
@@ -48,9 +50,10 @@ export default defineContentScript({
       const below = document.elementFromPoint(position.left + Math.min(90, position.width / 2), position.top + 9);
       if (below?.closest('button,input,textarea,select,[contenteditable="true"],[role="button"]')) { statusHost.style.display = 'none'; return; }
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
-      if (!value.trim() && latestMeter?.remainingPercent === undefined && latestMeter?.remainingTokens === undefined && latestMeter?.percent !== 100) { statusHost.style.display = 'none'; return; }
+      const fresh = latestMeter?.at && Date.now() - latestMeter.at < 3600000;
+      if (!value.trim() && (!fresh || latestMeter?.tier !== 'banner' || (latestMeter.remainingPercent === undefined && latestMeter.remainingTokens === undefined && latestMeter.percent !== 100 && !latestMeter.nearLimit))) { statusHost.style.display = 'none'; return; }
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
-      statusText.textContent = composerStatusText(lastPromptTokens, latestMeter);
+      statusText.textContent = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
       statusHost.style.left = `${position.left}px`;
       statusHost.style.top = `${position.top}px`;
       statusHost.style.maxWidth = `${position.width}px`;
@@ -63,6 +66,21 @@ export default defineContentScript({
     window.addEventListener('resize', scheduleStatus);
     void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); });
     setInterval(() => { void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); }); }, 30000);
+    const observeUsage = async () => {
+      const now = Date.now();
+      const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
+      const sameSignal = signal.text === lastLimitText;
+      if (sameSignal && now - lastLimitCheck < 600000) return;
+      lastLimitText = signal.text;
+      lastLimitCheck = now;
+      const meter = { ...estimateMeter(id, signal.text, [], [], now), at: now };
+      if (sameSignal && latestMeter?.resetAt && latestMeter.resetAt > now) meter.resetAt = latestMeter.resetAt;
+      latestMeter = meter;
+      scheduleStatus();
+      await chrome.storage.local.set({ [`meter:${id}`]: meter });
+      if (meter.tier === 'banner') void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
+    };
+    setInterval(() => { void observeUsage(); }, 30000);
     scheduleStatus();
     const captureOlderTurns = async (): Promise<Extraction> => {
       const initial = extract(document, id, bundledSelectors);
@@ -101,6 +119,7 @@ export default defineContentScript({
     };
     const persist = async () => {
       if (captureInProgress) return;
+      await observeUsage();
       const data = extract(document, id, bundledSelectors);
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       if (!data.turns.length) return;
@@ -108,7 +127,7 @@ export default defineContentScript({
       const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey]);
       const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
       const now = Date.now();
-      const reachedLimit = signal.kind === 'banner' && /(?:you.ve reached|usage limit|quota exceeded|try again|limit reached)/i.test(signal.text);
+      const reachedLimit = signal.kind === 'banner' && estimateMeter(id, signal.text, [], [], now).percent === 100;
       if (reachedLimit && !history.some(event => now - event.at < 3600000)) {
         history.push({ at: now, approximateTokens: data.turns.reduce((sum, turn) => sum + encode(turn.text).length, 0) });
         await chrome.storage.local.set({ [limitHistoryKey]: history.slice(-12) });
@@ -116,7 +135,8 @@ export default defineContentScript({
       const previousArchive = saved[archiveKey] as TurnArchive | undefined;
       const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, data.turns, now);
       archive.selectorsVersion = bundledSelectors.version;
-      const meter = estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now);
+      const meter = { ...estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now), at: now };
+      if (signal.text === lastLimitText && latestMeter?.resetAt && latestMeter.resetAt > now) meter.resetAt = latestMeter.resetAt;
       latestMeter = meter;
       scheduleStatus();
       const brief = updateBrief(undefined, archive.turns, data.artifacts);

@@ -115,8 +115,15 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
       return (editor.tagName === 'TEXTAREA' ? (editor as HTMLTextAreaElement).value : editor.textContent) === text;
     },
     detectLimit(doc) {
-      const notices = Array.from(doc.querySelectorAll('[role="alert"], [aria-live="assertive"], [data-testid*="limit"], [class*="usage-limit"]'));
-      const match = notices.map(cleanNode).find(text => /(?:usage limit|quota|limit reached|approaching.{0,25}limit|try again in|(?:usage|free|message).{0,80}(?:\b\d{1,3}\s*%\s*(?:remaining|left)|\b(?:remaining|left)\s*:?\s*\d{1,3}\s*%|\b\d[\d,]*\s+tokens?\s+(?:remaining|left)))/i.test(text));
+      const notices = Array.from(doc.querySelectorAll('[role="alert"], [aria-live="assertive"], [data-testid*="limit" i], [class*="usage-limit" i], [role="progressbar"]'));
+      const turns = collectTurnNodes(doc, id, bundle);
+      const match = notices.filter(node => !turns.some(turn => turn.contains(node)) && !node.closest('nav, aside, [role="navigation"], [contenteditable="true"], textarea, #handoff-composer-status')).map(node => {
+        const label = node.getAttribute('aria-label') || '';
+        const current = Number(node.getAttribute('aria-valuenow'));
+        const maximum = Number(node.getAttribute('aria-valuemax'));
+        const accessiblePercent = node.getAttribute('role') === 'progressbar' && node.hasAttribute('aria-valuenow') && /(?:usage|quota|session|weekly)/i.test(label) && Number.isFinite(current) && Number.isFinite(maximum) && maximum === 100 ? ` ${Math.round(current)}% used` : '';
+        return `${label}${accessiblePercent} ${cleanNode(node)}`.trim();
+      }).find(text => /(?:usage|quota|session|weekly|message|model|free).{0,90}(?:(?:\d{1,3}\s*%\s*(?:remaining|left|used|consumed))|(?:(?:remaining|left)\s*:?\s*\d{1,3}\s*%)|(?:\d[\d,]*\s+tokens?\s+(?:remaining|left))|(?:limit\s+(?:reached|exceeded)))|(?:limit reached|quota exceeded|(?:close to|approaching|almost at).{0,35}(?:usage|message|limit|quota))/i.test(text));
       return match ? { kind: 'banner', text: match.slice(0, 240) } : { kind: 'unknown', text: '' };
     }
   };

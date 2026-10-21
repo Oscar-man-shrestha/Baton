@@ -6,6 +6,7 @@ import { providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
+import { meterSummary } from '../../src/core/usage-alerts';
 
 const status = document.querySelector('#status') as HTMLElement;
 const draft = document.querySelector('#draft') as HTMLTextAreaElement;
@@ -30,6 +31,31 @@ const library = document.querySelector('#library') as HTMLElement;
 const libraryList = document.querySelector('#library-list') as HTMLElement;
 const googleAccount = document.querySelector('#google-account') as HTMLElement;
 const copyTranscript = document.querySelector('#copy-transcript') as HTMLButtonElement;
+const usageList = document.querySelector('#usage-list') as HTMLElement;
+const desktopAlerts = document.querySelector('#desktop-alerts') as HTMLInputElement;
+const usagePermission = document.querySelector('#usage-permission') as HTMLElement;
+const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
+async function showUsage() {
+  const saved = await chrome.storage.local.get(providerIds.map(id => `meter:${id}`));
+  usageList.replaceChildren();
+  for (const id of providerIds) {
+    const row = document.createElement('div'); row.className = 'usage-row';
+    const name = document.createElement('strong'); name.textContent = providerNames[id];
+    const value = document.createElement('span'); value.textContent = meterSummary(saved[`meter:${id}`] as Meter | undefined);
+    row.append(name, value); usageList.append(row);
+  }
+}
+void showUsage();
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`])) void showUsage(); });
+desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
+desktopAlerts.addEventListener('change', async () => {
+  if (desktopAlerts.checked) {
+    const granted = await chrome.permissions.request({ permissions: ['notifications'] }).catch(() => false);
+    if (!granted) { desktopAlerts.checked = false; usagePermission.textContent = 'Notification permission was not granted.'; return; }
+  }
+  await chrome.storage.local.set({ desktopUsageAlerts: desktopAlerts.checked });
+  usagePermission.textContent = desktopAlerts.checked ? 'Alerts are on. Each threshold is shown once per observed limit window.' : 'Desktop alerts are off.';
+});
 let reviewed = false;
 const showDraftBudget = () => {
   const budget = draftBudget(draft.value);

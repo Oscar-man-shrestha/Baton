@@ -5,6 +5,7 @@ export default defineConfig({
     name: 'Handoff',
     description: 'Review a compact project brief and continue as a draft in another AI chat.',
     permissions: ['storage', 'tabs', 'activeTab'],
+    optional_permissions: ['notifications'],
     host_permissions: []
   }
 });

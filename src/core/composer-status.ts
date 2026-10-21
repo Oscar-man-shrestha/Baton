@@ -5,6 +5,7 @@ export function composerStatusText(tokens: number, meter?: Meter): string {
   if (meter?.tier === 'banner' && meter.remainingPercent !== undefined) return `${prompt} · ${meter.remainingPercent}% remaining (shown by service)`;
   if (meter?.tier === 'banner' && meter.remainingTokens !== undefined) return `${prompt} · ${meter.remainingTokens.toLocaleString('en-US')} quota tokens left (shown by service)`;
   if (meter?.tier === 'banner' && meter.percent === 100) return `${prompt} · Service reports a limit`;
+  if (meter?.tier === 'banner' && meter.nearLimit) return `${prompt} · Service reports near limit`;
   return `${prompt} · Free balance unknown`;
 }
 
