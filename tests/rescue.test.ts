@@ -29,12 +29,12 @@ describe('limit rescue', () => {
       'usageWindows:gemini': [win('gemini', 'Session', 37), win('gemini', 'Weekly', 10)],
       'usageWindows:claude': [win('claude', 'Session', 100, { resetAt: now + 3600000 })]
     };
-    const options = rescueOptions('chatgpt', saved, {}, now);
+    const options = rescueOptions('chatgpt', saved, { deepseek: false, grok: false, perplexity: false }, now);
     expect(options.map(option => [option.provider, option.status, option.detail])).toEqual([
       ['gemini', 'room', '63% left'],
       ['claude', 'limited', 'limit reached · resets in 1h 0m']
     ]);
-    expect(rescueOptions('gemini', saved, {}, now).map(option => option.provider)).toEqual(['chatgpt', 'claude']);
+    expect(rescueOptions('gemini', saved, { deepseek: false, grok: false, perplexity: false }, now).map(option => option.provider)).toEqual(['chatgpt', 'claude']);
   });
   it('never invents a balance for a service that shows none', () => {
     const [chatgpt] = rescueOptions('claude', {}, {}, now);
@@ -44,8 +44,10 @@ describe('limit rescue', () => {
     expect(rescueOptions('chatgpt', { 'usageWindows:gemini': [win('gemini', 'Session', 37, { at: now - 7200000 })] }, {}, now)[0].status).toBe('unknown');
   });
   it('follows the user’s enabled services', () => {
-    expect(rescueOptions('claude', {}, { deepseek: true, chatgpt: false }, now).map(option => option.provider)).toEqual(['gemini', 'deepseek']);
-    expect(providerEnabled('grok')).toBe(false);
+    expect(rescueOptions('claude', {}, {}, now).map(option => option.provider)).toEqual(['chatgpt', 'gemini', 'deepseek', 'grok', 'perplexity']);
+    expect(rescueOptions('claude', {}, { chatgpt: false, grok: false }, now).map(option => option.provider)).toEqual(['gemini', 'deepseek', 'perplexity']);
+    expect(providerEnabled('grok')).toBe(true);
+    expect(providerEnabled('grok', { grok: false })).toBe(false);
   });
   it('switches accounts only through the service’s own screens', () => {
     expect(new URL(accountSwitch('gemini').url!).hostname).toBe('accounts.google.com');
@@ -62,7 +64,7 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdo
 describe('limit rescue card', () => {
   const doc = () => new JSDOM('<body></body>').window.document;
   const limit = { provider: 'claude' as const, feature: 'Session', resetAt: now + 2 * 3600000 };
-  const options = rescueOptions('claude', { 'usageWindows:gemini': [win('gemini', 'Session', 37)], 'usageWindows:chatgpt': [win('chatgpt', 'Session', 100, { resetAt: now + 3600000 })] }, {}, now);
+  const options = rescueOptions('claude', { 'usageWindows:gemini': [win('gemini', 'Session', 37)], 'usageWindows:chatgpt': [win('chatgpt', 'Session', 100, { resetAt: now + 3600000 })] }, { deepseek: false, grok: false, perplexity: false }, now);
   const handlers = (calls: string[]) => ({
     continueIn: async (provider: string) => { calls.push(`continue:${provider}`); return 'Opened Gemini with your project as an unsent draft.'; },
     switchAccount: async () => { calls.push('switch'); return 'copied'; },

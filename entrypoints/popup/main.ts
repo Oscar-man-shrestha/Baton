@@ -8,6 +8,8 @@ import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { displayLabel, displayWindows, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
+import { messageSummary, type LimitHit } from '../../src/core/message-counts';
+import { providerEnabled } from '../../src/core/rescue';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
@@ -125,16 +127,20 @@ for (const [buttonId, statusId] of [['#refresh-all-usage', '#usage-refresh-statu
 }
 window.setInterval(() => { void showUsage(); }, 60000);
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
+// Messages Handoff counted in the service's window, with the limit learned from past limit notices.
+const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Handoff` : ''; };
 // Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
 const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
 async function showUsage() {
-  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`]));
+  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`]));
   usageList.replaceChildren();
   renderActiveUsage(saved);
   for (const id of providerIds) {
     const row = document.createElement('div'); row.className = 'usage-row';
     const name = document.createElement('strong'); name.textContent = providerNames[id];
     const value = document.createElement('span'); value.textContent = meterSummary(saved[`meter:${id}`] as Meter | undefined);
+    const counted = countedLine(saved, id);
+    if (counted) { const line = document.createElement('small'); line.className = 'usage-window'; line.textContent = counted; value.append(line); }
     const windows = shownWindows(saved, id);
     if (windows.length) {
       value.className = 'usage-detail'; value.replaceChildren();
@@ -196,13 +202,15 @@ function renderActiveUsage(saved: Record<string, any>) {
     const detail = document.createElement('small'); detail.textContent = displayLabel(reading as DisplayWindow) || windowLabel(reading as UsageWindow); row.append(detail);
     container.append(row);
   }
-  if (!readings.length) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
+  const counted = countedLine(saved, activeProvider);
+  if (counted) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = counted; container.append(line); }
+  if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
   note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Handoff shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
   (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
 for (const provider of ['claude', 'gemini', 'chatgpt'] as const) document.querySelector(`#check-${provider}-usage`)?.addEventListener('click', () => { void chrome.tabs.create({ url: usagePageUrl(provider)! }); });
-chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`])) void showUsage(); });
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
   if (desktopAlerts.checked) {
@@ -370,7 +378,7 @@ const providerIntents = (settings.providerIntents && typeof settings.providerInt
 let feedback = Array.isArray(settings.routerFeedback) ? settings.routerFeedback as Feedback[] : [];
 for (const option of Array.from(destination.options)) {
   const id = option.value;
-  option.disabled = enabled[id] === false || (enabled[id] === undefined && ['grok', 'perplexity', 'deepseek'].includes(id));
+  option.disabled = !providerEnabled(id as ProviderId, enabled);
 }
 destination.addEventListener('change', () => { recommendation.textContent = `Selected ${destination.selectedOptions[0].text}. Check availability in that service.`; showAccountHelp(); });
 

@@ -35,7 +35,7 @@ for (const id of providerIds) {
   row.style.marginBottom = '12px';
   const label = document.createElement('label');
   const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox'; checkbox.checked = enabled[id] ?? !['grok', 'perplexity', 'deepseek'].includes(id);
+  checkbox.type = 'checkbox'; checkbox.checked = enabled[id] ?? true;
   checkbox.addEventListener('change', () => { enabled[id] = checkbox.checked; void chrome.storage.local.set({ enabledProviders: enabled }); });
   const defaults = providerTable.find(provider => provider.id === id);
   label.append(checkbox, document.createTextNode(` ${id} — last verified: ${defaults?.lastVerified || 'unverified'}`)); row.append(label);

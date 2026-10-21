@@ -6,9 +6,9 @@ import { activeWindows, isCurrentReading, resetCountdown, type UsageWindow } fro
 export const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 export const newChatUrls: Record<ProviderId, string> = { chatgpt: 'https://chatgpt.com/', claude: 'https://claude.ai/new', gemini: 'https://gemini.google.com/app', deepseek: 'https://chat.deepseek.com/', grok: 'https://grok.com/', perplexity: 'https://www.perplexity.ai/' };
 
-/** DeepSeek, Grok and Perplexity stay off until the user enables them, as in the destination list. */
+/** Every supported service is on unless the user switched it off in Settings. */
 export function providerEnabled(id: ProviderId, enabled: Record<string, boolean | undefined> = {}): boolean {
-  return enabled[id] === false ? false : enabled[id] === true || !['deepseek', 'grok', 'perplexity'].includes(id);
+  return enabled[id] !== false;
 }
 
 // Feature caps, Codex/Work allowances and credits leave ordinary chat usable, so they never decide whether a service is out.

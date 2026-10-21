@@ -33,6 +33,7 @@ Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usa
 - **0.3.14, dashboard ↻ Refresh usage:** status said “Usage pages: ChatGPT read, Claude read, Gemini read”.
   - Claude: Session 49% used, resets in 3h 3m (the session reset now appears); Weekly 7%, 2d 23h; Full reset (expires Oct 22) 1 left.
   - Gemini: Session 6% used, resets in 3h 21m; Weekly 0%, 6d 13h. Another usage extension on the same page independently showed 6% / 0%.
+- **0.3.15, side by side with Claude's own Usage page:** Current session 51% used, resets in 2 hr 56 min, and All models 7% used, resets Sun 12:30 AM, plus Full reset expiring Oct 22. Handoff showed Session 51% used (49% left), resets in 2h 56m; Weekly 7% used, resets in 2d 23h; Full reset 1 left. The toolbar badge showed 51%. Exact match.
 - Not yet observed live: send counting and the “≈ … est.” estimate between readings.
 
 ## Automated checks

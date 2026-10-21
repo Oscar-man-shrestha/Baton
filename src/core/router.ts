@@ -8,9 +8,9 @@ export const providerTable: ProviderPreference[] = [
   { id: 'chatgpt', enabled: true, intents: ['planning', 'coding', 'writing', 'reasoning'], lastVerified: '2026-10-20' },
   { id: 'claude', enabled: true, intents: ['planning', 'coding', 'writing', 'reasoning'], lastVerified: '2026-10-20' },
   { id: 'gemini', enabled: true, intents: ['planning', 'research', 'reasoning'], lastVerified: '2026-10-20' },
-  { id: 'deepseek', enabled: false, intents: ['coding', 'reasoning'], lastVerified: 'unverified' },
-  { id: 'grok', enabled: false, intents: ['research', 'reasoning'], lastVerified: 'unverified' },
-  { id: 'perplexity', enabled: false, intents: ['research'], lastVerified: 'unverified' }
+  { id: 'deepseek', enabled: true, intents: ['coding', 'reasoning'], lastVerified: 'unverified' },
+  { id: 'grok', enabled: true, intents: ['research', 'reasoning'], lastVerified: 'unverified' },
+  { id: 'perplexity', enabled: true, intents: ['research'], lastVerified: 'unverified' }
 ];
 
 export const training: { text: string; intent: Intent }[] = [

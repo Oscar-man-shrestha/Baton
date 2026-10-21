@@ -12,6 +12,7 @@ import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText, statusLinePosition } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
+import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
   matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*', 'https://chat.deepseek.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*'],
@@ -29,6 +30,15 @@ export default defineContentScript({
     let latestWindows: UsageWindow[] = [];
     let latestHistory: UsageHistory = {};
     let latestSends: number[] = [];
+    let latestHits: LimitHit[] = [];
+    // When the service shows its limit, remember how many messages were sent in the window; this teaches the learned limit.
+    const noteLimitHit = async () => {
+      if (!reachedLimit({ [`usageWindows:${id}`]: latestWindows, [`meter:${id}`]: latestMeter }, id)) return;
+      const key = `limitHits:${id}`;
+      const hits = ((await chrome.storage.local.get(key))[key] || []) as LimitHit[];
+      const next = recordLimitHit(hits, latestSends, id, Date.now());
+      if (next !== hits) { latestHits = next; await chrome.storage.local.set({ [key]: next }); }
+    };
     let composerUsageEnabled = true;
     const statusHost = document.createElement('div');
     statusHost.id = 'handoff-composer-status';
@@ -166,7 +176,12 @@ export default defineContentScript({
           statusText.append(displayLabel(win) || windowLabel(win));
           if (win.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = win.percent; bar.setAttribute('aria-label', `${win.feature}: ${win.percent}% used`); statusText.append(bar); }
         });
-      } else statusText.textContent = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
+      } else {
+        const text = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
+        const counted = messageSummary(id, latestSends, latestHits);
+        // Services that show no numbers: say what Handoff counted instead of only “unknown”.
+        statusText.textContent = text.endsWith('Usage left: unknown') && (counted.count || counted.learnedLimit !== undefined) ? text.replace('Usage left: unknown', `${counted.text} (counted by Handoff)`) : text;
+      }
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
       statusHost.setAttribute('aria-label', `Handoff: ${statusText.textContent}`);
       statusHost.style.left = `${position.left}px`;
@@ -179,7 +194,7 @@ export default defineContentScript({
     ctx.addEventListener(document, 'focusin', scheduleStatus, { capture: true });
     ctx.addEventListener(document, 'scroll', scheduleStatus, { capture: true });
     ctx.addEventListener(window, 'resize', scheduleStatus);
-    void chrome.storage.local.get([`usageHistory:${id}`, `usageSends:${id}`]).then(saved => { latestHistory = (saved[`usageHistory:${id}`] || {}) as UsageHistory; latestSends = (saved[`usageSends:${id}`] || []) as number[]; scheduleStatus(); });
+    void chrome.storage.local.get([`usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`]).then(saved => { latestHistory = (saved[`usageHistory:${id}`] || {}) as UsageHistory; latestSends = (saved[`usageSends:${id}`] || []) as number[]; latestHits = (saved[`limitHits:${id}`] || []) as LimitHit[]; scheduleStatus(); });
     void chrome.storage.local.get([`meter:${id}`, `usageWindows:${id}`, 'composerUsageEnabled']).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; latestWindows = (saved[`usageWindows:${id}`] || []) as UsageWindow[]; composerUsageEnabled = saved.composerUsageEnabled !== false; scheduleStatus(); });
     ctx.setInterval(() => { void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); }); }, 30000);
     const observeUsage = async (force = false) => {
@@ -194,6 +209,7 @@ export default defineContentScript({
         latestMeter = strongest || { ...estimateMeter(id, '', [], [], now), at: now };
         scheduleStatus();
         await chrome.storage.local.set({ [`usageWindows:${id}`]: latestWindows, [`meter:${id}`]: latestMeter });
+        await noteLimitHit();
         for (const meter of visibleWindows.map(win => latestWindows.find(current => current.key === win.key)).filter((win): win is UsageWindow => !!win).sort((a, b) => (a.percent || 0) - (b.percent || 0))) void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
         return;
       }
@@ -211,6 +227,7 @@ export default defineContentScript({
       latestMeter = meter;
       scheduleStatus();
       await chrome.storage.local.set({ [`meter:${id}`]: meter });
+      await noteLimitHit();
       if (meter.tier === 'banner') void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
     };
     ctx.setInterval(() => { void observeUsage().then(() => chrome.runtime.sendMessage({ type: 'REFRESH_USAGE_BADGE' })).catch(() => {}); }, 30000);
@@ -222,6 +239,7 @@ export default defineContentScript({
       if (changes[`meter:${id}`]) latestMeter = changes[`meter:${id}`].newValue as Meter | undefined;
       if (changes[`usageHistory:${id}`]) latestHistory = (changes[`usageHistory:${id}`].newValue || {}) as UsageHistory;
       if (changes[`usageSends:${id}`]) latestSends = (changes[`usageSends:${id}`].newValue || []) as number[];
+      if (changes[`limitHits:${id}`]) latestHits = (changes[`limitHits:${id}`].newValue || []) as LimitHit[];
       scheduleStatus();
     };
     chrome.storage.onChanged.addListener(settingsChanged);
