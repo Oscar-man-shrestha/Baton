@@ -6,7 +6,7 @@ import { providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
-import { activeWindows, isCurrentReading, isClaudeUsageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
+import { activeWindows, isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
@@ -138,15 +138,16 @@ async function readVisibleUsage() {
   const note = document.querySelector('#active-usage-note') as HTMLElement;
   note.textContent = 'Checking visible service readings…';
   try {
-    const tabs = await chrome.tabs.query({});
-    const usageTab = tabs.find(tab => isClaudeUsageUrl(tab.url));
-    if (activeProvider === 'claude' || !activeProvider) {
+    const provider = activeProvider || 'claude';
+    const page = usagePageUrl(provider);
+    if (page) {
+      const usageTab = (await chrome.tabs.query({})).find(tab => isUsagePageUrl(provider, tab.url));
       if (usageTab?.id && usageTab.status !== 'loading') {
         await sendToChat(usageTab, { type: 'REFRESH_USAGE' });
         await showUsage();
         note.textContent += ' Checked the open usage page.';
       } else {
-        await chrome.tabs.create({ url: 'https://claude.ai/settings/usage' });
+        await chrome.tabs.create({ url: page });
       }
     } else {
       const tab = await activeChatTab();
@@ -179,11 +180,11 @@ function renderActiveUsage(saved: Record<string, any>) {
     container.append(row);
   }
   if (!readings.length) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
-  note.textContent = readings.length ? `Service reading · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}. Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
-  (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = activeProvider === 'claude' ? 'Read usage ↗' : 'Refresh';
+  note.textContent = readings.length ? `Service reading · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}. Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
+  (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
-document.querySelector('#check-claude-usage')?.addEventListener('click', () => { void chrome.tabs.create({ url: 'https://claude.ai/settings/usage' }); });
+for (const provider of ['claude', 'gemini'] as const) document.querySelector(`#check-${provider}-usage`)?.addEventListener('click', () => { void chrome.tabs.create({ url: usagePageUrl(provider)! }); });
 chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {

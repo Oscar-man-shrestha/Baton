@@ -6,7 +6,7 @@ import { encode } from 'gpt-tokenizer';
 import { estimateMeter, type LimitEvent, type Meter } from '../src/core/limits';
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import type { Extraction } from '../src/core/adapter';
-import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, windowLabel, type UsageWindow } from '../src/core/usage-windows';
+import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText, statusLinePosition } from '../src/core/composer-status';
 
 export default defineContentScript({
@@ -129,6 +129,8 @@ export default defineContentScript({
       if (meter.tier === 'banner') void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
     };
     ctx.setInterval(() => { void observeUsage().then(() => chrome.runtime.sendMessage({ type: 'REFRESH_USAGE_BADGE' })).catch(() => {}); }, 30000);
+    // A service usage page fills in its figures after load; read it soon instead of waiting for the interval.
+    if (isUsagePageUrl(id, location.href)) ctx.setTimeout(() => { void observeUsage(true).catch(() => {}); }, 1500);
     const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
       if (changes[`usageWindows:${id}`]) latestWindows = (changes[`usageWindows:${id}`].newValue || []) as UsageWindow[];
