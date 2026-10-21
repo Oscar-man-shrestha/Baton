@@ -46,7 +46,10 @@ Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usa
   - ChatGPT: Work 5-hour and weekly 100% left, Credits 2,500, Limit resets 0.
   - Perplexity: only the composer line on the start page; nothing sent.
   - The duplicate “ok · grok.com” entries were still visible because 0.3.22 had not been loaded.
-- Not yet observed live: the “≈ … est.” estimate, ChatGPT send counting, Perplexity counting and capture, the 0.3.22 duplicate merge, a learned or stated limit, and the rescue card on a real limit.
+- **0.3.22, Claude live estimate:** after another message, the card showed “Session ≈54% used · est. · 1 msg since 54% at 02:16 · resets in 2h 4m”, “≈46% left”, Weekly “≈8%”, “3 msgs in last 5 h”, and the note “Values marked ≈ are estimated from messages you sent since”. The estimate equals the last reading because the learned per-message cost from recent tiny replies is about 0%.
+- **0.3.22, duplicate merge:** after the reload, Capsules went 10 → 6 and Chats 12 → 8, with no repeated Grok entries.
+- **0.3.22, Perplexity:** two questions (“say hi”, “again”) were neither counted nor captured. The saved page showed no `data-testid` on messages; fixed in 0.3.23.
+- Not yet observed live: ChatGPT send counting, Perplexity after 0.3.23, a learned or stated limit, and the rescue card on a real limit.
 
 ## Automated checks
 

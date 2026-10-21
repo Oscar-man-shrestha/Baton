@@ -136,7 +136,8 @@ function turnRole(node: Element, id: ProviderId): Turn['role'] {
     return 'user';
   }
   if (id === 'claude') return node.matches('.font-user-message, [data-testid="user-message"], [data-testid="human-message"], [data-testid="message-human"]') ? 'user' : 'assistant';
-  return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"]') ? 'user' : 'assistant';
+  // Perplexity puts the user's question in a right-aligned bubble.
+  return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"], [data-message-bubble="right"]') ? 'user' : 'assistant';
 }
 
 function messageIdentity(node: Element, role: Turn['role']): string | undefined {
