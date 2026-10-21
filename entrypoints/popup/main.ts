@@ -55,6 +55,10 @@ desktopAlerts.addEventListener('change', async () => {
   }
   await chrome.storage.local.set({ desktopUsageAlerts: desktopAlerts.checked });
   usagePermission.textContent = desktopAlerts.checked ? 'Alerts are on. Each threshold is shown once per observed limit window.' : 'Desktop alerts are off.';
+  if (desktopAlerts.checked) {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) void chrome.tabs.sendMessage(tab.id, { type: 'REFRESH_USAGE' }).catch(() => {});
+  }
 });
 let reviewed = false;
 const showDraftBudget = () => {

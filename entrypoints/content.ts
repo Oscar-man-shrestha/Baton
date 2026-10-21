@@ -66,11 +66,11 @@ export default defineContentScript({
     window.addEventListener('resize', scheduleStatus);
     void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); });
     setInterval(() => { void chrome.storage.local.get(`meter:${id}`).then(saved => { latestMeter = saved[`meter:${id}`] as Meter | undefined; scheduleStatus(); }); }, 30000);
-    const observeUsage = async () => {
+    const observeUsage = async (force = false) => {
       const now = Date.now();
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       const sameSignal = signal.text === lastLimitText;
-      if (sameSignal && now - lastLimitCheck < 600000) return;
+      if (!force && sameSignal && now - lastLimitCheck < 600000) return;
       lastLimitText = signal.text;
       lastLimitCheck = now;
       const meter = { ...estimateMeter(id, signal.text, [], [], now), at: now };
@@ -157,6 +157,10 @@ export default defineContentScript({
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     void persist();
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type === 'REFRESH_USAGE') {
+        void observeUsage(true).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+        return true;
+      }
       if (message?.type === 'EXTRACT') {
         void (async () => {
           const { key, highWaterKey, archiveKey } = storageKeys();
