@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { briefSchema, type Brief } from './brief';
 
-export const projectSchema = z.object({ id: z.string(), name: z.string(), folder: z.string().max(80).optional(), updatedAt: z.number(), threads: z.array(z.string()), brief: briefSchema });
+export const projectSchema = z.object({ id: z.string(), name: z.string(), folder: z.string().max(80).optional(), updatedAt: z.number(), threads: z.array(z.string()), draft: z.string().max(500000).optional(), brief: briefSchema });
 export type Project = z.infer<typeof projectSchema>;
 
 export function mergeBrief(a: Brief, b: Brief): Brief {
@@ -12,7 +12,10 @@ export function mergeBrief(a: Brief, b: Brief): Brief {
     else decisions.push(incoming);
   }
   const artifacts = [...a.artifacts];
-  for (const incoming of b.artifacts) if (!artifacts.some(x => x.name === incoming.name && x.version === incoming.version)) artifacts.push(incoming);
+  for (const incoming of b.artifacts) {
+    const existing = artifacts.find(x => x.name === incoming.name && x.version === incoming.version);
+    if (existing) Object.assign(existing, incoming); else artifacts.push(incoming);
+  }
   return briefSchema.parse({
     ...a, ...b,
     goal: b.goal || a.goal, status: b.status || a.status,
@@ -58,3 +61,16 @@ export async function pruneExpired(now = Date.now()): Promise<number> {
 }
 export function exportProjects(projects: Project[]): string { return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), projects }, null, 2); }
 export function importProjects(text: string): Project[] { return z.object({ schemaVersion: z.literal(1), projects: z.array(projectSchema) }).parse(JSON.parse(text)).projects; }
+
+export async function listFolders(): Promise<string[]> {
+  const saved = (await chrome.storage.local.get('folders')).folders;
+  const explicit = z.array(z.string().max(80)).catch([]).parse(saved);
+  return [...new Set([...explicit, ...(await listProjects()).map(p => p.folder || '').filter(Boolean)])].sort();
+}
+export async function createFolder(name: string): Promise<void> {
+  const trimmed = name.trim().slice(0, 80);
+  if (!trimmed) throw new Error('Enter a folder name.');
+  const folders = await listFolders();
+  if (folders.some(folder => folder.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) throw new Error('That folder already exists.');
+  await chrome.storage.local.set({ folders: [...folders, trimmed] });
+}
