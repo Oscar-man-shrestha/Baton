@@ -36,6 +36,16 @@ describe('extension screens', () => {
     expect(doc.querySelector('#review-panel')?.contains(doc.querySelector('#draft'))).toBe(true);
   });
 
+  it('shows Google sign-in and backup without opening a collapsed section', () => {
+    const doc = new JSDOM(readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8')).window.document;
+    expect(doc.querySelector('#capture-card')?.contains(doc.querySelector('#cloud-card-action'))).toBe(true);
+    const section = doc.querySelector('#google-backup');
+    expect(section?.tagName).toBe('SECTION');
+    expect(section?.closest('details')).toBeNull();
+    expect(doc.querySelector('#google-sign-in')?.closest('details')).toBeNull();
+    expect(doc.querySelector('#account-dialog')?.firstElementChild?.nextElementSibling?.nextElementSibling).toBe(section);
+  });
+
   for (const screen of ['popup', 'options'] as const) it(`${screen} has labeled controls and one page title`, () => {
     const html = readFileSync(new URL(`../entrypoints/${screen}/index.html`, import.meta.url), 'utf8');
     const doc = new JSDOM(html).window.document;

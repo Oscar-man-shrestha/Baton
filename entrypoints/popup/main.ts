@@ -546,16 +546,38 @@ cloudReady = true;
 const cloudActions = document.querySelector('#cloud-actions') as HTMLElement;
 cloudActions.hidden = !cloudConfigured;
 cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Handoff cloud account. Uploads happen only when you press Back up now.' : 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.';
-if (cloudConfigured) { const label = await accountLabel(); if (label) { (document.querySelector('#account') as HTMLElement).textContent = 'Connected'; cloudStatus.textContent = `Connected as ${label}.`; } }
+const cloudCard = document.querySelector('#cloud-card') as HTMLElement;
+const cloudCardStatus = document.querySelector('#cloud-card-status') as HTMLElement;
+const cloudCardAction = document.querySelector('#cloud-card-action') as HTMLButtonElement;
+let cloudAccount: string | undefined;
+// Sign-in sits on the dashboard and at the top of the account dialog, not behind a collapsed section.
+async function showCloudAccount(label: string | undefined, message?: string) {
+  cloudAccount = label;
+  (document.querySelector('#account') as HTMLElement).textContent = label ? 'Connected' : 'Local';
+  (document.querySelector('#google-sign-in') as HTMLElement).hidden = !!label;
+  (document.querySelector('#cloud-connected-actions') as HTMLElement).hidden = !label;
+  cloudCardAction.textContent = label ? 'Back up now' : 'Sign in with Google';
+  const last = Number((await chrome.storage.local.get('lastCloudBackup')).lastCloudBackup) || 0;
+  cloudCardStatus.textContent = message || (label ? `${label} · ${last ? `last backup ${new Date(last).toLocaleString()}` : 'not backed up yet'}` : 'Off · saved on this device only');
+  if (label && !message) cloudStatus.textContent = `Connected as ${label}.`;
+}
+cloudCard.hidden = !cloudConfigured;
+if (cloudConfigured) await showCloudAccount(await accountLabel());
+cloudCardAction.addEventListener('click', () => (document.querySelector(cloudAccount ? '#cloud-backup' : '#google-sign-in') as HTMLButtonElement).click());
 for (const [id, action] of [
-  ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Handoff after authorization.'); const email = result.email; (document.querySelector('#account') as HTMLElement).textContent = 'Connected'; return `Connected as ${email}. Nothing uploaded yet.`; }],
-  ['cloud-backup', async () => { await (await import('../../src/core/cloud')).backupCloud(); return 'Saved contexts backed up to your account.'; }],
+  ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Handoff after authorization.'); await showCloudAccount(result.email, `${result.email} · not backed up yet`); return `Connected as ${result.email}. Nothing uploaded yet.`; }],
+  ['cloud-backup', async () => { await (await import('../../src/core/cloud')).backupCloud(); await showCloudAccount(cloudAccount); return 'Saved contexts backed up to your account.'; }],
   ['cloud-restore', async () => { const cloud = await import('../../src/core/cloud'); const preview = await cloud.inspectCloud(); if (!confirm(`Restore ${preview.contexts} conversations and ${preview.projects} projects from ${preview.updatedAt}? Newer local copies will be kept.`)) return 'Restore cancelled.'; await cloud.restoreCloud(preview); await showLibrary(); return 'Cloud backup restored.'; }],
-  ['cloud-disconnect', async () => { await (await import('../../src/core/cloud')).disconnectCloud(); (document.querySelector('#account') as HTMLElement).textContent = 'Local'; return 'Disconnected. Local data and cloud backup were kept.'; }],
+  ['cloud-disconnect', async () => { await (await import('../../src/core/cloud')).disconnectCloud(); await showCloudAccount(undefined); return 'Disconnected. Local data and cloud backup were kept.'; }],
   ['cloud-delete', async () => { if (!confirm('Delete the cloud backup for this account? Local data will be kept.')) return 'Deletion cancelled.'; await (await import('../../src/core/cloud')).deleteCloudBackup(); return 'Cloud backup deleted. Local data kept.'; }]
 ] as const) {
   const button = document.querySelector(`#${id}`) as HTMLButtonElement;
-  button.addEventListener('click', async () => { button.disabled = true; cloudStatus.textContent = 'Working…'; try { cloudStatus.textContent = await action(); } catch (error) { cloudStatus.textContent = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.'; } finally { button.disabled = false; } });
+  button.addEventListener('click', async () => {
+    button.disabled = true; cloudCardAction.disabled = true; cloudStatus.textContent = 'Working…';
+    try { cloudStatus.textContent = await action(); }
+    catch (error) { cloudStatus.textContent = cloudCardStatus.textContent = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.'; }
+    finally { button.disabled = false; cloudCardAction.disabled = false; }
+  });
 }
 
 document.querySelector('#apply-next-task')?.addEventListener('click', () => {
