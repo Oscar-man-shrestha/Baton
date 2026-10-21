@@ -74,7 +74,7 @@ Disposable marker used throughout: `HANDOFF-RESTORE-TEST-20261021`.
 - A6: Google sign-in → “Connected as … Nothing uploaded yet.”
 - A7: Back up now → “Saved contexts backed up to your account.” (approved upload)
 - A8: Capsules 6, Folders 1, Chats 4.
-- B1–B3: new Brave profile, only Handoff installed, 0.3.3, ID `jpjfbhobndoekfmknlhdpmcndchiilog`, library empty (0 / 0 / 0, “No capsules yet”, Local). The profile switcher later showed this window's profile name as “ok”, alongside a separate “Handoff Restore Test,” profile; the user confirmed the restore window was the newly created profile.
+- B1–B3: new Brave profile, only Handoff installed, 0.3.3, ID `jpjfbhobndoekfmknlhdpmcndchiilog`, library empty (0 / 0 / 0, “No capsules yet”, Local). The user created this new profile under the name “ok” (instead of the suggested name) and loaded build-1 unpacked there; all B steps ran in “ok”. A separate “Handoff Restore Test,” profile also exists but was not used.
 - B4 signed-out restore, B6 cancel and B7 offline checks: **not run**.
 - B5 + B8: sign-in in the new profile, then Restore → “Cloud backup restored.”
 - B9: Capsules 6, Folders 1, Chats 4 (matches A8); test capsule under `Restore test · Project`; draft text exact, including `café ✓ — 東京` and `1711902849000`. The capsule shows “full transcript unavailable”, expected for a hand-written capsule.
