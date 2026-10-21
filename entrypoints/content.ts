@@ -318,7 +318,6 @@ export default defineContentScript({
       ].filter(Boolean).join(' ') };
     };
 
-    let noteSends: (turns: { role: string; text: string; id?: string }[]) => Promise<void> = async () => {};
     const persist = async () => {
       if (captureInProgress || ctx.isInvalid) return;
       await observeUsage();
@@ -326,7 +325,6 @@ export default defineContentScript({
       const data = extract(document, id, bundledSelectors);
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       if (!data.turns.length) return;
-      await noteSends(data.turns);
       const { key, highWaterKey, archiveKey } = storageKeys();
       const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey, `meter:${id}`]);
       if (captureUrl !== pageUrl()) return;
@@ -355,26 +353,41 @@ export default defineContentScript({
       const element = target instanceof Element ? target : target.parentElement;
       return !!element && editorSelectors.some(selector => element.closest(selector));
     };
-    // A send counts only after Enter in the composer or a Send button, followed by a new user turn within 20 s.
+    // A send counts when Enter or a Send button is used with text in the composer and a new message of yours then
+    // appears within 90 s. It is watched directly, so pages that keep changing while answering (Grok) still count.
     // Opening an old chat, scrolling history in, or switching chats never counts.
-    let sendIntentAt = 0;
-    const knownUserTurns = new Set<string>();
-    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.target instanceof Node && inEditor(event.target)) sendIntentAt = Date.now(); }, { capture: true });
-    ctx.addEventListener(document, 'click', event => {
-      const button = event.target instanceof Element ? event.target.closest('button') : null;
-      if (button && /send|submit/i.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''}`)) sendIntentAt = Date.now();
-    }, { capture: true });
-    noteSends = async turns => {
-      const keys = turns.filter(turn => turn.role === 'user').map(turn => turn.id || `${turn.text.length}:${turn.text.slice(0, 120)}`);
-      const fresh = keys.filter(key => !knownUserTurns.has(key));
-      keys.forEach(key => knownUserTurns.add(key));
-      if (!fresh.length || !sendIntentAt || Date.now() - sendIntentAt > 20000) return;
-      sendIntentAt = 0;
+    const userTurnKeys = () => extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').map(turn => turn.id || `${turn.text.length}:${turn.text.slice(0, 120)}`);
+    let watchingSend = false;
+    const recordSend = async (at: number) => {
       const key = `usageSends:${id}`;
-      latestSends = [...(((await chrome.storage.local.get(key))[key] || []) as number[]), Date.now()].slice(-300);
+      latestSends = [...(((await chrome.storage.local.get(key))[key] || []) as number[]), at].slice(-300);
       await chrome.storage.local.set({ [key]: latestSends });
       scheduleStatus();
+      // Lets the background refresh this service's usage page shortly after (throttled, user setting).
+      void chrome.runtime.sendMessage({ type: 'REFRESH_AFTER_SEND' }).catch(() => {});
     };
+    const watchForSend = () => {
+      const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
+      const typed = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '';
+      if (watchingSend || !typed.trim()) return;
+      watchingSend = true;
+      const at = Date.now();
+      const before = new Set(userTurnKeys());
+      let checks = 0;
+      const poll = ctx.setInterval(() => {
+        checks++;
+        const sent = userTurnKeys().some(key => !before.has(key));
+        if (!sent && checks < 60) return;
+        clearInterval(poll);
+        watchingSend = false;
+        if (sent) void recordSend(at).catch(() => {});
+      }, 1500);
+    };
+    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.target instanceof Node && inEditor(event.target)) watchForSend(); }, { capture: true });
+    ctx.addEventListener(document, 'click', event => {
+      const button = event.target instanceof Element ? event.target.closest('button') : null;
+      if (button && (button.getAttribute('type') === 'submit' || /send|submit/i.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''}`))) watchForSend();
+    }, { capture: true });
     const observer = new MutationObserver(mutations => {
       scheduleStatus();
       if (mutations.every(mutation => inEditor(mutation.target))) return;

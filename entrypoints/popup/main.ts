@@ -563,6 +563,9 @@ document.querySelector('#backup-all')?.addEventListener('click', async () => {
 });
 
 // On by default (user can switch off): opening Handoff refreshes usage pages, at most every 10 minutes (signed-out services never update).
+const afterSend = document.querySelector('#refresh-after-send') as HTMLInputElement;
+afterSend.checked = (await chrome.storage.local.get('refreshAfterSend')).refreshAfterSend !== false;
+afterSend.addEventListener('change', () => { void chrome.storage.local.set({ refreshAfterSend: afterSend.checked }); });
 const autoRefresh = document.querySelector('#auto-refresh-usage') as HTMLInputElement;
 const autoSettings = await chrome.storage.local.get(['autoRefreshUsage', 'lastAutoUsageRefresh']);
 autoRefresh.checked = autoSettings.autoRefreshUsage !== false;

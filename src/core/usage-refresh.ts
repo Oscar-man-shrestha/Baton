@@ -14,6 +14,10 @@ export type RefreshDeps = {
   sleep: (ms: number) => Promise<void>;
   now: () => number;
 };
+/** After a send: refresh at most every 5 minutes per service, and not when a reading is under 2 minutes old. */
+export function refreshAfterSendDue(lastRun: number | undefined, newestReading: number, now = Date.now()): boolean {
+  return !(lastRun && now - lastRun < 5 * 60000) && !(newestReading && now - newestReading < 2 * 60000);
+}
 export type RefreshResult = { provider: ProviderId; status: 'read' | 'no-reading'; opened: boolean };
 
 /** User-pressed refresh: read each service's own usage page, reusing an open one, and close only tabs opened here. */

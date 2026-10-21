@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refreshAllUsage, type RefreshDeps } from '../src/core/usage-refresh';
+import { refreshAfterSendDue, refreshAllUsage, type RefreshDeps } from '../src/core/usage-refresh';
 import type { ProviderId } from '../src/core/selectors';
 
 function fakeBrowser(tabs: { id: number; url: string }[], readsAfter: Partial<Record<ProviderId, number>>) {
@@ -40,5 +40,15 @@ describe('refresh all usage', () => {
     const { deps, log } = fakeBrowser([], {});
     expect(await refreshAllUsage(['deepseek', 'grok'], deps)).toEqual([]);
     expect(log).toEqual([]);
+  });
+});
+
+describe('refresh after a send', () => {
+  const now = 10 * 3600000;
+  it('runs at most every 5 minutes per service and skips fresh readings', () => {
+    expect(refreshAfterSendDue(undefined, 0, now)).toBe(true);
+    expect(refreshAfterSendDue(now - 4 * 60000, 0, now)).toBe(false);
+    expect(refreshAfterSendDue(now - 6 * 60000, now - 10 * 60000, now)).toBe(true);
+    expect(refreshAfterSendDue(undefined, now - 60000, now)).toBe(false);
   });
 });

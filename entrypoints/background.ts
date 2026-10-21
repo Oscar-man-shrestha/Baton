@@ -4,7 +4,8 @@ import { usageAlert } from '../src/core/usage-alerts';
 import { isSupportedChatUrl } from '../src/core/connection';
 import { currentBadge, updateBadge, usageQueue, type BadgeRecord } from '../src/core/usage-delivery';
 import { isCurrentReading, type UsageWindow } from '../src/core/usage-windows';
-import { refreshAllUsage } from '../src/core/usage-refresh';
+import { refreshAfterSendDue, refreshAllUsage } from '../src/core/usage-refresh';
+import { usagePageUrl } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
 import { providerEnabled, providerNames } from '../src/core/rescue';
 
@@ -41,6 +42,26 @@ export default defineBackground(() => {
       try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [script] }); } catch { /* Discarded/restricted tabs connect when opened. */ }
     }
   })().catch(() => {}); });
+  // Usage pages load in a minimised window so nothing flashes in the user's tab bar; it closes with its only tab.
+  const usageDeps = () => ({
+    tabs: () => chrome.tabs.query({}),
+    open: async (url: string) => (await chrome.windows.create({ url, focused: false, state: 'minimized' }))?.tabs?.[0]?.id,
+    close: async (tabId: number) => { await chrome.tabs.remove(tabId); },
+    ask: async (tabId: number) => !!(await chrome.tabs.sendMessage(tabId, { type: 'REFRESH_USAGE' }))?.ok,
+    readingAt: async (provider: ProviderId) => Math.max(0, ...((((await chrome.storage.local.get(`usageWindows:${provider}`))[`usageWindows:${provider}`] || []) as UsageWindow[]).map(win => Number(win.at) || 0))),
+    sleep: (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
+    now: () => Date.now()
+  });
+  // After a send, refresh that service's usage page 30 s later (the reply's usage is then counted).
+  chrome.alarms.onAlarm.addListener(alarm => {
+    if (!alarm.name.startsWith('handoff-usage:')) return;
+    const provider = alarm.name.slice('handoff-usage:'.length) as ProviderId;
+    if (!providerIds.includes(provider)) return;
+    void (async () => {
+      await chrome.storage.session.set({ [`refreshAfterSendAt:${provider}`]: Date.now() });
+      await refreshAllUsage([provider], usageDeps());
+    })().catch(() => {});
+  });
   // Reset reminders the user asked for from the limit rescue card.
   chrome.alarms.onAlarm.addListener(alarm => {
     if (!alarm.name.startsWith('handoff-reset:')) return;
@@ -106,18 +127,25 @@ export default defineBackground(() => {
       // Runs here so it finishes even if the popup closes. Background tabs it opens are closed again.
       void (async () => {
         const enabled = ((await chrome.storage.local.get('enabledProviders')).enabledProviders || {}) as Record<string, boolean>;
-        const results = await refreshAllUsage(providerIds.filter(id => providerEnabled(id, enabled)), {
-          tabs: () => chrome.tabs.query({}),
-          open: async url => (await chrome.tabs.create({ url, active: false })).id,
-          close: async tabId => { await chrome.tabs.remove(tabId); },
-          ask: async tabId => !!(await chrome.tabs.sendMessage(tabId, { type: 'REFRESH_USAGE' }))?.ok,
-          readingAt: async provider => Math.max(0, ...((((await chrome.storage.local.get(`usageWindows:${provider}`))[`usageWindows:${provider}`] || []) as UsageWindow[]).map(win => Number(win.at) || 0))),
-          sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
-          now: () => Date.now()
-        });
+        const results = await refreshAllUsage(providerIds.filter(id => providerEnabled(id, enabled)), usageDeps());
         sendResponse({ ok: true, results });
       })().catch(() => sendResponse({ ok: false }));
       return true;
+    }
+    if (message?.type === 'REFRESH_AFTER_SEND') {
+      let host = '';
+      try { host = _sender.url ? new URL(_sender.url).hostname : ''; } catch { return; }
+      const provider = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(host));
+      if (!provider || !usagePageUrl(provider)) return;
+      void (async () => {
+        const saved = await chrome.storage.local.get(['refreshAfterSend', `usageWindows:${provider}`]);
+        if (saved.refreshAfterSend === false) return;
+        const lastRun = Number((await chrome.storage.session.get(`refreshAfterSendAt:${provider}`))[`refreshAfterSendAt:${provider}`]) || undefined;
+        const newest = Math.max(0, ...((saved[`usageWindows:${provider}`] || []) as UsageWindow[]).map(win => Number(win.at) || 0));
+        if (!refreshAfterSendDue(lastRun, newest) || await chrome.alarms.get(`handoff-usage:${provider}`)) return;
+        await chrome.alarms.create(`handoff-usage:${provider}`, { when: Date.now() + 30000 });
+      })().catch(() => {});
+      return;
     }
     if (message?.type === 'REMIND_AT_RESET') {
       let host = '';
