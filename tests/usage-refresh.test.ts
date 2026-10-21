@@ -27,7 +27,7 @@ function fakeBrowser(tabs: { id: number; url: string }[], readsAfter: Partial<Re
 describe('refresh all usage', () => {
   it('opens missing usage pages in the background, reads them and closes only those tabs', async () => {
     const { deps, log } = fakeBrowser([{ id: 7, url: 'https://claude.ai/settings/usage' }], { claude: 1, gemini: 2 });
-    const results = await refreshAllUsage(['claude', 'gemini', 'chatgpt'], deps);
+    const results = await refreshAllUsage(['claude', 'gemini', 'grok'], deps);
     expect(results).toEqual([{ provider: 'claude', status: 'read', opened: false }, { provider: 'gemini', status: 'read', opened: true }]);
     expect(log).toEqual(['open https://gemini.google.com/usage', 'close 100']);
   });

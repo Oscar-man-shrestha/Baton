@@ -13,12 +13,28 @@ export function isGeminiUsageUrl(value: string | undefined): boolean {
   if (!value) return false;
   try { const url = new URL(value); return url.protocol === 'https:' && url.hostname === 'gemini.google.com' && /^\/usage\/?$/.test(url.pathname); } catch { return false; }
 }
+export function isChatGptUsageUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try { const url = new URL(value); return url.protocol === 'https:' && url.hostname === 'chatgpt.com' && /^\/(?:codex\/)?settings\/usage\/?$/.test(url.pathname); } catch { return false; }
+}
 /** The service's own usage screen, where it shows official figures. */
 export function usagePageUrl(provider: ProviderId): string | undefined {
-  return provider === 'claude' ? 'https://claude.ai/settings/usage' : provider === 'gemini' ? 'https://gemini.google.com/usage' : undefined;
+  return provider === 'claude' ? 'https://claude.ai/settings/usage' : provider === 'gemini' ? 'https://gemini.google.com/usage' : provider === 'chatgpt' ? 'https://chatgpt.com/settings/usage' : undefined;
 }
 export function isUsagePageUrl(provider: ProviderId, value: string | undefined): boolean {
-  return provider === 'claude' ? isClaudeUsageUrl(value) : provider === 'gemini' && isGeminiUsageUrl(value);
+  return provider === 'claude' ? isClaudeUsageUrl(value) : provider === 'gemini' ? isGeminiUsageUrl(value) : provider === 'chatgpt' && isChatGptUsageUrl(value);
+}
+const monthIndex = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+/** ChatGPT's reset tooltip, e.g. “Thursday, October 22, 2026 at 5:39:17 AM GMT+5:30”. */
+export function parseResetTooltip(text: string): number | undefined {
+  const m = text.match(/([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})\s+at\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?\s*(?:GMT|UTC)(?:([+-])(\d{1,2})(?::?(\d{2}))?)?/i);
+  const month = m ? monthIndex.indexOf(m[1].toLowerCase()) : -1;
+  if (!m || month < 0) return undefined;
+  let hour = Number(m[4]);
+  if (m[7]) { if (hour < 1 || hour > 12) return undefined; hour = hour % 12 + (m[7].toUpperCase() === 'PM' ? 12 : 0); }
+  const offset = m[8] ? (m[8] === '-' ? -1 : 1) * (Number(m[9]) * 60 + Number(m[10] || 0)) : 0;
+  const at = Date.UTC(Number(m[3]), month, Number(m[2]), hour, Number(m[5]), Number(m[6] || 0)) - offset * 60000;
+  return new Date(at + offset * 60000).getUTCDate() === Number(m[2]) && hour < 24 && Number(m[5]) < 60 ? at : undefined;
 }
 export function isCurrentReading(meter: Meter | undefined, now = Date.now()): meter is Meter & { at: number } {
   if (!meter || meter.tier !== 'banner' || meter.confidence !== 'high' || typeof meter.at !== 'number' || !Number.isFinite(meter.at) || meter.at > now || now - meter.at >= 3600000) return false;
@@ -73,6 +89,7 @@ export function readUsageWindows(doc: Document, provider: ProviderId, turnNodes:
   };
   const textOf = (node: Element) => ((node as HTMLElement).innerText || Array.from(node.childNodes).map(child => child.textContent || '').join(' ')).replace(/\s+/g, ' ').trim();
   if (provider === 'gemini' && isGeminiUsageUrl(doc.location.href)) return readGeminiUsage(doc, now, { excluded, visible, textOf });
+  if (provider === 'chatgpt' && isChatGptUsageUrl(doc.location.href)) return readChatGptUsage(doc, now, { excluded, visible, textOf });
   const rowLabels = new Map<Element, string>();
   const candidates = Array.from(doc.querySelectorAll('progress,[role="progressbar"],[role="alert"],[aria-live="assertive"],[data-testid*="usage" i],[data-testid*="limit" i]'));
   const claudeUsagePage = provider === 'claude' && isClaudeUsageUrl(doc.location.href);
@@ -153,6 +170,40 @@ function readGeminiUsage(doc: Document, now: number, page: { excluded: (node: El
     if (!Number.isFinite(percent) || percent < 0 || percent > 100) continue;
     const resetAt = parseReset(text, now);
     windows.push({ provider: 'gemini', tier: 'banner', confidence: 'high', key, feature, percent, remainingPercent: 100 - percent, ...(resetAt ? { resetAt } : {}), at: now, source: 'provider-page', evidenceKey: evidenceKey(text), explanation: 'Shown on Gemini’s Usage limits page' });
+  }
+  return windows;
+}
+
+// ChatGPT's Usage page: “Plan limits” for Codex, Work, Workspace Agents and ChatGPT for Excel; chat is not included.
+// Its bars are labelled “Usage remaining”, so their value is what is left. Exact resets sit in the tooltip.
+function readChatGptUsage(doc: Document, now: number, page: { excluded: (node: Element) => boolean; visible: (node: Element) => boolean; textOf: (node: Element) => string }): UsageWindow[] {
+  const windows: UsageWindow[] = [];
+  const reading = (feature: string, text: string, extra: Partial<UsageWindow>): UsageWindow => ({ provider: 'chatgpt', tier: 'banner', confidence: 'high', key: `chatgpt:${feature}`, feature, at: now, source: 'provider-page', evidenceKey: evidenceKey(text), explanation: 'Shown on ChatGPT’s Usage page (Codex and Work; chat is not included)', ...extra });
+  for (const node of Array.from(doc.querySelectorAll('div,span,p,h2,h3,button'))) {
+    if (page.excluded(node) || !page.visible(node)) continue;
+    const title = page.textOf(node);
+    const feature = /^5-hour limit$/i.test(title) ? 'Work 5-hour' : /^weekly limit$/i.test(title) ? 'Work weekly' : '';
+    if (feature && !windows.some(win => win.feature === feature)) {
+      let card: Element | undefined;
+      for (let scope = node.parentElement, depth = 0; scope && depth < 6 && !scope.matches('main,body'); scope = scope.parentElement, depth++) {
+        if (new Set((page.textOf(scope).match(/5-hour limit|weekly limit/gi) || []).map(label => label.toLowerCase())).size > 1) break;
+        if (/\d\s*%\s*(?:left|used)/i.test(page.textOf(scope))) card = scope;
+      }
+      if (!card) continue;
+      const text = page.textOf(card).slice(0, 500);
+      const left = text.match(/(?<![-\d.])(\d{1,3}(?:\.\d+)?)\s*%\s*left/i);
+      const used = text.match(/(?<![-\d.])(\d{1,3}(?:\.\d+)?)\s*%\s*used/i);
+      const percent = left ? 100 - Number(left[1]) : used ? Number(used[1]) : NaN;
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) continue;
+      const tooltip = Array.from(card.querySelectorAll('[title]')).map(element => parseResetTooltip(element.getAttribute('title') || '')).find(at => at && at > now);
+      const resetAt = tooltip ?? parseReset(text, now);
+      windows.push(reading(feature, text, { percent, remainingPercent: 100 - percent, ...(resetAt ? { resetAt } : {}) }));
+      continue;
+    }
+    const credits = title.match(/^([\d,]+)\s+credits?\s+remaining$/i);
+    if (credits && !windows.some(win => win.feature === 'Credits')) windows.push(reading('Credits', title, { remainingCount: Number(credits[1].replaceAll(',', '')) }));
+    const resets = node.getAttribute('role') === 'tab' ? title.match(/^Available\s*(\d+)$/i) : null;
+    if (resets && !windows.some(win => win.feature === 'Limit resets')) windows.push(reading('Limit resets', title, { remainingCount: Number(resets[1]) }));
   }
   return windows;
 }

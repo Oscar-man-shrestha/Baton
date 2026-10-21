@@ -11,19 +11,20 @@ export function providerEnabled(id: ProviderId, enabled: Record<string, boolean 
   return enabled[id] === false ? false : enabled[id] === true || !['deepseek', 'grok', 'perplexity'].includes(id);
 }
 
+// Feature caps, Codex/Work allowances and credits leave ordinary chat usable, so they never decide whether a service is out.
+const chatReading = (feature: string) => !/image|file|upload|voice|deep research|work|codex|credit|limit resets/i.test(feature);
 function readings(saved: Record<string, unknown>, id: ProviderId, now: number): Meter[] {
-  const windows = activeWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], now);
+  const windows = activeWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], now).filter(win => chatReading(win.feature));
   const meter = saved[`meter:${id}`] as Meter | undefined;
   // A “limit reached” notice is kept alongside per-window readings unless it repeats one of them.
-  const notice = isCurrentReading(meter, now) && (meter.percent !== undefined || meter.remainingPercent !== undefined) && !windows.some(win => win.feature === meter.feature) ? [meter] : [];
+  const notice = isCurrentReading(meter, now) && chatReading(meter.feature) && (meter.percent !== undefined || meter.remainingPercent !== undefined) && !windows.some(win => win.feature === meter.feature) ? [meter] : [];
   return [...windows, ...notice];
 }
 
 export type LimitState = { provider: ProviderId; feature: string; resetAt?: number };
 /** A limit counts only when the service itself showed it within the last hour. */
 export function reachedLimit(saved: Record<string, unknown>, id: ProviderId, now = Date.now()): LimitState | undefined {
-  // A full image, file, voice or research cap leaves ordinary chat usable.
-  const hit = readings(saved, id, now).filter(reading => reading.percent === 100 && !/image|file|upload|voice|deep research/i.test(reading.feature));
+  const hit = readings(saved, id, now).filter(reading => reading.percent === 100);
   if (!hit.length) return;
   const resets = hit.map(reading => reading.resetAt).filter((at): at is number => !!at && at > now);
   // The window that frees up last decides when this service is usable again.

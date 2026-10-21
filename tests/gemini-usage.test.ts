@@ -40,7 +40,8 @@ describe('Gemini usage limits page', () => {
     expect(isUsagePageUrl('gemini', 'https://gemini.google.com/app')).toBe(false);
     expect(isUsagePageUrl('claude', 'https://claude.ai/new#settings/usage')).toBe(true);
     expect(usagePageUrl('gemini')).toBe('https://gemini.google.com/usage');
-    expect(usagePageUrl('chatgpt')).toBeUndefined();
+    expect(usagePageUrl('chatgpt')).toBe('https://chatgpt.com/settings/usage');
+    expect(usagePageUrl('grok')).toBeUndefined();
   });
 });
 
