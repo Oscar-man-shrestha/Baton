@@ -82,6 +82,8 @@ const refreshActiveChat = createActiveChatTracker(activeChatTab, tab => sendToCh
   activeWindowId = tab?.windowId;
   activeProvider = provider;
   void showUsage();
+// Opening Handoff acknowledges a reset reminder's toolbar mark.
+void chrome.action.getBadgeText({}).then(text => { if (text === '✓') return chrome.action.setBadgeText({ text: '' }); }).catch(() => {});
   if (!captureStarted) {
     status.textContent = provider ? '' : isSupportedChatUrl(tab?.url) ? 'Connecting to your AI chat…' : 'Open an AI chat to get started.';
     (document.querySelector('#source-label') as HTMLElement).textContent = provider ? `${providerNames[provider]} · active tab` : 'Open a supported AI conversation';

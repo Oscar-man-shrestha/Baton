@@ -1,7 +1,10 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
 import { collectTurnNodes, extract, makeAdapter } from '../src/core/adapter';
-import { updateBrief } from '../src/core/brief';
+import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
+import { saveCapturedCapsule } from '../src/core/capsules';
+import { accountSwitch, newChatUrls, providerNames, reachedLimit, rescueOptions } from '../src/core/rescue';
+import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, type LimitEvent, type Meter } from '../src/core/limits';
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
@@ -36,6 +39,80 @@ export default defineContentScript({
     statusStyle.textContent += 'progress{width:32px;height:4px;accent-color:#a99aff;vertical-align:middle;margin:0 4px}';
     shadow.append(statusStyle, statusText);
     document.body.append(statusHost);
+    // Limit rescue: interactive, shown only while the service reports a limit, placed above the composer.
+    const rescueHost = document.createElement('div');
+    rescueHost.id = 'handoff-limit-rescue';
+    rescueHost.style.cssText = 'position:fixed;z-index:2147483001;display:none';
+    const rescueShadow = rescueHost.attachShadow({ mode: 'closed' });
+    const rescueStyle = document.createElement('style');
+    rescueStyle.textContent = rescueCardStyle;
+    rescueShadow.append(rescueStyle);
+    document.body.append(rescueHost);
+    let rescueSignature = '';
+    let dismissedRescue = '';
+    const positionRescue = () => {
+      if (rescueHost.style.display === 'none') return;
+      const width = Math.min(420, innerWidth - 32);
+      const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
+      const rect = editor ? (editor.closest('form') || editor).getBoundingClientRect() : undefined;
+      const left = rect && rect.width ? rect.left + (rect.width - width) / 2 : (innerWidth - width) / 2;
+      const bottom = rect && rect.height ? innerHeight - rect.top + 10 : 24;
+      rescueHost.style.width = `${width}px`;
+      rescueHost.style.left = `${Math.max(16, Math.min(left, innerWidth - width - 16))}px`;
+      rescueHost.style.bottom = `${bottom > innerHeight - 160 ? 24 : bottom}px`;
+    };
+    const rescueDraft = async () => {
+      const data = extract(document, id, bundledSelectors);
+      const { archiveKey } = storageKeys();
+      const previous = genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
+      const archive = archiveWindow(previous?.selectorsVersion === bundledSelectors.version ? previous : undefined, data.turns);
+      if (!archive.turns.length) throw new Error('There is no conversation on this page to carry over yet.');
+      const brief = updateBrief(undefined, archive.turns, data.artifacts);
+      await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
+      return redact(wrapHandoff(renderBrief(brief, 1400).text)).text;
+    };
+    const updateRescue = async () => {
+      const saved = await chrome.storage.local.get([...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`]), 'enabledProviders']);
+      const limit = reachedLimit(saved, id);
+      const signature = limit ? `${limit.feature}:${limit.resetAt ?? ''}` : '';
+      if (!limit || signature === dismissedRescue) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); rescueSignature = ''; return; }
+      if (signature === rescueSignature) return;
+      rescueSignature = signature;
+      const name = providerNames[id];
+      const card = buildRescueCard(document, limit, rescueOptions(id, saved, (saved.enabledProviders || {}) as Record<string, boolean>), {
+        continueIn: async target => {
+          const draft = await rescueDraft();
+          if (!draftBudget(draft).fits) return 'Saved as a capsule. This project is too long for a one-click draft; open Handoff to review and shorten it.';
+          const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
+          if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Handoff.`);
+          return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a capsule.`;
+        },
+        switchAccount: async () => {
+          const draft = await rescueDraft();
+          const help = accountSwitch(id);
+          if (help.url) window.open(help.url, '_blank', 'noopener');
+          try { await navigator.clipboard.writeText(draft); } catch { return `Saved as a capsule; copying was blocked, so copy it from Handoff. ${help.steps}`; }
+          return `Project copied and saved as a capsule. ${help.steps}`;
+        },
+        remind: async () => {
+          const reply = await chrome.runtime.sendMessage({ type: 'REMIND_AT_RESET', provider: id, resetAt: limit.resetAt });
+          if (!reply?.ok) throw new Error('Could not set the reminder.');
+          const at = new Date(limit.resetAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return reply.notifications ? `I’ll send a desktop alert when ${name} resets (${at}).` : `I’ll mark the Handoff icon when ${name} resets (${at}). Turn on desktop alerts in Handoff → Usage for a pop-up.`;
+        },
+        dismiss: () => { dismissedRescue = rescueSignature; rescueHost.style.display = 'none'; }
+      });
+      rescueShadow.querySelector('.card')?.remove();
+      rescueShadow.append(card);
+      rescueHost.style.display = 'block';
+      positionRescue();
+    };
+    const rescueChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (Object.keys(changes).some(key => key.startsWith('usageWindows:') || key.startsWith('meter:') || key === 'enabledProviders')) void updateRescue().catch(() => {});
+    };
+    chrome.storage.onChanged.addListener(rescueChanged);
+    ctx.onInvalidated(() => { chrome.storage.onChanged.removeListener(rescueChanged); rescueHost.remove(); });
+    void updateRescue().catch(() => {});
     let statusFrame = 0;
     let lastPrompt = '';
     let lastPromptTokens = 0;
@@ -43,6 +120,7 @@ export default defineContentScript({
     let lastLimitCheck = 0;
     const updateStatus = () => {
       statusFrame = 0;
+      positionRescue();
       const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean) as HTMLElement | undefined;
       if (!editor || !composerUsageEnabled) { statusHost.style.display = 'none'; return; }
       const editorRect = editor.getBoundingClientRect();

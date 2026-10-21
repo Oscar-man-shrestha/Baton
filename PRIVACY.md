@@ -26,7 +26,7 @@ The configured project is `qeoduozlznznptwsfzbt.supabase.co`. Google sign-in, ex
 
 ## Sidebar and usage display
 
-The sidePanel permission lets the user open Handoff in the browser's sidebar. The status strip remains outside the chat editor and can be turned off. Separate observed windows/features are stored locally, with source times; elapsed resets and old readings become unknown. Toolbar badges reflect the last observed service figure, not an independently measured live account balance. Full local backup files contain chat text and should be kept private.
+The alarms permission is used only for reset reminders the user asks for from the limit rescue card: Handoff schedules one alarm per service at the reset time the service displayed, then marks its toolbar icon and, if desktop alerts are allowed, shows a notification. When a service shows a limit, the rescue card can open another service with the project as an unsent draft, copy the project to the clipboard, or open Google's own account chooser; it never signs anyone in or out. The sidePanel permission lets the user open Handoff in the browser's sidebar. The status strip remains outside the chat editor and can be turned off. Separate observed windows/features are stored locally, with source times; elapsed resets and old readings become unknown. Toolbar badges reflect the last observed service figure, not an independently measured live account balance. Full local backup files contain chat text and should be kept private.
 
 
 ### Usage observation reliability, version 0.2.1

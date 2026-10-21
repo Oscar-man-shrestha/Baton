@@ -8,7 +8,7 @@ export default defineConfig({
   manifest: {
     name: 'Handoff',
     description: 'Review a compact project brief and continue as a draft in another AI chat.',
-    permissions: ['storage', 'tabs', 'activeTab', 'scripting', 'sidePanel', ...(cloudEnabled ? ['identity'] : [])],
+    permissions: ['storage', 'tabs', 'activeTab', 'scripting', 'sidePanel', 'alarms', ...(cloudEnabled ? ['identity'] : [])],
     optional_permissions: ['notifications'],
     side_panel: { default_path: 'sidepanel.html' },
     // A persistent sidebar has no activeTab grant after switching tabs.

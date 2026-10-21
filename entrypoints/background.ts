@@ -5,6 +5,7 @@ import { isSupportedChatUrl } from '../src/core/connection';
 import { currentBadge, updateBadge, usageQueue, type BadgeRecord } from '../src/core/usage-delivery';
 import { isCurrentReading } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
+import { providerNames } from '../src/core/rescue';
 
 export default defineBackground(() => {
   const enqueueUsage = usageQueue();
@@ -39,6 +40,18 @@ export default defineBackground(() => {
       try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [script] }); } catch { /* Discarded/restricted tabs connect when opened. */ }
     }
   })().catch(() => {}); });
+  // Reset reminders the user asked for from the limit rescue card.
+  chrome.alarms.onAlarm.addListener(alarm => {
+    if (!alarm.name.startsWith('handoff-reset:')) return;
+    const provider = alarm.name.slice('handoff-reset:'.length) as ProviderId;
+    if (!providerIds.includes(provider)) return;
+    void (async () => {
+      await chrome.action.setBadgeText({ text: '✓' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#376b54' });
+      await chrome.action.setTitle({ title: `Handoff · ${providerNames[provider]} should be available again` });
+      if (await chrome.permissions.contains({ permissions: ['notifications'] })) await chrome.notifications.create(alarm.name, { type: 'basic', iconUrl: chrome.runtime.getURL('icon-128.png'), title: `${providerNames[provider]} is available again`, message: 'Its usage limit was due to reset now. Your saved project is in Handoff.', priority: 0 });
+    })().catch(() => {});
+  });
   const deliverDraft = async (tabId: number, text: string) => {
     for (let attempt = 1; attempt <= 12; attempt++) {
       try {
@@ -85,6 +98,18 @@ export default defineBackground(() => {
         await chrome.notifications.create(alert.key, { type: 'basic', iconUrl: chrome.runtime.getURL('icon-128.png'), title: alert.title, message: alert.message, priority: 0 });
         await chrome.storage.local.set({ deliveredUsageAlerts: [...delivered, alert.key].slice(-100) });
       }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (message?.type === 'REMIND_AT_RESET') {
+      let host = '';
+      try { host = _sender.url ? new URL(_sender.url).hostname : ''; } catch { return; }
+      const provider = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(host));
+      const resetAt = Number(message.resetAt);
+      if (!provider || provider !== message.provider || !Number.isFinite(resetAt) || resetAt < Date.now() + 30000 || resetAt > Date.now() + 8 * 86400000) { sendResponse({ ok: false }); return; }
+      void (async () => {
+        await chrome.alarms.create(`handoff-reset:${provider}`, { when: resetAt });
+        sendResponse({ ok: true, notifications: await chrome.permissions.contains({ permissions: ['notifications'] }) });
+      })().catch(() => sendResponse({ ok: false }));
       return true;
     }
     if (message?.type !== 'OPEN_DRAFT' || typeof message.text !== 'string' || typeof message.url !== 'string') return;
