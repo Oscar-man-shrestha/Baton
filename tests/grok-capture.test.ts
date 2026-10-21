@@ -41,3 +41,11 @@ describe('Grok composer', () => {
     expect(doc.querySelector('[contenteditable="true"]')?.textContent).toContain('Continue my project');
   });
 });
+
+describe('Grok message identity', () => {
+  it('uses Grok’s turn-heading id, so the same text sent twice is two messages', () => {
+    const msg = (uuid: string) => `<div role="article" aria-labelledby="turn-heading-${uuid}" data-testid="user-message"><h2 id="turn-heading-${uuid}" class="sr-only" data-no-copy="true">You</h2><p>ok</p></div>`;
+    const doc = new JSDOM(`<div class="group/sidebar-wrapper">${msg('a1')}${msg('b2')}</div>`, { url: 'https://grok.com/c/x' }).window.document;
+    expect(extract(doc, 'grok', bundledSelectors).turns.map(turn => turn.id)).toEqual(['user:turn-heading-a1', 'user:turn-heading-b2']);
+  });
+});

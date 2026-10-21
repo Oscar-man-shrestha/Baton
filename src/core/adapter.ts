@@ -145,6 +145,9 @@ function messageIdentity(node: Element, role: Turn['role']): string | undefined 
   const turn = node.closest('[data-turn-id], [data-turn-id-container]');
   const turnId = turn?.getAttribute('data-turn-id') || turn?.getAttribute('data-turn-id-container');
   if (turnId) return `${role}:${turnId}`;
+  // Grok labels each message with a unique “turn-heading-<id>”.
+  const heading = node.getAttribute('aria-labelledby');
+  if (heading?.startsWith('turn-heading-')) return `${role}:${heading}`;
   // Gemini commonly uses stable query/response element IDs; avoid generic container IDs.
   if (/^(?:user-query|model-response)$/.test(node.tagName.toLowerCase()) && node.id) return `${role}:${node.id}`;
   return undefined;
