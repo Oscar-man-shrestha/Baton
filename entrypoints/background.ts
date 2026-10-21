@@ -3,9 +3,10 @@ import { bundledSelectors, providerIds, type ProviderId } from '../src/core/sele
 import { usageAlert } from '../src/core/usage-alerts';
 import { isSupportedChatUrl } from '../src/core/connection';
 import { currentBadge, updateBadge, usageQueue, type BadgeRecord } from '../src/core/usage-delivery';
-import { isCurrentReading } from '../src/core/usage-windows';
+import { isCurrentReading, type UsageWindow } from '../src/core/usage-windows';
+import { refreshAllUsage } from '../src/core/usage-refresh';
 import type { Meter } from '../src/core/limits';
-import { providerNames } from '../src/core/rescue';
+import { providerEnabled, providerNames } from '../src/core/rescue';
 
 export default defineBackground(() => {
   const enqueueUsage = usageQueue();
@@ -98,6 +99,24 @@ export default defineBackground(() => {
         await chrome.notifications.create(alert.key, { type: 'basic', iconUrl: chrome.runtime.getURL('icon-128.png'), title: alert.title, message: alert.message, priority: 0 });
         await chrome.storage.local.set({ deliveredUsageAlerts: [...delivered, alert.key].slice(-100) });
       }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (message?.type === 'REFRESH_ALL_USAGE') {
+      if (!_sender.url?.startsWith(chrome.runtime.getURL(''))) return;
+      // Runs here so it finishes even if the popup closes. Background tabs it opens are closed again.
+      void (async () => {
+        const enabled = ((await chrome.storage.local.get('enabledProviders')).enabledProviders || {}) as Record<string, boolean>;
+        const results = await refreshAllUsage(providerIds.filter(id => providerEnabled(id, enabled)), {
+          tabs: () => chrome.tabs.query({}),
+          open: async url => (await chrome.tabs.create({ url, active: false })).id,
+          close: async tabId => { await chrome.tabs.remove(tabId); },
+          ask: async tabId => !!(await chrome.tabs.sendMessage(tabId, { type: 'REFRESH_USAGE' }))?.ok,
+          readingAt: async provider => Math.max(0, ...((((await chrome.storage.local.get(`usageWindows:${provider}`))[`usageWindows:${provider}`] || []) as UsageWindow[]).map(win => Number(win.at) || 0))),
+          sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
+          now: () => Date.now()
+        });
+        sendResponse({ ok: true, results });
+      })().catch(() => sendResponse({ ok: false }));
       return true;
     }
     if (message?.type === 'REMIND_AT_RESET') {

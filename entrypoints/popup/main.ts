@@ -101,14 +101,16 @@ document.querySelector('#close-usage')?.addEventListener('click', () => usageDia
 document.querySelector('#refresh-all-usage')?.addEventListener('click', async () => {
   const button = document.querySelector('#refresh-all-usage') as HTMLButtonElement;
   const message = document.querySelector('#usage-refresh-status') as HTMLElement;
-  button.disabled = true; message.textContent = 'Checking open AI tabs…';
+  button.disabled = true; message.textContent = 'Checking open AI tabs and each service’s usage page…';
   try {
     const tabs = (await chrome.tabs.query({})).filter(tab => isSupportedChatUrl(tab.url));
     const results = await Promise.allSettled(tabs.map(tab => sendToChat<{ ok?: boolean }>(tab, { type: 'REFRESH_USAGE' })));
     const connected = results.filter(result => result.status === 'fulfilled' && result.value?.ok).length;
+    const pages = await chrome.runtime.sendMessage({ type: 'REFRESH_ALL_USAGE' }) as { ok?: boolean; results?: { provider: ProviderId; status: string }[] } | undefined;
     await showUsage();
-    message.textContent = tabs.length ? `Checked ${connected} of ${tabs.length} open AI tabs. Only service-reported readings are shown.` : 'Open a supported AI chat to read its usage notices.';
-  } catch { message.textContent = 'Could not check open tabs. Try again.'; }
+    const pageSummary = (pages?.results || []).map(result => `${providerNames[result.provider]} ${result.status === 'read' ? 'read' : 'not shown (signed out or page changed)'}`).join(', ');
+    message.textContent = `${tabs.length ? `Checked ${connected} of ${tabs.length} open AI tabs. ` : ''}${pageSummary ? `Usage pages: ${pageSummary}.` : 'No usage pages to check.'} Services without a usage page update when they show a limit.`;
+  } catch { message.textContent = 'Could not refresh. Try again.'; }
   finally { button.disabled = false; }
 });
 window.setInterval(() => { void showUsage(); }, 60000);
