@@ -1,19 +1,19 @@
 # Phase status — 2026-10-21
 
-These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 46/46 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
+These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 50/50 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
 
 ## Phase 1 — Foundation: partial
 
 - WXT, TypeScript, Zod, Vitest, six narrow site patterns, adapter interface, bundled selectors, and local selector diagnostics exist.
-- Synthetic fixtures cover six adapters, including user/assistant role checks and code-block formatting; hidden attributes, CSS-hidden text, and zero-width text are stripped. Instruction-like hidden text now raises a visible capture warning.
+- Synthetic fixtures cover six adapters, including user/assistant role checks and code-block formatting; a reported DeepSeek → ChatGPT to-do-app failure now has an end-to-end regression fixture. Hidden attributes, CSS-hidden text, and zero-width text are stripped. Instruction-like hidden text now raises a visible capture warning.
 - Remote JSON refresh is opt-in infrastructure with HTTPS, schema, version, and SHA-256 validation, but no user flow or signature trust chain is shipped.
-- The content script now accumulates overlapping rendered turn windows into a bounded local transcript for each chat URL. It flags windows without overlap and truncation, and the popup can copy saved text. This does not guarantee capture of messages never rendered or media. The popup warns when a chat shows fewer turns than Handoff previously saw for that URL. An opt-in older-message pass now scrolls a detected conversation container, merges overlapping visible windows, and restores the starting position. It is bounded to 24 steps, remains best effort, and requires logged-in site verification. Real artifact/canvas extraction remains unverified.
+- The content script now accumulates overlapping rendered turn windows into a bounded local transcript for each chat URL. It flags windows without overlap and truncation, and the popup can copy saved text. This does not guarantee capture of messages never rendered or media. The popup warns when a chat shows fewer turns than Handoff previously saw for that URL. An opt-in older-message pass now scrolls a detected conversation container, merges overlapping visible windows, and restores the starting position. It is bounded to 24 steps, remains best effort, and requires logged-in site verification. DeepSeek capture now prefers top-level chat turns, excludes sidebars, recognizes rendered user and assistant roles, and refuses an assistant-only transfer. Existing unversioned transcript archives are rebuilt with selector bundle v2. Real artifact/canvas extraction remains unverified.
 - Capture sends counts, a brief, and a usage signal to the popup rather than the full raw turn list; this reduces internal message size for long chats. The brief itself can still be large when a required artifact is large, and no live stress test has been run.
 - Local tests pass; user-session Playwright captures were unavailable.
 
 ## Phase 2 — Brief: partial
 
-- Structured brief, provenance fields, incremental local updates, redaction, readable text rendering, review editor, receipt, and one-time data boundary are implemented.
+- Structured brief, provenance fields, incremental local updates, redaction, readable text rendering, review editor, receipt, and one-time data boundary are implemented. The handoff now preserves unanswered questions and asks the destination to continue naturally, rather than reply only “Ready.”
 - Seeded fake key classes and budget-drop behavior have tests. A huge required artifact remains intact, but the popup blocks opening a destination until the reviewed whole draft fits 1,500 approximate tokens; a user can shorten it manually. The hard cap therefore applies to automatic transfer, not to stored source artifacts.
 - Optional Gemini-key summarization is omitted because this request rules out credential manipulation. Extractive logic is the only summarizer.
 - Five-scenario evaluation harness is ready. A local check confirms the briefs preserve all listed fixture facts before handoff, but no target model responses have been run; 8/10 continuation quality is unproven.
@@ -22,7 +22,7 @@ These are implementation summaries, not release claims. The updated source was v
 ## Phase 3 — Limits: partial
 
 - Visible banner/reset parsing, honest tiers/confidence, history estimate, and ChatGPT feature distinction exist. Reached-limit notices now record only a timestamp and approximate token count locally; after two events, the current chat can be compared with past limit chats. This is not an allowance estimate.
-- Popup reports tier, confidence, and a local-time approximate reset when a visible notice supplies one. The popup also shows an approximate token count for the unsent prompt and a historical reply-size comparison. A small, noninteractive status line now appears below the composer only when space is available and hides if it would sit over an input control. It shows approximate prompt tokens; a remaining percentage or token balance appears only when a visible service notice explicitly provides it. This replaces the earlier overlapping badge. Real provider notices still need live review.
+- Popup reports tier, confidence, and a local-time approximate reset when a visible notice supplies one. The popup also shows an approximate token count for the unsent prompt and a historical reply-size comparison. A small, noninteractive status line now appears below the composer while typing or when a visible balance is present, provided there is space; it hides if it would sit over an input control. It shows approximate prompt tokens; a remaining percentage or token balance appears only when a visible service notice explicitly provides it. This replaces the earlier overlapping badge. Real provider notices still need live review.
 - No response interception is shipped; it would touch sensitive provider internals and is outside this build.
 - No numeric cap is asserted for services without one.
 - Parser and no-evidence behavior pass local tests; real banners need live testing.
