@@ -1,10 +1,12 @@
 import type { Meter } from './limits';
+import { isCurrentReading } from './usage-windows';
 
 export type UsageAlert = { key: string; title: string; message: string };
 
 // A numeric warning is eligible only when the service displayed the number.
 export function usageAlert(meter: Meter, delivered: readonly string[], now = Date.now()): UsageAlert | undefined {
   if (meter.tier !== 'banner' || meter.confidence !== 'high') return;
+  if (!isCurrentReading({ ...meter, at: meter.at ?? now }, now)) return;
   const window = meter.resetAt && meter.resetAt > now ? String(Math.round(meter.resetAt / 900000)) : `day-${Math.floor(now / 86400000)}`;
   const level = meter.percent === 100 ? 'reached' : meter.percent !== undefined && meter.percent >= 95 ? '95' : meter.percent !== undefined && meter.percent >= 80 ? '80' : meter.nearLimit ? 'near' : undefined;
   if (!level) return;
@@ -23,7 +25,7 @@ export function usageAlert(meter: Meter, delivered: readonly string[], now = Dat
 }
 
 export function meterSummary(meter?: Meter, now = Date.now()): string {
-  if (!meter || meter.tier !== 'banner' || !meter.at || now - meter.at > 3600000 || (meter.resetAt !== undefined && meter.resetAt <= now)) return 'No recent service limit signal';
+  if (!isCurrentReading(meter, now)) return 'No recent service limit signal';
   const status = meter.percent === 100 ? 'Limit reached' : meter.remainingPercent !== undefined ? `${meter.remainingPercent}% left` : meter.remainingTokens !== undefined ? `${meter.remainingTokens.toLocaleString()} tokens left` : meter.nearLimit ? 'Near limit' : 'Balance unknown';
   return `${status}, ${now - meter.at > 300000 ? `last shown ${new Date(meter.at).toLocaleTimeString()}` : 'shown by service'}${meter.resetAt && meter.resetAt > now ? ` · resets ${new Date(meter.resetAt).toLocaleString()}` : ''}`;
 }

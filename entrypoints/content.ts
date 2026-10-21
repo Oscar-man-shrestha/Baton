@@ -6,7 +6,7 @@ import { encode } from 'gpt-tokenizer';
 import { estimateMeter, type LimitEvent, type Meter } from '../src/core/limits';
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import type { Extraction } from '../src/core/adapter';
-import { readUsageWindows, activeWindows, windowLabel, type UsageWindow } from '../src/core/usage-windows';
+import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText, statusLinePosition } from '../src/core/composer-status';
 
 export default defineContentScript({
@@ -68,9 +68,12 @@ export default defineContentScript({
       const below = document.elementFromPoint(sampleX, position.top + 8);
       if (below?.closest('button,input,textarea,select,[contenteditable="true"],[role="button"]')) { statusHost.style.display = 'none'; return; }
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
-      const fresh = latestMeter?.at && Date.now() - latestMeter.at < 3600000 && (!latestMeter.resetAt || latestMeter.resetAt > Date.now());
+      const fresh = isCurrentReading(latestMeter);
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
       const windows = activeWindows(latestWindows);
+      const current = latestMeter;
+      if (isCurrentReading(current) && !windows.some(win => win.feature === current.feature)) windows.push({ ...current, key: `${id}:notice`, source: 'provider-page' });
+      windows.sort((a, b) => (b.percent || 0) - (a.percent || 0));
       statusText.replaceChildren();
       if (windows.length) {
         if (lastPromptTokens) statusText.append(`≈${lastPromptTokens} prompt tokens · `);
@@ -81,6 +84,7 @@ export default defineContentScript({
         });
       } else statusText.textContent = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
       statusText.title = windows.length ? windows.map(win => `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
+      statusHost.setAttribute('aria-label', `Handoff: ${statusText.textContent}`);
       statusHost.style.left = `${position.left}px`;
       statusHost.style.top = `${position.top}px`;
       statusHost.style.maxWidth = `${position.width}px`;
@@ -97,18 +101,18 @@ export default defineContentScript({
       const now = Date.now();
       const visibleWindows = readUsageWindows(document, id, collectTurnNodes(document, id, bundledSelectors), now);
       if (visibleWindows.length) {
-        latestWindows = visibleWindows;
-        const strongest = [...visibleWindows].sort((a, b) => (b.percent || 0) - (a.percent || 0))[0];
-        latestMeter = strongest;
+        latestWindows = mergeUsageWindows(latestWindows, visibleWindows, now);
+        const strongest = activeWindows(latestWindows, now).sort((a, b) => (b.percent || 0) - (a.percent || 0))[0];
+        latestMeter = strongest || { ...estimateMeter(id, '', [], [], now), at: now };
         scheduleStatus();
-        await chrome.storage.local.set({ [`usageWindows:${id}`]: visibleWindows, [`meter:${id}`]: strongest });
-        for (const meter of [...visibleWindows].sort((a, b) => (a.percent || 0) - (b.percent || 0))) void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
+        await chrome.storage.local.set({ [`usageWindows:${id}`]: latestWindows, [`meter:${id}`]: latestMeter });
+        for (const meter of visibleWindows.map(win => latestWindows.find(current => current.key === win.key)).filter((win): win is UsageWindow => !!win).sort((a, b) => (a.percent || 0) - (b.percent || 0))) void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
         return;
       }
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       if (signal.kind === 'unknown') {
         const savedMeter = (await chrome.storage.local.get(`meter:${id}`))[`meter:${id}`] as Meter | undefined;
-        if (savedMeter?.tier === 'banner' && savedMeter.at && now - savedMeter.at < 3600000) { latestMeter = savedMeter; scheduleStatus(); return; }
+        if (isCurrentReading(savedMeter, now)) { latestMeter = savedMeter; scheduleStatus(); return; }
       }
       const sameSignal = signal.text === lastLimitText;
       if (!force && sameSignal && now - lastLimitCheck < 600000) return;
@@ -121,8 +125,13 @@ export default defineContentScript({
       await chrome.storage.local.set({ [`meter:${id}`]: meter });
       if (meter.tier === 'banner') void chrome.runtime.sendMessage({ type: 'OBSERVE_USAGE', provider: id, meter }).catch(() => {});
     };
-    ctx.setInterval(() => { void observeUsage(); }, 30000);
-    const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => { if (changes.composerUsageEnabled) { composerUsageEnabled = changes.composerUsageEnabled.newValue !== false; scheduleStatus(); } };
+    ctx.setInterval(() => { void observeUsage().then(() => chrome.runtime.sendMessage({ type: 'REFRESH_USAGE_BADGE' })).catch(() => {}); }, 30000);
+    const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
+      if (changes[`usageWindows:${id}`]) latestWindows = (changes[`usageWindows:${id}`].newValue || []) as UsageWindow[];
+      if (changes[`meter:${id}`]) latestMeter = changes[`meter:${id}`].newValue as Meter | undefined;
+      scheduleStatus();
+    };
     chrome.storage.onChanged.addListener(settingsChanged);
     ctx.onInvalidated(() => chrome.storage.onChanged.removeListener(settingsChanged));
     scheduleStatus();
@@ -221,7 +230,7 @@ export default defineContentScript({
       archive.selectorsVersion = bundledSelectors.version;
       const calculatedMeter = { ...estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now), at: now };
       const storedMeter = saved[`meter:${id}`] as Meter | undefined;
-      const meter = signal.kind === 'unknown' && storedMeter?.tier === 'banner' && storedMeter.at && now - storedMeter.at < 3600000 ? storedMeter : calculatedMeter;
+      const meter = isCurrentReading(latestMeter, now) ? latestMeter : signal.kind === 'unknown' && isCurrentReading(storedMeter, now) ? storedMeter : calculatedMeter;
       if (signal.text === lastLimitText && latestMeter?.resetAt && latestMeter.resetAt > now) meter.resetAt = latestMeter.resetAt;
       latestMeter = meter;
       scheduleStatus();
@@ -274,7 +283,7 @@ export default defineContentScript({
           const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
           const observed = estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history);
           const storedMeter = saved[`meter:${id}`] as Meter | undefined;
-          const meter = limit.kind === 'unknown' && storedMeter?.tier === 'banner' && storedMeter.at && Date.now() - storedMeter.at < 3600000 ? storedMeter : observed;
+          const meter = isCurrentReading(latestMeter) ? latestMeter : limit.kind === 'unknown' && isCurrentReading(storedMeter) ? storedMeter : observed;
           sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: archive.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief, meter, url: pageUrl() });
         })().catch(error => sendResponse({ error: String(error) }));
         return true;
