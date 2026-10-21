@@ -5,10 +5,10 @@ export type Meter = { provider: ProviderId; tier: 'banner' | 'history' | 'unknow
 export type LimitEvent = { at: number; approximateTokens: number };
 
 export function parseReset(text: string, now = Date.now()): number | undefined {
-  const relative = text.match(/(?:in|after)\s+((?:\d+\s*(?:days?|hours?|minutes?|d|h|m)(?=\s|\d|[.,;:]|$)\s*)+)/i);
+  const relative = text.match(/(?:in|after)\s+((?:\d+\s*(?:days?|hours?|hrs?|minutes?|mins?|d|h|m)(?=\s|\d|[.,;:]|$)\s*)+)/i);
   if (relative) {
     let duration = 0;
-    for (const match of relative[1].matchAll(/(\d+)\s*(days?|hours?|minutes?|d|h|m)(?=\s|\d|[.,;:]|$)/gi)) duration += Number(match[1]) * (/^d/i.test(match[2]) ? 86400000 : /^h/i.test(match[2]) ? 3600000 : 60000);
+    for (const match of relative[1].matchAll(/(\d+)\s*(days?|hours?|hrs?|minutes?|mins?|d|h|m)(?=\s|\d|[.,;:]|$)/gi)) duration += Number(match[1]) * (/^d/i.test(match[2]) ? 86400000 : /^h/i.test(match[2]) ? 3600000 : 60000);
     if (duration) return now + duration;
   }
   const dated = calendarReset(text, now);

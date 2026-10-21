@@ -94,6 +94,13 @@ export function readUsageWindows(doc: Document, provider: ProviderId, turnNodes:
   const candidates = Array.from(doc.querySelectorAll('progress,[role="progressbar"],[role="alert"],[aria-live="assertive"],[data-testid*="usage" i],[data-testid*="limit" i]'));
   const claudeUsagePage = provider === 'claude' && isClaudeUsageUrl(doc.location.href);
   if (claudeUsagePage) {
+    // Claude's “Limit resets” offers a banked full reset with an expiry date.
+    for (const group of Array.from(doc.querySelectorAll('[role="group"]'))) {
+      const text = textOf(group);
+      const offer = text.match(/^Full reset.*?Expires\s+([A-Za-z]{3,9}\.?\s+\d{1,2})/i);
+      if (!offer || excluded(group) || !visible(group) || windows.some(win => win.key === 'claude:Full reset')) continue;
+      windows.push({ provider: 'claude', tier: 'banner', confidence: 'high', key: 'claude:Full reset', feature: `Full reset (expires ${offer[1]})`, remainingCount: 1, at: now, source: 'provider-page', evidenceKey: evidenceKey(text), explanation: 'Shown in Claude’s Limit resets' });
+    }
     // Claude's settings page also uses plain text rows, without semantic progressbars.
     // Start from an exact feature label and stop at the smallest numeric row.
     for (const heading of Array.from(doc.querySelectorAll('h2,h3,h4,p,span,div'))) {
