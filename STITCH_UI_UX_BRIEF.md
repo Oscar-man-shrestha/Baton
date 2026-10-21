@@ -51,3 +51,11 @@ Use proper headings, visible keyboard focus, labels for every control, accessibl
 ## Deliverables from Stitch
 
 Provide: (1) first-run popup, (2) empty-chat popup, (3) captured/review state, (4) destination state, (5) expanded usage panel, (6) settings page, (7) prompt-bar line on ChatGPT and Gemini, and (8) dark-mode and narrow-window variants. Include a compact component and token guide plus brief interaction notes for capture, review, error, alert, and draft-opening states.
+# Current interface update (2026-10-21)
+
+The popup is a short path: **Capture this chat → review the proposed handoff → choose a service → open a draft**. Named projects and automatically saved recent chats appear together under “Pick up where you left off.” The new user should be able to resume without understanding projects, tokens, or provider routing. Show the concise draft preview first; keep editing, transcript copy, suggestion feedback, and diagnostics inside disclosures. Never put a persistent badge over the composer: the small usage line sits below it only when space is available and must leave typing and controls untouched.
+
+Usage labels must separate **approximate prompt tokens** from **account allowance**. A balance percentage appears only when visible service UI states it; otherwise show “unknown” and, for Claude, a direct “Check Claude’s usage page” action. No circular gauge or invented progress bar for an unknown balance. Saved-chat cards need title, source service, and relative date; project cards also show their chat count. The screenshot comparison in `RESEARCH.md` shows why speaker labels, sidebar text, repeated prompts, and flattened lists must stay out of the handoff preview.
+
+For a future Google backup UI, keep the local library usable without sign-in. An explicit backup action must explain that saved chats will leave the device; connection state and last backup time need visible labels. This flow is pending authorization and OAuth configuration, so do not present a working sign-in control yet.
+

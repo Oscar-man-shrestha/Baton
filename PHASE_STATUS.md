@@ -1,6 +1,16 @@
 # Phase status — 2026-10-21
 
-These are implementation summaries, not release claims. The updated source was verified locally: `npm test` 59/59 passed, TypeScript check passed, and WXT production build succeeded. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
+## 0.1.4 follow-up to the user's live screenshots
+
+- Gemini capture now targets the message body inside `user-query` and `model-response`, removes speaker chrome, and preserves headings, list bullets, numbering, and fenced code. The supplied to-do-list example is represented by a regression fixture. The source-sample comparison and limitations are documented in `RESEARCH.md`.
+- Claude capture has alternate visible-DOM selectors. A labeled session percentage on Claude's *visible* usage page can be read, and the popup opens that page on request. This does not guarantee a Free-tier percentage: Anthropic may show no number on that page. The composer line and popup keep the balance unknown when no verifiable number appears.
+- Recent chat briefs saved by the content script now appear next to named projects in the popup, with their source and time; a user can reopen a compact draft without first naming a project.
+- Named projects now support optional local folders. They can be assigned when saving and changed in settings.
+- A verified Claude value is retained for up to one hour if another Claude tab shows no number; after five minutes, the UI labels it “last shown.” An account change requires checking the usage page again because the extension does not identify accounts.
+- The local test suite includes the Gemini duplicate/formatting case, Claude alternate selectors and usage-page parsing, the long-answer handoff, and recent-save order. These are synthetic page tests, not a signed-in site pass.
+- Google sign-in/Drive backup remains pending section 10's remote-service stop condition and a configured OAuth client. No server, remote push, account switching, cookies, private usage endpoint, or auto-submit was added.
+
+These are implementation summaries, not release claims. The updated 0.1.4 source was verified locally: `npm test` 65/65 passed, TypeScript check passed, and the final WXT production build succeeded. The packaged ZIP passed its archive integrity check. Logged-in live-site tests have **not** run; an isolated headless Brave screenshot attempt did not return a render.
 
 ## Phase 1 — Foundation: partial
 

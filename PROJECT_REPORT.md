@@ -64,3 +64,11 @@ The popup should feel like a short guided journey, not a dashboard of settings. 
 - `LIVE_SITE_CHECKLIST.md`: manual acceptance tests.
 - `PRIVACY.md` and `STORE_LISTING.md`: release drafts.
 - `STITCH_UI_UX_BRIEF.md`: full UI design brief for Stitch.
+
+## 10. Screenshot-driven update (0.1.4, 2026-10-21)
+
+The supplied Gemini to-do-list capture exposed duplicated user text, speaker labels, and lost Markdown structure. The capture now selects Gemini's message content inside each turn; headings, lists, numbered items, and fenced code are retained. A local regression fixture reproduces the supplied structure. The compact handoff now includes useful actionable points from the assistant's long answer, so the next service can continue with the edge cases and feature list instead of only its introductory paragraph. A transcript copy remains available when the user wants full visible text rather than the compact draft.
+
+Recent chats saved automatically by Handoff are now visible in the popup, even if the user never creates a project. Named projects can be placed in optional local folders. The popup stays focused on capture and resume; advanced controls remain folded away. Claude's visible usage page can supply a labeled session percentage; otherwise its free-tier balance remains unknown. A recent verified value is labeled as last shown, expires after one hour, and should be rechecked after manually changing accounts.
+
+The source comparison in `RESEARCH.md` distinguishes code that was inspected from store-listing claims. Capsule Infinity uses cloud storage and server compression, while Claude Monitor gets many usage figures from authenticated internal endpoints or reply stream metadata. Those methods were not silently imported into Handoff. Google Drive backup is designed but blocked at the brief's section 10 remote-service stop condition until OAuth setup and explicit authorization. Logged-in provider behavior and continuation quality remain unverified.

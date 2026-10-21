@@ -28,3 +28,11 @@ Run on the tester's own logged-in sessions; do not capture or commit account dat
 - [ ] On a fresh Gemini `/app` page with no user message, click Capture. The status should say Handoff is connected and watching, not “original user message was not captured.” Send a message, then capture again without reloading.
 - [ ] On a chat where an assistant message is visible but the original user message is not, transfer remains blocked with older-message/paste recovery. No old archive from a generic new-chat route may be reused.
 - [ ] Verify the status line says **Usage left: unknown** below an empty prompt bar when the service provides no balance. When typing, verify the approximate prompt-token count precedes that line. Test ChatGPT at the bottom edge of the viewport and Gemini beside another usage bar; no control or other widget should be covered.
+
+## Gemini and Claude checks for 0.1.4
+
+- [ ] In the user's Gemini to-do-list example, capture without reloading. Confirm the prompt appears once, no “You said”/“Gemini said” chrome is copied, and the captured transcript preserves headings, bullets, numbered features, and code. Compare the compact draft with the user's requirements and the assistant's edge-case advice. Confirm no sidebar chat titles appear.
+- [ ] Reopen the chat from **Pick up where you left off**. Confirm it appears without manually naming a project. Save it into a local folder, reopen it, move the folder in settings, and verify another project is unaffected.
+- [ ] On a signed-in Claude paid account that shows a numeric usage screen, click **Check Claude's usage page**. Compare the popup and composer value with Claude's own session percentage. Return to a chat; the value should be marked “last shown” after five minutes and unknown after one hour. A second Claude tab without a visible number should not erase it immediately.
+- [ ] On Claude Free, record whether the usage page shows a numeric percentage. If it does not, verify Handoff says unknown, including while typing. Never infer a free-tier percentage from prompt tokens.
+- [ ] Repeat short and long Claude captures with current UI markup, including alternate wrapper selectors; compare role order and missing-message warning. Confirm no live-site claim is made from the synthetic fixture alone.
