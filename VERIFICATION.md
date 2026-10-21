@@ -1,15 +1,17 @@
-# Verification — Handoff 0.2.0
+# Verification — Handoff 0.2.1
 
 Date: 2026-10-21. These are observed results, not a claim of public release readiness.
 
 ## Passed locally
 
-- 93 unit/fixture tests in 14 test files passed on the updated Vitest 5.0.5 toolchain. Includes all six provider adapters, reported Gemini/DeepSeek regressions, rich Markdown, legitimate repeats, streaming/history merge, source-code preservation, redaction, budget gate, router basics, usage parsing/expiry, recent captures, backups, and mocked Supabase sign-in/backup boundaries.
+- Version 0.2.1 regression coverage includes decimal/invalid percentages, reset drift and expiry, unchanged expired labels, isolated feature resets, simultaneous alerts through the actual background handler, most-constrained badge selection, and expired badge clearing.
+
+- 101 unit/fixture tests in 15 test files passed on the updated Vitest 5.0.5 toolchain. Includes all six provider adapters, reported Gemini/DeepSeek regressions, rich Markdown, legitimate repeats, streaming/history merge, source-code preservation, redaction, budget gate, router basics, usage parsing/expiry, recent captures, backups, and mocked Supabase sign-in/backup boundaries.
 - Final TypeScript check passed.
-- Final WXT 0.21.4 production build passed with popup, settings, sidebar, background worker, and content script. Build warnings concern tokenizer chunk size and third-party pure-comment annotations, not compilation errors. Total unpacked build is approximately 9.16 MB.
+- Final WXT 0.21.4 production build passed with popup, settings, sidebar, background worker, and content script. Build warnings concern tokenizer chunk size and third-party pure-comment annotations, not compilation errors. Total unpacked build is approximately 9 MB.
 - Clean installation audit: 199 packages, zero known vulnerabilities reported at installation time. This is a dependency advisory result, not a full security audit.
 - Isolated Brave 149.0.7827.155 browser checks: real saved-item counts; empty folder creation; honest unconfigured cloud state; capture/review/destination progression; no automatic send; oversize full context preserves its tail and can be copied; folder search; exact saved manual edits; 400×600 popup; 320-pixel sidebar; settings folder change; no page errors or external frontend requests. Final reports are in sibling `ui-previews/browser-checks.json` and `content-checks.json`.
-- Packaged content-script checks use an intercepted synthetic provider page: collect all 12 virtualized turns in order, restore the middle scroll position, update a streaming reply without duplication, fill a draft without a submit event, and keep the usage strip below the fixture composer with no click interception.
+- Packaged content-script checks use an intercepted synthetic provider page: collect all 12 virtualized turns in order, restore the middle scroll position, update a streaming reply without duplication, fill a draft without a submit event, receive a quota-window update from another tab immediately, and keep the usage strip below the fixture composer with no click interception.
 - Supabase MCP registration and OAuth login succeeded for the user-selected project. The current chat reports the server as unavailable in its running tool catalog, so no remote database operation has been performed.
 
 Checks were run from a clean temporary source/dependency copy after workspace dependency file reads stalled. The delivered source uses the same lockfile; the packaged build comes from that clean build. Browser tests used an isolated profile and synthetic Chrome APIs/provider DOM; they did not read the user's browser profile, cookies, or signed-in conversations.

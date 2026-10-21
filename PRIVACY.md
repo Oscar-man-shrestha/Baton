@@ -27,3 +27,8 @@ The current unconfigured build has no identity/Supabase host permissions and can
 ## Sidebar and usage display
 
 The sidePanel permission lets the user open Handoff in the browser's sidebar. The status strip remains outside the chat editor and can be turned off. Separate observed windows/features are stored locally, with source times; elapsed resets and old readings become unknown. Toolbar badges reflect the last observed service figure, not an independently measured live account balance. Full local backup files contain chat text and should be kept private.
+
+
+### Usage observation reliability, version 0.2.1
+
+A short equality fingerprint of usage-widget text anchors unchanged relative resets; Handoff does not store that surrounding widget text. Per-tab numeric badge readings are held in extension session storage, expire from display, and are cleared on loading a page/closing a tab. Checks run when a supported page updates and when the user returns to a tab; these are observed snapshots rather than continuous authenticated polling. No extra permission or remote provider request is added by this update.

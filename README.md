@@ -1,3 +1,5 @@
+> **0.2.1 follow-up:** see `REQUIREMENTS_STATUS.md` for all nine requested outcomes, including incomplete cloud and quota integration. This release fixes reset drift, alert races, stale badges, malformed quota parsing, and cross-tab reading updates.
+
 > **0.2.0 local build:** improved capture and Markdown, dashboard/recent contexts, full local backup, and sidebar. Google/Supabase code is prepared but not configured; exact continuous quotas across all providers are not established. See `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Load the sibling `handoff-extension-build` folder, which contains `manifest.json`.
 
 # Handoff browser extension

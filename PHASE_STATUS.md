@@ -1,3 +1,5 @@
+> **0.2.1:** the nine-requirement audit is in `REQUIREMENTS_STATUS.md`. Usage observation/delivery fixes are tested locally; live provider quotas, cloud configuration and real handoff evaluation remain pending.
+
 > Current 0.2.0 update (2026-10-21): see `RESEARCH_2026-10-21.md`, `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Earlier entries below are historical and do not establish live release acceptance.
 
 ## 0.2.0 follow-up — current implementation and acceptance

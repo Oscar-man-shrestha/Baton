@@ -1,3 +1,5 @@
+> Current 0.2.1 audit: `REQUIREMENTS_STATUS.md` maps all nine requested outcomes; `RESEARCH_2026-10-21.md` and `VERIFICATION.md` record research and test evidence. Exact universal quota access and live cloud configuration remain incomplete.
+
 > Current 0.2.0 update (2026-10-21): see `RESEARCH_2026-10-21.md`, `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Earlier entries below are historical and do not establish live release acceptance.
 
 # RESEARCH.md — Phase 0: Market & Technical Research

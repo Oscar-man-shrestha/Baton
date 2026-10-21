@@ -1,6 +1,6 @@
 # Handoff project and UI/UX report
 
-Version 0.2.0 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
+Version 0.2.1 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
 
 ## Main user journey
 
