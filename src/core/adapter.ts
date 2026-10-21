@@ -175,6 +175,19 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
         return `${label}${accessiblePercent} ${cleanNode(node)}`.trim();
       }).find(text => /(?:usage|quota|session|weekly|message|model|free).{0,90}(?:(?:\d{1,3}\s*%\s*(?:remaining|left|used|consumed))|(?:(?:remaining|left)\s*:?\s*\d{1,3}\s*%)|(?:\d[\d,]*\s+tokens?\s+(?:remaining|left))|(?:limit\s+(?:reached|exceeded)))|(?:limit reached|quota exceeded|(?:close to|approaching|almost at).{0,35}(?:usage|message|limit|quota))/i.test(text));
       if (match) return { kind: 'banner', text: match.slice(0, 240) };
+      // Many services print the limit as plain text beside the composer. Accept only short, visible, strict wording
+      // outside conversation turns, navigation, the editor and other extensions.
+      const reached = /(?:you(?:'|’)?ve|you have|you(?:'|’)?re|you are)\s+(?:reached|hit|run out of|out of)\b[^.]{0,60}?(?:limit|cap|messages)|(?:usage|message|rate)\s+limit\s+(?:reached|exceeded)/i;
+      const walker = doc.createTreeWalker(doc.body, 4);
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        const value = (text.nodeValue || '').trim();
+        if (value.length > 240 || !reached.test(value)) continue;
+        const element = text.parentElement;
+        if (!element || turns.some(turn => turn.contains(element)) || element.closest('nav, aside, [role="navigation"], [contenteditable="true"], textarea, [id^="handoff-"], [data-extension]') || hiddenByAncestor(element)) continue;
+        let block: Element = element;
+        for (let parent = element.parentElement, depth = 0; parent && depth < 3 && !parent.matches('main, body') && cleanNode(parent).length <= 300 && !turns.some(turn => parent!.contains(turn)); parent = parent.parentElement, depth++) block = parent;
+        return { kind: 'banner', text: cleanNode(block).replace(/\s+/g, ' ').slice(0, 300) };
+      }
       // On Claude's own usage screen, read only a labeled value that the user can see.
       if (id === 'claude' && /^\/settings\/usage\/?$/.test(doc.location.pathname)) {
         const main = doc.querySelector('main, [role="main"]');

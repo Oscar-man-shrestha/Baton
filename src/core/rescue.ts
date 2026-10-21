@@ -12,7 +12,7 @@ export function providerEnabled(id: ProviderId, enabled: Record<string, boolean 
 }
 
 // Feature caps, Codex/Work allowances and credits leave ordinary chat usable, so they never decide whether a service is out.
-const chatReading = (feature: string) => !/image|file|upload|voice|deep research|work|codex|credit|limit resets/i.test(feature);
+const chatReading = (feature: string) => !/image|file|upload|voice|deep research|work|codex|credit|limit resets|^model$/i.test(feature);
 function readings(saved: Record<string, unknown>, id: ProviderId, now: number): Meter[] {
   const windows = activeWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], now).filter(win => chatReading(win.feature));
   const meter = saved[`meter:${id}`] as Meter | undefined;

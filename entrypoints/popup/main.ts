@@ -541,6 +541,16 @@ document.querySelector('#backup-all')?.addEventListener('click', async () => {
   } catch (error) { backupStatus.textContent = `Could not restore: ${String(error)}`; }
 });
 
+// Opt-in: opening Handoff refreshes usage pages, never more than once per 30 minutes (signed-out services never update).
+const autoRefresh = document.querySelector('#auto-refresh-usage') as HTMLInputElement;
+const autoSettings = await chrome.storage.local.get(['autoRefreshUsage', 'lastAutoUsageRefresh']);
+autoRefresh.checked = autoSettings.autoRefreshUsage === true;
+autoRefresh.addEventListener('change', () => { void chrome.storage.local.set({ autoRefreshUsage: autoRefresh.checked }); });
+if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefresh) || 0) >= 1800000) {
+  void chrome.storage.local.set({ lastAutoUsageRefresh: Date.now() })
+    .then(() => chrome.runtime.sendMessage({ type: 'REFRESH_ALL_USAGE' }))
+    .then(() => showUsage()).catch(() => {});
+}
 const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
 composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
 composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });

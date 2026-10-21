@@ -13,14 +13,14 @@ export function parseReset(text: string, now = Date.now()): number | undefined {
   }
   const dated = calendarReset(text, now);
   if (dated !== null) return dated;
-  const clock = text.match(/(?:reset|try again|refresh)(?:s|es)?\s+(?:at|by)\s+(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  const clock = text.match(/(?:resets?|try again|refresh(?:es)?|available again|more messages|until)\s+(tomorrow\s+)?(?:(?:at|by|after)\s+)?(\d{1,2}):(\d{2})\s*(am|pm)?/i);
   if (!clock) return undefined;
+  const hour = clockHour(Number(clock[2]), Number(clock[3]), clock[4]);
+  if (hour === undefined) return undefined;
   const date = new Date(now);
-  let hour = Number(clock[1]);
-  if (clock[3]) hour = hour % 12 + (clock[3].toLowerCase() === 'pm' ? 12 : 0);
-  if (hour > 23 || Number(clock[2]) > 59 || (clock[3] && (Number(clock[1]) < 1 || Number(clock[1]) > 12))) return undefined;
-  date.setHours(hour, Number(clock[2]), 0, 0);
-  if (date.getTime() <= now) date.setDate(date.getDate() + 1);
+  date.setHours(hour, Number(clock[3]), 0, 0);
+  if (clock[1]) date.setDate(date.getDate() + 1);
+  else if (date.getTime() <= now) date.setDate(date.getDate() + 1);
   return date.getTime();
 }
 
@@ -57,9 +57,11 @@ function calendarReset(text: string, now: number): number | undefined | null {
 
 export function estimateMeter(provider: ProviderId, visibleBanner: string, turns: string[], history: LimitEvent[] = [], now = Date.now()): Meter {
   const resetAt = parseReset(visibleBanner, now);
-  const knownLimit = /(?:you.ve reached (?:your |the )?(?:usage |message |free )?limit|reached (?:your |the )?(?:usage |message |free )?limit|limit reached|quota exceeded)/i.test(visibleBanner);
+  const knownLimit = /(?:you(?:'|’)?ve|you have|you(?:'|’)?re|you are)\s+(?:reached|hit|run out of|out of)\b[^.]{0,60}?(?:limit|cap|messages)|you.ve reached (?:your |the )?(?:usage |message |free )?limit|reached (?:your |the )?(?:usage |message |free )?limit|limit reached|(?:usage|message|rate) limit exceeded|quota exceeded/i.test(visibleBanner);
   const nearLimit = /(?:approaching|almost|close to).{0,30}(?:limit|quota)/i.test(visibleBanner);
-  const feature = provider === 'chatgpt' ? 'visible model or feature limit' : 'chat usage';
+  // ChatGPT caps single features and models; chat keeps working on another model, so name what was capped.
+  const capped = provider !== 'chatgpt' ? '' : /image/i.test(visibleBanner) ? 'Images' : /file|upload/i.test(visibleBanner) ? 'File uploads' : /deep research/i.test(visibleBanner) ? 'Deep research' : /voice/i.test(visibleBanner) ? 'Voice' : /plan limit for|another model|\bgpt-?\d|\bmodel\b/i.test(visibleBanner) ? 'Model' : '';
+  const feature = capped || (provider === 'chatgpt' ? 'visible model or feature limit' : 'chat usage');
   const remaining = visibleBanner.match(/(?:(?<![-\d.])(\d{1,3}(?:\.\d+)?)\s*%\s*(?:of (?:your )?(?:free |message |usage |chat )?(?:quota |allowance )?)?(?:remaining|left)|(?:remaining|left)\s*:?[ ]*(?<![-\d.])(\d{1,3}(?:\.\d+)?)\s*%)/i);
   const remainingPercent = remaining && /\b(free|message|usage|quota|chat)\b/i.test(visibleBanner) ? (Number(remaining[1] || remaining[2]) <= 100 ? Number(remaining[1] || remaining[2]) : undefined) : undefined;
   const used = visibleBanner.match(/\b(?:usage|quota|session|weekly|message)\b.{0,35}?\b(?<![-\d.])(\d{1,3}(?:\.\d+)?)\s*%\s*(?:used|consumed)/i);
