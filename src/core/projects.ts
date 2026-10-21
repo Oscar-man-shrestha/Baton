@@ -26,19 +26,30 @@ export function mergeBrief(a: Brief, b: Brief): Brief {
   });
 }
 
-export async function listProjects(): Promise<Project[]> {
-  const value = (await chrome.storage.local.get('projects')).projects;
-  return z.array(projectSchema).catch([]).parse(value);
+/** Each saved project is checked on its own. One unreadable record must never hide or erase the others. */
+export function readProjects(value: unknown): { projects: Project[]; unreadable: unknown[] } {
+  const projects: Project[] = []; const unreadable: unknown[] = [];
+  for (const item of Array.isArray(value) ? value : []) {
+    const parsed = projectSchema.safeParse(item);
+    if (parsed.success) projects.push(parsed.data); else unreadable.push(item);
+  }
+  return { projects, unreadable };
 }
+const rawId = (item: unknown) => item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined;
+export async function listProjects(): Promise<Project[]> {
+  return readProjects((await chrome.storage.local.get('projects')).projects).projects;
+}
+// Writes start from the stored list, so records this version cannot read are carried over unchanged.
 export async function saveProject(project: Project): Promise<void> {
-  const projects = await listProjects();
-  const index = projects.findIndex(p => p.id === project.id);
+  const stored = (await chrome.storage.local.get('projects')).projects;
+  const projects = Array.isArray(stored) ? [...stored] : [];
+  const index = projects.findIndex(item => rawId(item) === project.id);
   if (index < 0) projects.push(project); else projects[index] = project;
   await chrome.storage.local.set({ projects });
 }
 export async function deleteProject(id: string): Promise<void> {
-  const projects = await listProjects();
-  await chrome.storage.local.set({ projects: projects.filter(project => project.id !== id) });
+  const stored = (await chrome.storage.local.get('projects')).projects;
+  await chrome.storage.local.set({ projects: (Array.isArray(stored) ? stored : []).filter(item => rawId(item) !== id) });
 }
 export async function deleteAll(): Promise<void> { await chrome.storage.local.clear(); }
 export async function pruneExpired(now = Date.now()): Promise<number> {
@@ -53,9 +64,9 @@ export async function pruneExpired(now = Date.now()): Promise<number> {
     const timestamp = Number(saved[timestampKey]);
     if (!Number.isFinite(timestamp) || timestamp < cutoff) remove.push(key, timestampKey, `visibleTurnsHighWater:${key}`, `archive:${key}`);
   }
-  const projects = z.array(projectSchema).catch([]).parse(saved.projects);
+  const { projects, unreadable } = readProjects(saved.projects);
   const kept = projects.filter(project => project.updatedAt >= cutoff);
-  if (kept.length !== projects.length) await chrome.storage.local.set({ projects: kept });
+  if (kept.length !== projects.length) await chrome.storage.local.set({ projects: [...kept, ...unreadable] });
   if (remove.length) await chrome.storage.local.remove(remove);
   return (projects.length - kept.length) + remove.length / 4;
 }

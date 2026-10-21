@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { briefSchema } from './brief';
-import { projectSchema } from './projects';
+import { projectSchema, readProjects } from './projects';
 import { isSupportedChatUrl } from './connection';
 
 const turn = z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(500000), index: z.number().int().nonnegative(), id: z.string().optional() });
@@ -23,7 +23,7 @@ export async function exportBackup(saved: Record<string, unknown>): Promise<stri
     const rawArchive = archive.safeParse(saved[`archive:${key}`]);
     captures.push({ url: key.slice(6), brief: brief.data, savedAt: Number(saved[`savedAt:${key}`]) || 0, ...(rawArchive.success ? { archive: rawArchive.data } : {}) });
   }
-  const data = dataSchema.parse({ projects: saved.projects || [], folders: saved.folders || [], captures, ...(dismissed.length ? { dismissedRecentUrls: dismissed } : {}) });
+  const data = dataSchema.parse({ projects: readProjects(saved.projects).projects, folders: saved.folders || [], captures, ...(dismissed.length ? { dismissedRecentUrls: dismissed } : {}) });
   return JSON.stringify({ format: 'handoff-backup', version: 1, createdAt: new Date().toISOString(), data, sha256: await checksum(data) }, null, 2);
 }
 export async function previewBackup(text: string): Promise<{ data: BackupData; contexts: number; projects: number }> {
@@ -34,9 +34,10 @@ export async function previewBackup(text: string): Promise<{ data: BackupData; c
 }
 export function mergeBackup(local: Record<string, unknown>, incoming: BackupData): Record<string, unknown> {
   const changes: Record<string, unknown> = {};
-  const projects = new Map(z.array(projectSchema).catch([]).parse(local.projects).map(project => [project.id, project]));
+  const local_ = readProjects(local.projects);
+  const projects = new Map(local_.projects.map(project => [project.id, project]));
   for (const project of incoming.projects) if (!projects.has(project.id) || projects.get(project.id)!.updatedAt < project.updatedAt) projects.set(project.id, project);
-  changes.projects = [...projects.values()];
+  changes.projects = [...projects.values(), ...local_.unreadable];
   changes.folders = [...new Set([...z.array(z.string()).catch([]).parse(local.folders), ...incoming.folders])];
   const dismissed = [...new Set([...urlList(local.dismissedRecentUrls), ...(incoming.dismissedRecentUrls || [])])].slice(-5000);
   if (incoming.dismissedRecentUrls?.length) changes.dismissedRecentUrls = dismissed;

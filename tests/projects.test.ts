@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { briefSchema } from '../src/core/brief';
-import { deleteProject, mergeBrief, pruneExpired } from '../src/core/projects';
+import { deleteProject, listProjects, mergeBrief, pruneExpired, saveProject } from '../src/core/projects';
+import { exportBackup, mergeBackup, previewBackup } from '../src/core/backup';
 
 it('merges tasks and preserves versioned artifacts', () => {
   const a = briefSchema.parse({ open_tasks: ['A'], artifacts: [{ name: 'doc', kind: 'text', content_verbatim: 'v1', version: 1 }] });
@@ -46,5 +47,24 @@ it('deletes only the chosen saved project', async () => {
   } } });
   await deleteProject('one');
   expect(store.projects.map(project => project.id)).toEqual(['two']);
+  vi.unstubAllGlobals();
+});
+
+it('keeps every readable project and never erases an unreadable one', async () => {
+  const brief = briefSchema.parse({ goal: 'test' });
+  const broken = { id: 'broken', name: 'From a newer version', updatedAt: 3 };
+  const store: Record<string, unknown> = { projects: [{ id: 'one', name: 'One', updatedAt: 1, threads: [], brief }, broken] };
+  vi.stubGlobal('chrome', { storage: { local: {
+    get: async () => store,
+    set: async (data: Record<string, unknown>) => Object.assign(store, data)
+  } } });
+  expect((await listProjects()).map(project => project.id)).toEqual(['one']);
+  await saveProject({ id: 'two', name: 'Two', updatedAt: 2, threads: [], brief });
+  expect((store.projects as { id: string }[]).map(project => project.id)).toEqual(['one', 'broken', 'two']);
+  await deleteProject('one');
+  expect(store.projects).toEqual([broken, { id: 'two', name: 'Two', updatedAt: 2, threads: [], brief }]);
+  const backup = await previewBackup(await exportBackup(store));
+  expect(backup.projects).toBe(1);
+  expect((mergeBackup(store, backup.data).projects as unknown[])).toContainEqual(broken);
   vi.unstubAllGlobals();
 });
