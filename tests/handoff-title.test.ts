@@ -39,3 +39,24 @@ describe('captured chat titles', () => {
     expect(capture.brief.goal).toBe(goal);
   });
 });
+
+describe('pasted handoff statements', () => {
+  const reply = { role: 'assistant' as const, text: 'OK', index: 1 };
+  it('keeps the quoted preferences and tasks of a compact handoff, not its own wording', () => {
+    const pasted = wrapHandoff(renderBrief(briefSchema.parse({ goal: 'Build a habit tracker', status: 'Planning', preferences: ['Never use paid APIs'], open_tasks: ['Need to add reminders'], next_step: 'Add reminders next', key_findings: ['You should never store tokens in plain text'] })).text);
+    const brief = updateBrief(undefined, [{ role: 'user', text: `${pasted}\n\nNext task from the user: Please add streak badges`, index: 0 }, reply], []);
+    expect(brief.preferences).toEqual(['Never use paid APIs']);
+    expect(brief.open_tasks).toEqual(['Need to add reminders', 'Next task from the user: Please add streak badges']);
+  });
+  it('reads only the user messages of a pasted full transcript', () => {
+    const pasted = fullContext({ turns: [{ role: 'user', text: 'Make a to-do list. It must work offline. Please add dark mode.', index: 0 }, { role: 'assistant', text: 'You should never skip tests. Next, pick a stack.', index: 1 }], incomplete: false, truncated: false, savedAt: 0 }, 'https://gemini.google.com/app/x').draft;
+    const brief = updateBrief(undefined, [{ role: 'user', text: pasted, index: 0 }, reply], []);
+    expect(brief.preferences).toEqual(['It must work offline.']);
+    expect(brief.open_tasks).toEqual(['Please add dark mode.']);
+  });
+  it('still reads ordinary user messages', () => {
+    const brief = updateBrief(undefined, [{ role: 'user', text: 'It must work offline. Please add dark mode.', index: 0 }, reply], []);
+    expect(brief.preferences).toEqual(['It must work offline.']);
+    expect(brief.open_tasks).toEqual(['Please add dark mode.']);
+  });
+});
