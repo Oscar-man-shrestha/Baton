@@ -110,4 +110,4 @@ document.querySelector('#export-diagnostic')?.addEventListener('click', async ()
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'handoff-diagnostic.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   health.textContent = 'Diagnostic exported without chat text. Review the file before sharing it.';
 });
-document.querySelector('#delete')?.addEventListener('click', async () => { if (!confirm('Delete all locally saved Handoff projects and settings?')) return; await deleteAll(); health.textContent = 'Local Handoff data deleted.'; await showProjects(); });
+document.querySelector('#delete')?.addEventListener('click', async () => { if (!confirm('Delete all locally saved Baton projects and settings?')) return; await deleteAll(); health.textContent = 'Local Baton data deleted.'; await showProjects(); });

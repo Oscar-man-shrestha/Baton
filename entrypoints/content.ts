@@ -45,7 +45,7 @@ export default defineContentScript({
     const statusHost = document.createElement('div');
     statusHost.id = 'handoff-composer-status';
     statusHost.setAttribute('role', 'note');
-    statusHost.setAttribute('aria-label', 'Handoff usage information');
+    statusHost.setAttribute('aria-label', 'Baton usage information');
     statusHost.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;display:none';
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
@@ -97,23 +97,23 @@ export default defineContentScript({
       const card = buildRescueCard(document, limit, rescueOptions(id, saved, (saved.enabledProviders || {}) as Record<string, boolean>), {
         continueIn: async target => {
           const draft = await rescueDraft();
-          if (!draftBudget(draft).fits) return 'Saved as a capsule. This project is too long for a one-click draft; open Handoff to review and shorten it.';
+          if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
           const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
-          if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Handoff.`);
-          return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a capsule.`;
+          if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
+          return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
         },
         switchAccount: async () => {
           const draft = await rescueDraft();
           const help = accountSwitch(id);
           if (help.url) window.open(help.url, '_blank', 'noopener');
-          try { await navigator.clipboard.writeText(draft); } catch { return `Saved as a capsule; copying was blocked, so copy it from Handoff. ${help.steps}`; }
-          return `Project copied and saved as a capsule. ${help.steps}`;
+          try { await navigator.clipboard.writeText(draft); } catch { return `Saved as a baton; copying was blocked, so copy it from Baton. ${help.steps}`; }
+          return `Project copied and saved as a baton. ${help.steps}`;
         },
         remind: async () => {
           const reply = await chrome.runtime.sendMessage({ type: 'REMIND_AT_RESET', provider: id, resetAt: limit.resetAt });
           if (!reply?.ok) throw new Error('Could not set the reminder.');
           const at = new Date(limit.resetAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          return reply.notifications ? `I’ll send a desktop alert when ${name} resets (${at}).` : `I’ll mark the Handoff icon when ${name} resets (${at}). Turn on desktop alerts in Handoff → Usage for a pop-up.`;
+          return reply.notifications ? `I’ll send a desktop alert when ${name} resets (${at}).` : `I’ll mark the Baton icon when ${name} resets (${at}). Turn on desktop alerts in Baton → Usage for a pop-up.`;
         },
         dismiss: () => { dismissedRescue = rescueSignature; rescueHost.style.display = 'none'; }
       });
@@ -182,10 +182,10 @@ export default defineContentScript({
         const text = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
         // Services that show no numbers: say what Handoff counted instead of only “unknown”.
-        statusText.textContent = text.endsWith('Usage left: unknown') && (counted.count || counted.learnedLimit !== undefined) ? text.replace('Usage left: unknown', `${counted.text} (counted by Handoff)`) : text;
+        statusText.textContent = text.endsWith('Usage left: unknown') && (counted.count || counted.learnedLimit !== undefined) ? text.replace('Usage left: unknown', `${counted.text} (counted by Baton)`) : text;
       }
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
-      statusHost.setAttribute('aria-label', `Handoff: ${statusText.textContent}`);
+      statusHost.setAttribute('aria-label', `Baton: ${statusText.textContent}`);
       statusHost.style.left = `${position.left}px`;
       statusHost.style.top = `${position.top}px`;
       statusHost.style.maxWidth = `${position.width}px`;

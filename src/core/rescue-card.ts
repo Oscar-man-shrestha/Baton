@@ -10,7 +10,7 @@ export const rescueCardStyle = ':host{all:initial}.card{box-sizing:border-box;wi
 export function buildRescueCard(doc: Document, limit: LimitState, options: RescueOption[], handlers: RescueHandlers, now = Date.now()): HTMLElement {
   const card = doc.createElement('section');
   card.className = 'card';
-  card.setAttribute('aria-label', `${providerNames[limit.provider]} limit reached. Continue with Handoff.`);
+  card.setAttribute('aria-label', `${providerNames[limit.provider]} limit reached. Continue with Baton.`);
   const top = doc.createElement('div'); top.className = 'top';
   const title = doc.createElement('strong');
   title.textContent = `${providerNames[limit.provider]} limit reached`;
@@ -26,7 +26,7 @@ export function buildRescueCard(doc: Document, limit: LimitState, options: Rescu
     buttons.forEach(other => { other.disabled = true; });
     status.textContent = 'Working…';
     try { status.textContent = await action(); }
-    catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Try again or open Handoff.'; }
+    catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Try again or open Baton.'; }
     finally { buttons.forEach(other => { other.disabled = other.dataset.locked === 'true'; }); }
   });
   const list = doc.createElement('div'); list.className = 'options';

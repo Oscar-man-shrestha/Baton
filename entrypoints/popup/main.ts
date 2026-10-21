@@ -74,7 +74,7 @@ const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknow
   (id, payload) => chrome.tabs.sendMessage(id, payload) as Promise<T>,
   async id => {
     const script = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
-    if (!script) throw new Error('Handoff content script is missing from this build.');
+    if (!script) throw new Error('Baton content script is missing from this build.');
     await chrome.scripting.executeScript({ target: { tabId: id }, files: [script] });
   }
 );
@@ -91,7 +91,7 @@ void chrome.action.getBadgeText({}).then(text => { if (text === '✓') return ch
     status.textContent = provider ? '' : isSupportedChatUrl(tab?.url) ? 'Connecting to your AI chat…' : 'Open an AI chat to get started.';
     (document.querySelector('#source-label') as HTMLElement).textContent = provider ? `${providerNames[provider]} · active tab` : 'Open a supported AI conversation';
   }
-}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture Page or paste a capsule.'; });
+}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture Page or paste a baton.'; });
 const refreshChat = () => { void refreshActiveChat().catch(() => { /* Capture provides recovery guidance. */ }); };
 refreshChat();
 chrome.tabs.onActivated?.addListener(info => { if (activeWindowId === undefined || info.windowId === activeWindowId) refreshChat(); });
@@ -128,7 +128,7 @@ for (const [buttonId, statusId] of [['#refresh-all-usage', '#usage-refresh-statu
 window.setInterval(() => { void showUsage(); }, 60000);
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 // Messages Handoff counted in the service's window, with the limit learned from past limit notices.
-const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], Date.now(), saved[`statedLimit:${id}`]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Handoff` : ''; };
+const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], Date.now(), saved[`statedLimit:${id}`]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Baton` : ''; };
 // Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
 const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
 async function showUsage() {
@@ -205,7 +205,7 @@ function renderActiveUsage(saved: Record<string, any>) {
   const counted = countedLine(saved, activeProvider);
   if (counted) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = counted; container.append(line); }
   if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
-  note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Handoff shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
+  note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Baton shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
   (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
@@ -230,7 +230,7 @@ const showDraftBudget = () => {
   (document.querySelector('#use-compact') as HTMLButtonElement).hidden = budget.fits || contextMode.value !== 'full';
   saveBrief.disabled = !draft.value.trim();
   openDraft.disabled = !draft.value.trim() || (reviewed && !budget.fits);
-  openDraft.textContent = reviewed ? 'Open draft in new chat ↗' : 'Review & continue ↗';
+  openDraft.textContent = reviewed ? 'Pass the baton ↗' : 'Review & continue ↗';
   captureCard.hidden = !flow.hidden;
   (document.querySelector('#tab-capture') as HTMLElement).hidden = flow.hidden && activeView === 'capture';
   destinationPanel.hidden = !reviewed;
@@ -278,7 +278,7 @@ contextMode.addEventListener('change', () => {
   reviewed = false; reviewPanel.open = false;
   showDraftBudget();
 });
-document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Compact handoff selected. The full capsule is still saved.'; });
+document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Compact handoff selected. The full baton is still saved.'; });
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
   const recent = await listRecentCaptures(5000);
@@ -325,7 +325,7 @@ const showLibrary = async () => {
           modeDrafts.full = item.draft; contextMode.options[1].disabled = false; contextMode.value = 'full'; previousMode = 'full';
           if (item.snapshotText) completeContext = { text: item.snapshotText, draft: item.draft, tokens: encode(item.draft).length, redactions: [] };
           copyTranscript.disabled = !item.snapshotText; downloadContext.disabled = !item.snapshotText;
-          (document.querySelector('#capture-summary') as HTMLElement).textContent = 'Saved capsule snapshot · later chat updates do not overwrite this copy';
+          (document.querySelector('#capture-summary') as HTMLElement).textContent = 'Saved baton snapshot · later chat updates do not overwrite this copy';
         } else modeDrafts.compact = item.draft;
         showDraftBudget();
       }
@@ -337,10 +337,10 @@ const showLibrary = async () => {
       const open = button.cloneNode(true) as HTMLButtonElement; open.className = 'capsule-open'; open.addEventListener('click', () => button.click());
       const actions = document.createElement('div'); actions.className = 'capsule-actions';
       const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'icon-button'; copy.textContent = '⧉'; copy.setAttribute('aria-label', `Copy ${item.name}`);
-      copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Capsule copied. Paste it into your next AI chat.'; });
+      copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Baton copied. Paste it into your next AI chat.'; });
       const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button danger'; remove.textContent = '×'; remove.setAttribute('aria-label', `Delete ${item.name}`);
       remove.addEventListener('click', async () => {
-        if (!confirm(`Delete “${item.name}”? Other saved capsules and conversations are kept.`)) return;
+        if (!confirm(`Delete “${item.name}”? Other saved batons and conversations are kept.`)) return;
         if (item.id) {
           await deleteProject(item.id);
           if (item.id.startsWith('capture:')) await chrome.storage.local.set({ dismissedRecentUrls: [...new Set([...dismissedUrls, item.url])].slice(-5000) });
@@ -369,9 +369,9 @@ capsuleDialog.querySelector('form')?.addEventListener('submit', async event => {
   const folder = (document.querySelector('#capsule-folder') as HTMLInputElement).value.trim();
   if (!name || !text) return;
   try {
-    await saveProject({ id: crypto.randomUUID(), name, folder: folder || undefined, threads: [], updatedAt: Date.now(), draft: redact(text).text, draftMode: 'compact', brief: briefSchema.parse({ goal: name, status: 'User-written capsule', next_step: 'Continue from the saved context.' }) });
+    await saveProject({ id: crypto.randomUUID(), name, folder: folder || undefined, threads: [], updatedAt: Date.now(), draft: redact(text).text, draftMode: 'compact', brief: briefSchema.parse({ goal: name, status: 'User-written baton', next_step: 'Continue from the saved context.' }) });
     capsuleDialog.close(); capsuleDialog.querySelector('form')?.reset(); await showLibrary(); status.textContent = `Saved ${name}.`;
-  } catch { (document.querySelector('#capsule-error') as HTMLElement).textContent = 'Could not save this capsule. Your text is still here; try again.'; }
+  } catch { (document.querySelector('#capsule-error') as HTMLElement).textContent = 'Could not save this baton. Your text is still here; try again.'; }
 });
 const enabled = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
 const providerIntents = (settings.providerIntents && typeof settings.providerIntents === 'object' ? settings.providerIntents : {}) as Record<string, Intent[]>;
@@ -396,11 +396,11 @@ captureButton.addEventListener('click', async () => {
     const data = await sendToChat<any>(tab, { type: 'EXTRACT', includeOlder: includeOlder.checked });
     if (data?.error) throw new Error(data.error);
     if (!data?.turnCount && !data?.artifactCount) {
-      status.textContent = 'Connected. This chat has no messages yet. Handoff is watching from here; send a message, then capture again.';
+      status.textContent = 'Connected. This chat has no messages yet. Baton is watching from here; send a message, then capture again.';
       return;
     }
     if (!data?.hasUserTurn && data?.provider === 'gemini' && tab.url && new URL(tab.url).pathname === '/app') {
-      status.textContent = 'Connected to Gemini. No user message is visible yet. Handoff is watching from here; send a message, then capture again.';
+      status.textContent = 'Connected to Gemini. No user message is visible yet. Baton is watching from here; send a message, then capture again.';
       return;
     }
     if (!data?.hasUserTurn) throw new Error('The original user message was not captured. Try older-message capture, or paste your request into the draft yourself.');
@@ -532,14 +532,14 @@ async function refreshGoogleSetup() {
     const available = await cloud.googleSignInAvailable();
     button.disabled = !available;
     (document.querySelector('#google-setup') as HTMLDetailsElement).open = !available;
-    cloudStatus.textContent = available ? 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' : 'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local capsules are already saved.';
-  } catch { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. Try Check Google setup again. Local capsules are safe.'; }
+    cloudStatus.textContent = available ? 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' : 'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local batons are already saved.';
+  } catch { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. Try Check Google setup again. Local batons are safe.'; }
 }
 document.querySelector('#account')?.addEventListener('click', () => { accountDialog.showModal(); void refreshGoogleSetup(); });
 document.querySelector('#retry-google-setup')?.addEventListener('click', () => { void refreshGoogleSetup(); });
 document.querySelector('#copy-extension-callback')?.addEventListener('click', async () => {
   try { const setup = (await import('../../src/core/cloud')).googleOAuthSetup(); await navigator.clipboard.writeText(setup.extensionCallback); cloudStatus.textContent = 'Extension callback copied. Add it to Supabase Authentication → URL Configuration → Redirect URLs.'; }
-  catch { cloudStatus.textContent = 'Callback unavailable. Reload the configured Handoff build and try again.'; }
+  catch { cloudStatus.textContent = 'Callback unavailable. Reload the configured Baton build and try again.'; }
 });
 document.querySelector('#open-google-provider')?.addEventListener('click', async () => { const setup = (await import('../../src/core/cloud')).googleOAuthSetup(); await chrome.tabs.create({ url: setup.providerSettings }); });
 document.querySelector('#close-account')?.addEventListener('click', () => accountDialog.close());
@@ -584,7 +584,7 @@ const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');
 cloudReady = true;
 const cloudActions = document.querySelector('#cloud-actions') as HTMLElement;
 cloudActions.hidden = !cloudConfigured;
-cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Handoff cloud account. Uploads happen only when you press Back up now.' : 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.';
+cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Baton cloud account. Uploads happen only when you press Back up now.' : 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.';
 const cloudCard = document.querySelector('#cloud-card') as HTMLElement;
 const cloudCardStatus = document.querySelector('#cloud-card-status') as HTMLElement;
 const cloudCardAction = document.querySelector('#cloud-card-action') as HTMLButtonElement;
@@ -604,7 +604,7 @@ cloudCard.hidden = !cloudConfigured;
 if (cloudConfigured) await showCloudAccount(await accountLabel());
 cloudCardAction.addEventListener('click', () => (document.querySelector(cloudAccount ? '#cloud-backup' : '#google-sign-in') as HTMLButtonElement).click());
 for (const [id, action] of [
-  ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Handoff after authorization.'); await showCloudAccount(result.email, `${result.email} · not backed up yet`); return `Connected as ${result.email}. Nothing uploaded yet.`; }],
+  ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Baton after authorization.'); await showCloudAccount(result.email, `${result.email} · not backed up yet`); return `Connected as ${result.email}. Nothing uploaded yet.`; }],
   ['cloud-backup', async () => { await (await import('../../src/core/cloud')).backupCloud(); await showCloudAccount(cloudAccount); return 'Saved contexts backed up to your account.'; }],
   ['cloud-restore', async () => { const cloud = await import('../../src/core/cloud'); const preview = await cloud.inspectCloud(); if (!confirm(`Restore ${preview.contexts} conversations and ${preview.projects} projects from ${preview.updatedAt}? Newer local copies will be kept.`)) return 'Restore cancelled.'; await cloud.restoreCloud(preview); await showLibrary(); return 'Cloud backup restored.'; }],
   ['cloud-disconnect', async () => { await (await import('../../src/core/cloud')).disconnectCloud(); await showCloudAccount(undefined); return 'Disconnected. Local data and cloud backup were kept.'; }],

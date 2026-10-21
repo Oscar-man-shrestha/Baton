@@ -64,3 +64,16 @@ describe('extension screens', () => {
     expect(styles).toContain('prefers-reduced-motion');
   });
 });
+
+describe('Baton naming', () => {
+  it('shows Baton wording and no leftover Capsule or Handoff text on any screen', () => {
+    for (const screen of ['popup', 'sidepanel', 'options']) {
+      const doc = new JSDOM(readFileSync(new URL(`../entrypoints/${screen}/index.html`, import.meta.url), 'utf8')).window.document;
+      const visible = `${doc.title} ${doc.body.textContent} ${Array.from(doc.querySelectorAll('[aria-label],[placeholder],[title]')).map(node => `${node.getAttribute('aria-label') || ''} ${node.getAttribute('placeholder') || ''} ${node.getAttribute('title') || ''}`).join(' ')}`;
+      expect(visible).not.toMatch(/\bCapsules?\b|\bHandoff\b/);
+    }
+    const popup = readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8');
+    expect(popup).toContain('New Baton');
+    expect(popup).toContain('Recent Batons');
+  });
+});

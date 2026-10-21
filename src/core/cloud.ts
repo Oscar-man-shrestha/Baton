@@ -41,7 +41,7 @@ export async function googleSignInAvailable(): Promise<boolean> {
   return settings.external?.google === true;
 }
 export async function signInGoogle(): Promise<string> {
-  if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local capsules are saved normally.');
+  if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local batons are saved normally.');
   const supabase = client();
   const redirect = googleOAuthSetup().extensionCallback;
   const result = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirect, skipBrowserRedirect: true } });

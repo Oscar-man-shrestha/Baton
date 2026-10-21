@@ -17,14 +17,14 @@ export default defineBackground(() => {
     const meter = currentBadge(record);
     if (!meter) {
       await chrome.action.setBadgeText({ tabId, text: '' });
-      await chrome.action.setTitle({ tabId, title: 'Handoff · no current service usage reading' });
+      await chrome.action.setTitle({ tabId, title: 'Baton · no current service usage reading' });
       if (record) await chrome.storage.session.remove(badgeKey(tabId));
       return;
     }
     const text = meter.percent !== undefined ? `${Math.round(meter.percent)}%` : meter.nearLimit ? '!' : '';
     await chrome.action.setBadgeText({ tabId, text });
     await chrome.action.setBadgeBackgroundColor({ tabId, color: meter.percent !== undefined && meter.percent >= 95 ? '#b33d45' : '#376b54' });
-    await chrome.action.setTitle({ tabId, title: `Handoff · ${meter.provider} · ${meter.feature}: ${meter.percent === undefined ? 'balance unknown' : `${meter.percent}% used`} (last service reading ${new Date(meter.at!).toLocaleTimeString()})` });
+    await chrome.action.setTitle({ tabId, title: `Baton · ${meter.provider} · ${meter.feature}: ${meter.percent === undefined ? 'balance unknown' : `${meter.percent}% used`} (last service reading ${new Date(meter.at!).toLocaleTimeString()})` });
   };
   chrome.tabs.onActivated.addListener(({ tabId }) => { void enqueueUsage(() => refreshBadge(tabId)).catch(() => {}); });
   chrome.tabs.onRemoved.addListener(tabId => { void enqueueUsage(() => chrome.storage.session.remove(badgeKey(tabId))).catch(() => {}); });
@@ -71,8 +71,8 @@ export default defineBackground(() => {
     void (async () => {
       await chrome.action.setBadgeText({ text: '✓' });
       await chrome.action.setBadgeBackgroundColor({ color: '#376b54' });
-      await chrome.action.setTitle({ title: `Handoff · ${providerNames[provider]} should be available again` });
-      if (await chrome.permissions.contains({ permissions: ['notifications'] })) await chrome.notifications.create(alarm.name, { type: 'basic', iconUrl: chrome.runtime.getURL('icon-128.png'), title: `${providerNames[provider]} is available again`, message: 'Its usage limit was due to reset now. Your saved project is in Handoff.', priority: 0 });
+      await chrome.action.setTitle({ title: `Baton · ${providerNames[provider]} should be available again` });
+      if (await chrome.permissions.contains({ permissions: ['notifications'] })) await chrome.notifications.create(alarm.name, { type: 'basic', iconUrl: chrome.runtime.getURL('icon-128.png'), title: `${providerNames[provider]} is available again`, message: 'Its usage limit was due to reset now. Your saved project is in Baton.', priority: 0 });
     })().catch(() => {});
   });
   const deliverDraft = async (tabId: number, text: string) => {
