@@ -100,22 +100,28 @@ const usageDialog = document.querySelector('#usage-dialog') as HTMLDialogElement
 document.querySelector('#show-usage')?.addEventListener('click', () => { usageDialog.showModal(); void showUsage(); });
 document.querySelector('#close-usage')?.addEventListener('click', () => usageDialog.close());
 // Shared by the Usage window's Refresh all and the dashboard's Refresh usage button.
-async function refreshAllUsage(button: HTMLButtonElement, message: HTMLElement) {
-  button.disabled = true; message.textContent = 'Checking open AI tabs and each service’s usage page…';
+async function refreshAllUsage(button: HTMLButtonElement, message: HTMLElement, compact = false) {
+  button.disabled = true; message.textContent = compact ? 'Checking usage pages…' : 'Checking open AI tabs and each service’s usage page…';
   try {
     const tabs = (await chrome.tabs.query({})).filter(tab => isSupportedChatUrl(tab.url));
     const results = await Promise.allSettled(tabs.map(tab => sendToChat<{ ok?: boolean }>(tab, { type: 'REFRESH_USAGE' })));
     const connected = results.filter(result => result.status === 'fulfilled' && result.value?.ok).length;
     const pages = await chrome.runtime.sendMessage({ type: 'REFRESH_ALL_USAGE' }) as { ok?: boolean; results?: { provider: ProviderId; status: string }[] } | undefined;
     await showUsage();
+    if (compact) {
+      const marks = (pages?.results || []).map(result => `${providerNames[result.provider]} ${result.status === 'read' ? '✓' : '✗'}`).join('  ');
+      message.textContent = marks ? `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${marks}` : 'No usage pages to check.';
+      message.title = (pages?.results || []).filter(result => result.status !== 'read').map(result => `${providerNames[result.provider]}: not shown (signed out or page changed)`).join('\n');
+      return;
+    }
     const pageSummary = (pages?.results || []).map(result => `${providerNames[result.provider]} ${result.status === 'read' ? 'read' : 'not shown (signed out or page changed)'}`).join(', ');
-    message.textContent = `${tabs.length ? `Checked ${connected} of ${tabs.length} open AI tabs. ` : ''}${pageSummary ? `Usage pages: ${pageSummary}.` : 'No usage pages to check.'} Services without a usage page update when they show a limit.`;
+    message.textContent = `${connected ? `Refreshed ${connected} open AI tab${connected === 1 ? '' : 's'}. ` : ''}${pageSummary ? `Usage pages: ${pageSummary}.` : 'No usage pages to check.'} Services without a usage page update when they show a limit.`;
   } catch { message.textContent = 'Could not refresh. Try again.'; }
   finally { button.disabled = false; }
 }
 for (const [buttonId, statusId] of [['#refresh-all-usage', '#usage-refresh-status'], ['#dashboard-refresh-usage', '#dashboard-refresh-status']]) {
   const button = document.querySelector(buttonId) as HTMLButtonElement | null;
-  button?.addEventListener('click', () => { void refreshAllUsage(button, document.querySelector(statusId) as HTMLElement); });
+  button?.addEventListener('click', () => { void refreshAllUsage(button, document.querySelector(statusId) as HTMLElement, buttonId === '#dashboard-refresh-usage'); });
 }
 window.setInterval(() => { void showUsage(); }, 60000);
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };

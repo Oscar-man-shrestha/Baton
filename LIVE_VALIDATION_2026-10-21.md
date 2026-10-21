@@ -26,6 +26,15 @@ Details in `LIVE_RESTORE_TEST_2026-10-21.md`. Main profile uploaded a 6-capsule 
 
 Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usage` open (free account, page showing Current usage 0% and Weekly limit 0%), the Handoff popup showed **Session 100% left · resets in 4h 15m** and **Weekly 100% left · resets in 6d 14h**, labelled “Service reading · 00:25:46”, and the toolbar badge showed 0%. The resets match the page's “Resets at 04:40” and “Resets on 28 Oct at 14:40”. A non-zero percentage has not been observed yet. The extension reload signed Handoff out of Google, as designed.
 
+## Addendum — 0.3.10 to 0.3.14 usage readings (2026-10-22)
+
+- **0.3.11, ChatGPT** (`chatgpt.com/settings/usage`): sidebar showed Work 5-hour and Work weekly at 100% left with resets, Credits 2,500 left and Limit resets 0 left; the earlier mislabelled “Chat” row was gone.
+- **0.3.13, Claude:** sidebar and composer line showed Session 41% used and Weekly 6% used (resets in 2d 23h). The reading probably predates the reload, which is why the session reset was missing; 0.3.13 fixed “hr/min” countdowns.
+- **0.3.14, dashboard ↻ Refresh usage:** status said “Usage pages: ChatGPT read, Claude read, Gemini read”.
+  - Claude: Session 49% used, resets in 3h 3m (the session reset now appears); Weekly 7%, 2d 23h; Full reset (expires Oct 22) 1 left.
+  - Gemini: Session 6% used, resets in 3h 21m; Weekly 0%, 6d 13h. Another usage extension on the same page independently showed 6% / 0%.
+- Not yet observed live: send counting and the “≈ … est.” estimate between readings.
+
 ## Automated checks
 
 115 tests in 17 files passed with two workers. TypeScript and the production build passed. One earlier run alongside a production build timed out importing the cloud test module and caused a follow-on mock failure; the complete suite passed after avoiding that resource contention. No timeout gate was relaxed.
