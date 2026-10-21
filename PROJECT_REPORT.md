@@ -1,11 +1,11 @@
 # Handoff project and UI/UX report
 
-Version 0.2.1 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
+Version 0.2.2 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
 
 ## Main user journey
 
 1. Open an AI chat and open Handoff. An already-open tab connects without reloading when browser permissions allow injection.
-2. Home shows actual saved context, project, and folder counts; Capture this chat, New context, New folder, and recent contexts. No account is required for local use.
+2. Home shows one Capture this chat action, compact active-service usage, and recent contexts. Extra capture options are collapsed; folder creation lives in Saved. No account is required for local use.
 3. Capture visible messages, optionally scroll to include older rendered messages, and restore the reading position. The receipt describes coverage limitations.
 4. Inspect goal, where the chat left off, and next step. Choose Compact handoff or Full captured conversation. Review/edit and optionally add an explicit next task.
 5. Review first, choose a destination, then open an unsent draft or copy/download the text. Handoff never presses Send. Oversized drafts are kept intact for copy/download; automatic insertion is blocked above 1,500 approximate tokens.
@@ -13,12 +13,12 @@ Version 0.2.1 — 2026-10-21. This is a browser extension, built with WXT, TypeS
 
 ## Interface inventory for Stitch or another designer
 
-- Home: Handoff arrow mark, local/connected account pill, sidebar and settings buttons; Home/Saved navigation; active-site status; three library counts; primary capture action; older-history checkbox; New context/New folder; recent saved cards; calm empty state.
-- Review: short real-data goal/progress/next summary, capture receipt, compact/full selector, expandable editor, next-task input, destination selector after review, optional project save and capture details. Sticky Copy and Review/Open action area remains reachable.
+- Home: Handoff arrow mark, local/connected account pill, sidebar and settings buttons; Home/Saved navigation; active-site label; one primary capture action; compact active-provider usage card; collapsed older-history/manual context controls; recent saved cards. No statistics grid.
+- Review: visible goal and capture receipt, expandable editor, next-task input and destination selector after review. More options contains detailed progress/next step, compact/full selector, project save and capture details. Sticky Copy and Review/Open action area remains reachable.
 - Saved: search across titles and folders; project and recent-context cards; reopen action; settings/backups link.
 - Account/backups dialog: full JSON download/restore; cloud configuration status; configured Google sign-in, Back up now, Restore, Disconnect, and Delete cloud backup.
 - Sidebar: same functional application in a browser side panel, responsive down to 320 pixels. If unsupported, the button opens a workspace tab.
-- Usage: collapsed cross-provider overview, separate recognized session/weekly/model/feature windows, progress bars, resets and observation times, optional desktop alerts. Small non-interactive strip below the provider composer; hidden if it cannot fit without covering controls. It can be turned off.
+- Usage: active-service card on Home with Read usage for Claude and Refresh for other services; collapsed cross-provider overview, separate recognized session/weekly/model/feature windows, progress bars, resets and observation times, optional desktop alerts. Small non-interactive strip below the provider composer; hidden if it cannot fit without covering controls. It can be turned off.
 - Settings: searchable projects, folder editing, export/import, service toggles and intent preferences, diagnostics, retention and deletion controls.
 
 ## Visual implementation

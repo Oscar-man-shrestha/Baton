@@ -1,16 +1,18 @@
-# Verification — Handoff 0.2.1
+# Verification — Handoff 0.2.2
 
 Date: 2026-10-21. These are observed results, not a claim of public release readiness.
 
 ## Passed locally
 
-- Version 0.2.1 regression coverage includes decimal/invalid percentages, reset drift and expiry, unchanged expired labels, isolated feature resets, simultaneous alerts through the actual background handler, most-constrained badge selection, and expired badge clearing.
+- Version 0.2.2: plain nested Claude settings usage rows are recognized without mixing session and weekly figures. Tests also reject unavailable rows and competing extension widgets. Popup/sidebar markup synchronization has a regression check.
 
-- 101 unit/fixture tests in 15 test files passed on the updated Vitest 5.0.5 toolchain. Includes all six provider adapters, reported Gemini/DeepSeek regressions, rich Markdown, legitimate repeats, streaming/history merge, source-code preservation, redaction, budget gate, router basics, usage parsing/expiry, recent captures, backups, and mocked Supabase sign-in/backup boundaries.
+- Version 0.2.2 regression coverage includes decimal/invalid percentages, reset drift and expiry, unchanged expired labels, isolated feature resets, simultaneous alerts through the actual background handler, most-constrained badge selection, and expired badge clearing.
+
+- 104 unit/fixture tests in 15 test files passed on the updated Vitest 5.0.5 toolchain. Includes all six provider adapters, reported Gemini/DeepSeek regressions, rich Markdown, legitimate repeats, streaming/history merge, source-code preservation, redaction, budget gate, router basics, usage parsing/expiry, recent captures, backups, and mocked Supabase sign-in/backup boundaries.
 - Final TypeScript check passed.
 - Final WXT 0.21.4 production build passed with popup, settings, sidebar, background worker, and content script. Build warnings concern tokenizer chunk size and third-party pure-comment annotations, not compilation errors. Total unpacked build is approximately 9 MB.
 - Clean installation audit: 199 packages, zero known vulnerabilities reported at installation time. This is a dependency advisory result, not a full security audit.
-- Isolated Brave 149.0.7827.155 browser checks: real saved-item counts; empty folder creation; honest unconfigured cloud state; capture/review/destination progression; no automatic send; oversize full context preserves its tail and can be copied; folder search; exact saved manual edits; 400×600 popup; 320-pixel sidebar; settings folder change; no page errors or external frontend requests. Final reports are in sibling `ui-previews/browser-checks.json` and `content-checks.json`.
+- Isolated Brave 149.0.7827.155 browser checks: a simple home without statistics; folders in Saved; collapsed capture options; separate Claude 31%/5% fixture readings and Read usage navigation; honest unconfigured cloud state; capture/review/destination progression; no automatic send; oversize full context preserves its tail and can be copied; folder search; exact saved manual edits; 400×600 popup; 320-pixel sidebar; settings folder change; no page errors or external frontend requests. Final reports are in sibling `ui-previews/browser-checks.json` and `content-checks.json`.
 - Packaged content-script checks use an intercepted synthetic provider page: collect all 12 virtualized turns in order, restore the middle scroll position, update a streaming reply without duplication, fill a draft without a submit event, receive a quota-window update from another tab immediately, and keep the usage strip below the fixture composer with no click interception.
 - Supabase MCP registration and OAuth login succeeded for the user-selected project. The current chat reports the server as unavailable in its running tool catalog, so no remote database operation has been performed.
 
