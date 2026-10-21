@@ -54,15 +54,29 @@ export function readUsageWindows(doc: Document, provider: ProviderId, turnNodes:
     return true;
   };
   const textOf = (node: Element) => ((node as HTMLElement).innerText || Array.from(node.childNodes).map(child => child.textContent || '').join(' ')).replace(/\s+/g, ' ').trim();
-  const candidates = Array.from(doc.querySelectorAll('[role="progressbar"],[role="alert"],[aria-live="assertive"],[data-testid*="usage" i],[data-testid*="limit" i]'));
+  const rowLabels = new Map<Element, string>();
+  const candidates = Array.from(doc.querySelectorAll('progress,[role="progressbar"],[role="alert"],[aria-live="assertive"],[data-testid*="usage" i],[data-testid*="limit" i]'));
   if (provider === 'claude' && /^\/settings\/usage\/?$/.test(doc.location.pathname)) {
-    for (const heading of Array.from(doc.querySelectorAll('main h2,main h3,main h4,main p'))) {
-      if (/^(?:current session|weekly limits|all models|sonnet only|opus only|session usage|weekly usage)/i.test(heading.textContent?.trim() || '')) candidates.push(heading.parentElement || heading);
+    // Claude's settings page also uses plain text rows, without semantic progressbars.
+    // Start from an exact feature label and stop at the smallest numeric row.
+    for (const heading of Array.from(doc.querySelectorAll('main h2,main h3,main h4,main p,main span,main div'))) {
+      const title = textOf(heading);
+      if (!/^(?:current session|weekly limits|all models|sonnet only|opus only|session usage|weekly usage)$/i.test(title)) continue;
+      for (let row = heading.parentElement, depth = 0; row && depth < 5 && !row.matches('main,body'); row = row.parentElement, depth++) {
+        const text = textOf(row);
+        // Never combine two quota windows into one reading.
+        const features = text.match(/current session|session usage|weekly limits|all models|sonnet only|opus only|weekly usage/gi) || [];
+        if (new Set(features.map(feature => feature.toLowerCase())).size > 1) break;
+        if (/\d+(?:\.\d+)?\s*%\s*(?:used|remaining|left)|(?:used|remaining|left)\s*:?\s*\d+(?:\.\d+)?\s*%/i.test(text) || row.querySelector('[role="progressbar"],progress')) {
+          const feature = /session/i.test(title) ? 'Session usage' : /sonnet/i.test(title) ? 'Sonnet weekly usage' : /opus/i.test(title) ? 'Opus weekly usage' : 'Weekly usage';
+          rowLabels.set(row, feature); candidates.push(row); break;
+        }
+      }
     }
   }
   for (const node of candidates) {
     if (excluded(node) || !visible(node) || candidates.some(other => other !== node && node.contains(other))) continue;
-    let label = node.getAttribute('aria-label') || '';
+    let label = node.getAttribute('aria-label') || rowLabels.get(node) || '';
     if (!label && provider === 'claude' && /^\/settings\/usage\/?$/.test(doc.location.pathname)) {
       for (let scope: Element | null = node.parentElement, depth = 0; scope && depth < 4 && !scope.matches('main,body'); scope = scope.parentElement, depth++) {
         const text = scope.textContent || '';
@@ -72,13 +86,18 @@ export function readUsageWindows(doc: Document, provider: ProviderId, turnNodes:
       }
     }
     let text = `${label} ${textOf(node)}`.replace(/\s+/g, ' ').trim().slice(0, 500);
-    if (node.getAttribute('role') === 'progressbar' && /usage|quota|session|weekly/i.test(label) && (!node.hasAttribute('aria-valuemax') || node.getAttribute('aria-valuemax') === '100')) {
-      const value = Number(node.getAttribute('aria-valuenow'));
-      if (node.hasAttribute('aria-valuenow') && Number.isFinite(value) && value >= 0 && value <= 100) {
+    if ((node.getAttribute('role') === 'progressbar' || node.tagName === 'PROGRESS') && /usage|quota|session|weekly/i.test(label) && (!node.hasAttribute('aria-valuemax') || node.getAttribute('aria-valuemax') === '100')) {
+      const value = Number(node.getAttribute('aria-valuenow') ?? node.getAttribute('value'));
+      const nativeMax = node.tagName === 'PROGRESS' ? Number(node.getAttribute('max') || '1') : 100;
+      if ((node.hasAttribute('aria-valuenow') || node.hasAttribute('value')) && nativeMax === 100 && Number.isFinite(value) && value >= 0 && value <= 100) {
         let context = node;
-        for (let scope = node.parentElement, depth = 0; scope && depth < 3 && !scope.matches('main,body') && scope.querySelectorAll('[role="progressbar"]').length === 1 && !turnNodes.some(turn => scope!.contains(turn)); scope = scope.parentElement, depth++) context = scope;
+        for (let scope = node.parentElement, depth = 0; scope && depth < 3 && !scope.matches('main,body') && scope.querySelectorAll('[role="progressbar"],progress').length === 1 && !turnNodes.some(turn => scope!.contains(turn)); scope = scope.parentElement, depth++) context = scope;
         text = `${label} ${value}% used ${textOf(context)}`.slice(0, 500);
       }
+    }
+    if (rowLabels.has(node)) {
+      const balance = text.match(/(?<![-\d.])\d+(?:\.\d+)?\s*%\s*(?:used|remaining|left)/i);
+      if (balance) text = `${label} ${balance[0]} ${text}`;
     }
     const meter = estimateMeter(provider, text, [], [], now);
     const count = text.match(/(?:deep research|image(?: generation)?|file upload|messages?)\s*:?\s*(\d+)\s+(?:remaining|left)/i);

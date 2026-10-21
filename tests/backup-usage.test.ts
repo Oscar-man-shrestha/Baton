@@ -50,3 +50,17 @@ describe('real quota windows', () => {
   });
 
 });
+
+
+describe('Claude settings text rows', () => {
+  it('reads plain nested session and weekly rows without mixing their values', () => {
+    const doc = new JSDOM(`<main><h2>Usage limits</h2><section><div><div><span>Current session</span><p>Resets in 2 hours 45 minutes</p></div><span>31% used</span></div><div><div><span>All models</span><p>Resets in 3 days</p></div><span>5% used</span></div></section></main>`, { url: 'https://claude.ai/settings/usage' }).window.document;
+    const windows = readUsageWindows(doc, 'claude', [], now);
+    expect(windows.map(win => [win.feature, win.percent])).toEqual([['Session',31],['Weekly',5]]);
+    expect(windows[0].resetAt).toBe(now + 165 * 60000);
+  });
+  it('does not invent a quota from an unavailable row or hidden competing extension', () => {
+    const doc = new JSDOM(`<main><div><span>Current session</span><p>Not available on your plan</p></div><div data-extension><span>All models</span><p>0% used</p></div></main>`, { url: 'https://claude.ai/settings/usage' }).window.document;
+    expect(readUsageWindows(doc, 'claude', [], now)).toEqual([]);
+  });
+});
