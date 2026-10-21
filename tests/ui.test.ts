@@ -20,8 +20,9 @@ describe('extension screens', () => {
     const html = readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8');
     const doc = new JSDOM(html).window.document;
     expect(doc.querySelector('#capture')).not.toBeNull();
-    expect(doc.querySelector('.stats')).toBeNull();
-    expect(doc.querySelector('#library')?.contains(doc.querySelector('#new-folder'))).toBe(true);
+    expect(doc.querySelector('.stats')).not.toBeNull();
+    expect(doc.querySelector('.quick-actions')?.contains(doc.querySelector('#new-folder'))).toBe(true);
+    expect(doc.querySelector('#new-capsule-dialog')).not.toBeNull();
     expect(doc.querySelector('.capture-extras')?.contains(doc.querySelector('#include-older'))).toBe(true);
     expect(doc.querySelector('#active-usage')).not.toBeNull();
     expect(doc.querySelector('#include-older')).not.toBeNull();

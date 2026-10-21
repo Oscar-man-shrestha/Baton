@@ -3,13 +3,14 @@ import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { rankProviders, trainClassifier, providerTable, type Feedback, type Intent } from '../../src/core/router';
 import { providerIds, type ProviderId } from '../../src/core/selectors';
-import { listProjects, mergeBrief, pruneExpired, saveProject, listFolders, createFolder } from '../../src/core/projects';
+import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { activeWindows, isCurrentReading, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
+import { saveCapturedCapsule } from '../../src/core/capsules';
 import { fullContext } from '../../src/core/context-export';
 
 const status = document.querySelector('#status') as HTMLElement;
@@ -57,6 +58,7 @@ const setView = (view: 'capture' | 'saved') => {
   status.hidden = view === 'saved';
   actionBar.hidden = view !== 'capture' || flow.hidden;
   (document.querySelector('#idle-footer') as HTMLElement).hidden = !actionBar.hidden;
+  (document.querySelector('#tab-capture') as HTMLElement).hidden = view === 'capture' && flow.hidden;
   document.querySelector('#tab-capture')?.setAttribute('aria-pressed', String(view === 'capture'));
   document.querySelector('#tab-saved')?.setAttribute('aria-pressed', String(view === 'saved'));
 };
@@ -177,10 +179,12 @@ desktopAlerts.addEventListener('change', async () => {
 let reviewed = false;
 const showDraftBudget = () => {
   const budget = draftBudget(draft.value);
+  (document.querySelector('#use-compact') as HTMLButtonElement).hidden = budget.fits || contextMode.value !== 'full';
   saveBrief.disabled = !draft.value.trim();
   openDraft.disabled = !draft.value.trim() || (reviewed && !budget.fits);
   openDraft.textContent = reviewed ? 'Open draft in new chat ↗' : 'Review & continue ↗';
   captureCard.hidden = !flow.hidden;
+  (document.querySelector('#tab-capture') as HTMLElement).hidden = flow.hidden && activeView === 'capture';
   (document.querySelector('#usage-panel') as HTMLElement).hidden = !flow.hidden;
   destinationPanel.hidden = !reviewed;
   actionBar.hidden = activeView !== 'capture' || flow.hidden;
@@ -227,15 +231,21 @@ contextMode.addEventListener('change', () => {
   reviewed = false; reviewPanel.open = false;
   showDraftBudget();
 });
+document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Compact handoff selected. The full capsule is still saved.'; });
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
   const recent = await listRecentCaptures(5000);
+  const dismissed = (await chrome.storage.local.get('dismissedRecentUrls')).dismissedRecentUrls;
+  const dismissedUrls: string[] = Array.isArray(dismissed) ? dismissed.filter((url): url is string => typeof url === 'string') : [];
   const items = [
-    ...projects.map(project => ({ name: project.name, brief: project.brief, url: project.threads.at(-1) || '', draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
-    ...recent.map(capture => ({ name: capture.title, brief: capture.brief, url: capture.url, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
+    ...projects.map(project => ({ id: project.id, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
+    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
   ];
   (document.querySelector('#saved-count') as HTMLElement).textContent = String(items.length);
+  (document.querySelector('#chat-count') as HTMLElement).textContent = String(items.length);
+  (document.querySelector('#thread-count') as HTMLElement).textContent = String(recent.length);
   const folders = await listFolders();
+  (document.querySelector('#folder-count') as HTMLElement).textContent = String(folders.length);
   const folderOptions = document.querySelector('#folder-options') as HTMLElement; folderOptions.replaceChildren();
   for (const folder of folders) { const option = document.createElement('option'); option.value = folder; folderOptions.append(option); }
   const recentList = document.querySelector('#recent-list') as HTMLElement; recentList.replaceChildren();
@@ -257,11 +267,44 @@ const showLibrary = async () => {
       saveBrief.disabled = false;
       recommendation.textContent = 'Choose a service you use. Availability is checked there.';
       positiveFeedback.disabled = true; negativeFeedback.disabled = true;
-      await refreshContext(); if (item.draft) { draft.value = item.draft; modeDrafts.compact = item.draft; showDraftBudget(); } setView('capture');
+      await refreshContext();
+      if (item.snapshotText) {
+        completeContext = { text: item.snapshotText, draft: wrapHandoff(item.snapshotText), tokens: encode(wrapHandoff(item.snapshotText)).length, redactions: [] };
+        modeDrafts.full = completeContext.draft; contextMode.options[1].disabled = false; copyTranscript.disabled = false; downloadContext.disabled = false;
+      }
+      if (item.draft) {
+        draft.value = item.draft;
+        if (item.draftMode === 'full') {
+          modeDrafts.full = item.draft; contextMode.options[1].disabled = false; contextMode.value = 'full'; previousMode = 'full';
+          if (item.snapshotText) completeContext = { text: item.snapshotText, draft: item.draft, tokens: encode(item.draft).length, redactions: [] };
+          copyTranscript.disabled = !item.snapshotText; downloadContext.disabled = !item.snapshotText;
+          (document.querySelector('#capture-summary') as HTMLElement).textContent = 'Saved capsule snapshot · later chat updates do not overwrite this copy';
+        } else modeDrafts.compact = item.draft;
+        showDraftBudget();
+      }
+      setView('capture');
       status.textContent = `Loaded ${item.name}. Review before continuing.`;
     });
-    libraryList.append(button);
-    if (recentList.children.length < 3 && !needle) { const quick = button.cloneNode(true) as HTMLButtonElement; quick.addEventListener('click', () => button.click()); recentList.append(quick); }
+    const card = () => {
+      const row = document.createElement('div'); row.className = 'capsule-row';
+      const open = button.cloneNode(true) as HTMLButtonElement; open.className = 'capsule-open'; open.addEventListener('click', () => button.click());
+      const actions = document.createElement('div'); actions.className = 'capsule-actions';
+      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'icon-button'; copy.textContent = '⧉'; copy.setAttribute('aria-label', `Copy ${item.name}`);
+      copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Capsule copied. Paste it into your next AI chat.'; });
+      const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button danger'; remove.textContent = '×'; remove.setAttribute('aria-label', `Delete ${item.name}`);
+      remove.addEventListener('click', async () => {
+        if (!confirm(`Delete “${item.name}”? Other saved capsules and conversations are kept.`)) return;
+        if (item.id) {
+          await deleteProject(item.id);
+          if (item.id.startsWith('capture:')) await chrome.storage.local.set({ dismissedRecentUrls: [...new Set([...dismissedUrls, item.url])].slice(-5000) });
+        }
+        else await chrome.storage.local.remove([`brief:${item.url}`, `savedAt:brief:${item.url}`, `archive:brief:${item.url}`, `visibleTurnsHighWater:brief:${item.url}`]);
+        await showLibrary();
+      });
+      actions.append(copy, remove); row.append(open, actions); return row;
+    };
+    libraryList.append(card());
+    if (recentList.children.length < 6 && !needle) recentList.append(card());
   }
 };
 librarySearch.addEventListener('input', () => { void showLibrary(); });
@@ -269,15 +312,19 @@ librarySearch.addEventListener('input', () => { void showLibrary(); });
 void showLibrary();
 
 const settings = await chrome.storage.local.get(['enabledProviders', 'providerIntents', 'routerFeedback']);
-document.querySelector('#manual')?.addEventListener('click', async () => {
-  currentBrief = undefined; sourceUrl = ''; completeContext = undefined; draft.value = '';
-  flow.hidden = false;
-  await refreshContext();
-  setView('capture');
-  reviewPanel.open = true;
-  showDraftBudget();
-  status.textContent = 'Paste your brief, then choose where to continue.';
-  draft.focus();
+const capsuleDialog = document.querySelector('#new-capsule-dialog') as HTMLDialogElement;
+document.querySelector('#manual')?.addEventListener('click', () => { capsuleDialog.showModal(); (document.querySelector('#capsule-name') as HTMLInputElement).focus(); });
+document.querySelector('#cancel-capsule')?.addEventListener('click', () => capsuleDialog.close());
+capsuleDialog.querySelector('form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const name = (document.querySelector('#capsule-name') as HTMLInputElement).value.trim();
+  const text = (document.querySelector('#capsule-content') as HTMLTextAreaElement).value.trim();
+  const folder = (document.querySelector('#capsule-folder') as HTMLInputElement).value.trim();
+  if (!name || !text) return;
+  try {
+    await saveProject({ id: crypto.randomUUID(), name, folder: folder || undefined, threads: [], updatedAt: Date.now(), draft: redact(text).text, draftMode: 'compact', brief: briefSchema.parse({ goal: name, status: 'User-written capsule', next_step: 'Continue from the saved context.' }) });
+    capsuleDialog.close(); capsuleDialog.querySelector('form')?.reset(); await showLibrary(); status.textContent = `Saved ${name}.`;
+  } catch { (document.querySelector('#capsule-error') as HTMLElement).textContent = 'Could not save this capsule. Your text is still here; try again.'; }
 });
 const enabled = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
 const providerIntents = (settings.providerIntents && typeof settings.providerIntents === 'object' ? settings.providerIntents : {}) as Record<string, Intent[]>;
@@ -322,6 +369,13 @@ captureButton.addEventListener('click', async () => {
     reviewPanel.open = false;
     flow.hidden = false;
     await refreshContext();
+    if (completeContext) {
+      const archive = (await chrome.storage.local.get(`archive:brief:${sourceUrl}`))[`archive:brief:${sourceUrl}`] as TurnArchive | undefined;
+      if (archive) {
+        await saveCapturedCapsule(archive, brief, sourceUrl, tab.title || brief.goal);
+        contextMode.value = 'full'; previousMode = 'full'; draft.value = modeDrafts.full; showDraftBudget();
+      }
+    }
     await showLibrary();
     const meter = data.meter as Meter;
     const intent = trainClassifier()(data.pendingPrompt || brief.last_exchange.user);
@@ -348,7 +402,7 @@ captureButton.addEventListener('click', async () => {
     const promptTokens = encode(data.pendingPrompt || '').length;
     cost.textContent = promptTokens ? `Unsent prompt: about ${promptTokens} tokens. ${meter.estimatedReplyCost === undefined ? 'Share of remaining allowance unknown.' : `A rough reply may equal about ${meter.estimatedReplyCost}% of the token count in a past chat that showed a limit; actual allowance unknown.`} ${shouldNudge(meter) ? 'Consider preparing a brief before the limit.' : ''}` : 'No unsent prompt found. Reply cost is unknown.';
   } catch (error) { status.textContent = `Capture failed: ${String(error)}. You can paste a brief instead.`; }
-  finally { captureButton.disabled = false; captureButton.textContent = 'Capture this chat ↗'; showDraftBudget(); }
+  finally { captureButton.disabled = false; captureButton.textContent = '✧ Capture Page'; showDraftBudget(); }
 });
 
 for (const [selector, positive] of [['#positive', true], ['#negative', false]] as const) document.querySelector(selector)?.addEventListener('click', async () => {
@@ -365,7 +419,7 @@ document.querySelector('#save')?.addEventListener('click', async () => {
   const existing = projects.find(p => p.name.toLowerCase() === name.toLowerCase() && (p.folder || '').toLowerCase() === folder.toLowerCase());
   const captured = currentBrief || briefSchema.parse({ goal: name, status: 'User-written context. Review the saved draft.', next_step: 'Continue using the user-reviewed context.' });
   const brief = existing ? mergeBrief(existing.brief, captured) : captured;
-  await saveProject({ id: existing?.id || crypto.randomUUID(), name, folder: folder || undefined, updatedAt: Date.now(), threads: [...new Set([...(existing?.threads || []), sourceUrl].filter(Boolean))], draft: draft.value, brief });
+  await saveProject({ id: existing?.id || crypto.randomUUID(), name, folder: folder || undefined, updatedAt: Date.now(), threads: [...new Set([...(existing?.threads || []), sourceUrl].filter(Boolean))], draft: redact(draft.value).text, draftMode: contextMode.value as 'full' | 'compact', ...(completeContext ? { snapshotText: completeContext.text } : existing?.snapshotText ? { snapshotText: existing.snapshotText } : {}), brief });
   status.textContent = `Saved brief to ${name}.`;
   await showLibrary();
 });
@@ -416,8 +470,20 @@ document.querySelector('#sidebar')?.addEventListener('click', async () => {
   } catch { status.textContent = 'This browser cannot open the sidebar here. Opening a full workspace instead.'; await chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') }); }
 });
 const accountDialog = document.querySelector('#account-dialog') as HTMLDialogElement;
+let cloudReady = false;
 const backupStatus = document.querySelector('#backup-status') as HTMLElement;
-document.querySelector('#account')?.addEventListener('click', () => accountDialog.showModal());
+document.querySelector('#account')?.addEventListener('click', () => {
+  accountDialog.showModal();
+  if (cloudReady && cloudConfigured) {
+    const button = document.querySelector('#google-sign-in') as HTMLButtonElement;
+    button.disabled = true;
+    cloudStatus.textContent = 'Checking Google sign-in setup…';
+    void import('../../src/core/cloud').then(cloud => cloud.googleSignInAvailable()).then(available => {
+      button.disabled = !available;
+      cloudStatus.textContent = available ? 'Google is available. Sign in to back up your saved capsules.' : 'Cloud storage is configured. Enable Google in Supabase Authentication → Providers to finish sign-in setup. Local capsules and backups already work.';
+    }).catch(() => { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. You can retry sign-in; local capsules are safe.'; });
+  }
+});
 document.querySelector('#close-account')?.addEventListener('click', () => accountDialog.close());
 document.querySelector('#backup-all')?.addEventListener('click', async () => {
   const { exportBackup } = await import('../../src/core/backup');
@@ -444,6 +510,7 @@ composerToggle.addEventListener('change', async () => { await chrome.storage.loc
 
 const cloudStatus = document.querySelector('#cloud-status') as HTMLElement;
 const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');
+cloudReady = true;
 const cloudActions = document.querySelector('#cloud-actions') as HTMLElement;
 cloudActions.hidden = !cloudConfigured;
 cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Handoff cloud account. Uploads happen only when you press Back up now.' : 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.';
