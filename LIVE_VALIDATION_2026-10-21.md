@@ -22,6 +22,10 @@ Screenshots and private installation metadata are in sibling `ui-previews`; thes
 
 Details in `LIVE_RESTORE_TEST_2026-10-21.md`. Main profile uploaded a 6-capsule / 1-folder / 4-chat library (approved). A newly created Brave profile on the same Mac, with only Handoff 0.3.3 loaded from build-1 (same extension ID) and an empty library, signed in and restored it: counts matched and a disposable capsule's Unicode text and code value came back exactly. This is a separate-profile restore, not a different computer. Signed-out, cancelled, offline and repeated restore checks were not run.
 
+## Addendum — 0.3.7 Gemini usage reading (2026-10-22)
+
+Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usage` open (free account, page showing Current usage 0% and Weekly limit 0%), the Handoff popup showed **Session 100% left · resets in 4h 15m** and **Weekly 100% left · resets in 6d 14h**, labelled “Service reading · 00:25:46”, and the toolbar badge showed 0%. The resets match the page's “Resets at 04:40” and “Resets on 28 Oct at 14:40”. A non-zero percentage has not been observed yet. The extension reload signed Handoff out of Google, as designed.
+
 ## Automated checks
 
 115 tests in 17 files passed with two workers. TypeScript and the production build passed. One earlier run alongside a production build timed out importing the cloud test module and caused a follow-on mock failure; the complete suite passed after avoiding that resource contention. No timeout gate was relaxed.
