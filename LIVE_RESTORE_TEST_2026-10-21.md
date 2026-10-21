@@ -1,6 +1,6 @@
 # Live clean-profile restore test — Handoff 0.3.3
 
-Prepared 2026-10-21. Status: **pending — not yet run.** Fill in the Result lines; do not paste chat text, emails or screenshots of private chats here.
+Prepared 2026-10-21. Status: **pending — not yet run.** On 2026-10-21 the user approved, in chat, replacing the cloud snapshot with the current main-profile library in step A7 (this test only). Fill in the Result lines; do not paste chat text, emails or screenshots of private chats here.
 
 Goal: prove that a Brave profile with an empty Handoff library can recover saved contexts from the Supabase cloud backup, and that cancel, offline and signed-out cases leave the library unchanged.
 
