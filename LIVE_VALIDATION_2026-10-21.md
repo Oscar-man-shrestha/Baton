@@ -38,7 +38,15 @@ Installed 0.3.7 in the Work profile (footer v0.3.7). With `gemini.google.com/usa
 - **0.3.17, Grok capture:** fixed against the real page; chats such as “do grok shows usage · grok.com” were captured live.
 - **0.3.20, Grok send counting:** after sending “just say ok”, the line under Grok's composer and the Grok card both showed “1 msg in last 2 h (counted by Handoff)”. Earlier attempts failed: 0.3.17 relied on the page settling, 0.3.18 picked Grok's hidden textarea, and 0.3.19 relied on key events.
 - **0.3.20, Claude counting and refresh after send:** after one message (“just say o”), the Claude card showed “1 msg in last 5 h · counted by Handoff”. A new service reading (Session 54% used, resets in 2h 25m; Weekly 8%) was stamped 01:56:13, about 30 s after the send, consistent with refresh after send. A manual ↻ followed at 01:56:29. The tab bar was not observed during the refresh.
-- Not yet observed live: the “≈ … est.” estimate (calibration now exists: 51% → 54% with one send between), a learned limit, and the rescue card on a real limit.
+- **0.3.21, six-service round (22 Oct, about 02:09–02:13):**
+  - Gemini: Session 14% used (resets in 2h 27m), Weekly 1%, “1 msg in last 5 h”, reading 02:09:42. Another extension's overlay still showed an older 6%.
+  - DeepSeek: “3 msgs in last 24 h”.
+  - Grok: “2 msgs in last 2 h” under the composer and on the card.
+  - Claude: Session 54%, Weekly 8%, Full reset, “1 msg in last 5 h”.
+  - ChatGPT: Work 5-hour and weekly 100% left, Credits 2,500, Limit resets 0.
+  - Perplexity: only the composer line on the start page; nothing sent.
+  - The duplicate “ok · grok.com” entries were still visible because 0.3.22 had not been loaded.
+- Not yet observed live: the “≈ … est.” estimate, ChatGPT send counting, Perplexity counting and capture, the 0.3.22 duplicate merge, a learned or stated limit, and the rescue card on a real limit.
 
 ## Automated checks
 
