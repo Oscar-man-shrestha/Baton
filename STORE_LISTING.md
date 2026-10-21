@@ -16,7 +16,7 @@
 - Optional `notifications`: requested only when the user enables desktop usage alerts; shows alerts for service-reported usage thresholds and limit notices.
 - Access to the six named AI chat hosts: reads rendered conversation text, observes visible limit notices, and inserts a reviewed draft in the destination editor. No access to unrelated websites is requested.
 
-**Privacy policy URL:** https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md
+**Privacy policy URL:** https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md
 
 **Publication status:** pending: repo not yet published. The file is in this repository root; the URL is the planned location supplied by the user. Do not submit this listing until the user publishes the repository and the URL resolves publicly to the final policy.
 

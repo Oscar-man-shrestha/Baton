@@ -80,7 +80,7 @@ These are implementation summaries, not release claims. The updated 0.1.4 source
 ## Phase 6 — Release: prepared, not ready
 
 - README, privacy-policy draft, store listing draft, permissions rationale, manual test checklist, and a chat-text-free diagnostic export are included.
-- The planned privacy-policy URL is in the store listing: https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md. **Pending: repo not yet published.** The user will create and push it; no remote publication or hosting was performed here.
+- Privacy-policy URL in the store listing: https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md. The public repository `Oscar-man-shrestha/handoff` was pushed on 2026-10-22 at the user's request.
 - Evaluation target replies and logged-in site tests are pending.
 - Store submission must wait for the checklist and quality threshold.
 - The local build succeeded; publication readiness has not been established.
