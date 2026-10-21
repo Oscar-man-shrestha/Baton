@@ -1,14 +1,14 @@
 {
   "name": "handoff-extension",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-    ,"eval": "node evaluation/evaluate.mjs"
+    "test": "vitest run",
+    "eval": "node evaluation/evaluate.mjs"
   },
   "dependencies": {
     "gpt-tokenizer": "^3.4.0",

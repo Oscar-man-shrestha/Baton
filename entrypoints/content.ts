@@ -1,7 +1,7 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
-import { extract, makeAdapter } from '../src/core/adapter';
-import { updateBrief, briefSchema } from '../src/core/brief';
+import { collectTurnNodes, extract, makeAdapter } from '../src/core/adapter';
+import { updateBrief } from '../src/core/brief';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, type LimitEvent, type Meter } from '../src/core/limits';
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
@@ -21,10 +21,11 @@ export default defineContentScript({
     let latestMeter: Meter | undefined;
     const statusHost = document.createElement('div');
     statusHost.id = 'handoff-composer-status';
+    statusHost.setAttribute('aria-hidden', 'true');
     statusHost.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;display:none';
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
-    statusStyle.textContent = ':host{all:initial}span{display:inline-block;max-width:100%;padding:2px 8px;border-radius:6px;background:#172538;color:#f7f9fc;font:11px/16px system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0003}@media(prefers-color-scheme:light){span{background:#eef3ff;color:#233754}}';
+    statusStyle.textContent = ':host{all:initial}span{display:inline-block;max-width:100%;padding:3px 8px;border-radius:6px;background:#172538;color:#f7f9fc;font:12px/18px system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0003}@media(prefers-color-scheme:light){span{background:#eef3ff;color:#233754}}';
     const statusText = document.createElement('span');
     shadow.append(statusStyle, statusText);
     document.body.append(statusHost);
@@ -47,6 +48,7 @@ export default defineContentScript({
       const below = document.elementFromPoint(position.left + Math.min(90, position.width / 2), position.top + 9);
       if (below?.closest('button,input,textarea,select,[contenteditable="true"],[role="button"]')) { statusHost.style.display = 'none'; return; }
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
+      if (!value.trim() && latestMeter?.remainingPercent === undefined && latestMeter?.remainingTokens === undefined && latestMeter?.percent !== 100) { statusHost.style.display = 'none'; return; }
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
       statusText.textContent = composerStatusText(lastPromptTokens, latestMeter);
       statusHost.style.left = `${position.left}px`;
@@ -64,7 +66,7 @@ export default defineContentScript({
     scheduleStatus();
     const captureOlderTurns = async (): Promise<Extraction> => {
       const initial = extract(document, id, bundledSelectors);
-      const firstTurn = bundledSelectors.providers[id].turns.map(selector => document.querySelector(selector)).find(Boolean);
+      const firstTurn = collectTurnNodes(document, id, bundledSelectors)[0];
       if (!firstTurn) return initial;
       let container: Element | null = firstTurn.parentElement;
       while (container && container.scrollHeight <= container.clientHeight + 40) container = container.parentElement;
@@ -103,7 +105,7 @@ export default defineContentScript({
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       if (!data.turns.length) return;
       const { key, highWaterKey, archiveKey } = storageKeys();
-      const saved = await chrome.storage.local.get([key, highWaterKey, archiveKey, limitHistoryKey]);
+      const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey]);
       const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
       const now = Date.now();
       const reachedLimit = signal.kind === 'banner' && /(?:you.ve reached|usage limit|quota exceeded|try again|limit reached)/i.test(signal.text);
@@ -111,13 +113,14 @@ export default defineContentScript({
         history.push({ at: now, approximateTokens: data.turns.reduce((sum, turn) => sum + encode(turn.text).length, 0) });
         await chrome.storage.local.set({ [limitHistoryKey]: history.slice(-12) });
       }
-      const archive = archiveWindow(saved[archiveKey] as TurnArchive | undefined, data.turns, now);
+      const previousArchive = saved[archiveKey] as TurnArchive | undefined;
+      const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, data.turns, now);
+      archive.selectorsVersion = bundledSelectors.version;
       const meter = estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now);
       latestMeter = meter;
       scheduleStatus();
-      const previous = briefSchema.safeParse(saved[key]);
-      const brief = updateBrief(previous.success ? previous.data : undefined, archive.turns, data.artifacts);
-      await chrome.storage.local.set({ [key]: brief, [`savedAt:${key}`]: now, [highWaterKey]: Math.max(Number(saved[highWaterKey]) || 0, archive.turns.length), [`health:${id}`]: { at: now, turns: data.turns.length, selectorsVersion: bundledSelectors.version }, [`meter:${id}`]: { ...meter, at: now } });
+      const brief = updateBrief(undefined, archive.turns, data.artifacts);
+      await chrome.storage.local.set({ [key]: brief, [`savedAt:${key}`]: now, [highWaterKey]: previousArchive?.selectorsVersion === bundledSelectors.version ? Math.max(Number(saved[highWaterKey]) || 0, archive.turns.length) : archive.turns.length, [`health:${id}`]: { at: now, turns: data.turns.length, selectorsVersion: bundledSelectors.version }, [`meter:${id}`]: { ...meter, at: now } });
       try { await chrome.storage.local.set({ [archiveKey]: archive }); } catch { /* Brief remains available if local storage is full. */ }
     };
     const editorSelectors = bundledSelectors.providers[id].editor;
@@ -140,16 +143,17 @@ export default defineContentScript({
           const result = message.includeOlder ? await captureOlderTurns() : extract(document, id, bundledSelectors);
           const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
           const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');
-          const saved = await chrome.storage.local.get([key, highWaterKey, archiveKey, limitHistoryKey]);
-          const archive = archiveWindow(saved[archiveKey] as TurnArchive | undefined, result.turns);
+          const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey]);
+          const previousArchive = saved[archiveKey] as TurnArchive | undefined;
+          const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, result.turns);
+          archive.selectorsVersion = bundledSelectors.version;
           let archiveSaved = true;
           try { await chrome.storage.local.set({ [archiveKey]: archive }); } catch { archiveSaved = false; }
-          const previous = briefSchema.safeParse(saved[key]);
-          const hadMoreTurns = Number(saved[highWaterKey]) > archive.turns.length;
+          const hadMoreTurns = previousArchive?.selectorsVersion === bundledSelectors.version && Number(saved[highWaterKey]) > archive.turns.length;
           const warning = [result.warning, archive.incomplete ? 'Some captured windows did not overlap; transcript order or gaps need review.' : '', archive.truncated ? 'The local transcript reached its size cap; earliest text was trimmed.' : '', archiveSaved ? '' : 'Local storage is full; captured text could not be saved.', hadMoreTurns ? 'This chat previously showed more turns; older messages may be virtualized. Review the brief.' : ''].filter(Boolean).join(' ');
           const limit = makeAdapter(id, bundledSelectors).detectLimit(document);
           const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
-          sendResponse({ provider: id, turnCount: archive.turns.length, artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(previous.success ? previous.data : undefined, archive.turns, result.artifacts), meter: estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history), url: pageUrl() });
+          sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: archive.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(undefined, archive.turns, result.artifacts), meter: estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history), url: pageUrl() });
         })().catch(error => sendResponse({ error: String(error) }));
         return true;
       }

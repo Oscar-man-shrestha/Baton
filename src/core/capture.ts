@@ -19,7 +19,7 @@ export function mergeTurnWindows(older: Turn[], accumulated: Turn[]): Turn[] {
   return joined.map((turn, index) => ({ ...turn, index }));
 }
 
-export type TurnArchive = { turns: Turn[]; incomplete: boolean; truncated: boolean; savedAt: number };
+export type TurnArchive = { turns: Turn[]; incomplete: boolean; truncated: boolean; savedAt: number; selectorsVersion?: number };
 export const ARCHIVE_CHAR_CAP = 300_000;
 
 /** Accumulate rendered windows in either scroll direction without duplicating an overlap. */

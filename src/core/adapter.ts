@@ -52,17 +52,41 @@ function cleanArtifact(node: Element): string {
   return (clone.textContent || '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim();
 }
 
+export function collectTurnNodes(doc: Document, id: ProviderId, bundle: SelectorBundle): Element[] {
+  const selectors = bundle.providers[id].turns;
+  const scopedRoot = id === 'deepseek' ? doc.querySelector('main, [role="main"]') : null;
+  const collect = (root: Document | Element) => selectors.flatMap(selector => Array.from(root.querySelectorAll(selector)));
+  const nodes = collect(scopedRoot || doc);
+  const fallback = scopedRoot && nodes.length === 0 ? collect(doc) : nodes;
+  const allowed = [...new Set(fallback)].filter(node => !node.closest('nav, aside, [role="navigation"], [class*="sidebar" i], [id*="sidebar" i]'));
+  const preferred = id === 'deepseek' && allowed.some(node => node.matches('.ds-message')) ? allowed.filter(node => node.matches('.ds-message')) : allowed;
+  const candidates = new Set(preferred);
+  return preferred.filter(node => {
+    for (let parent = node.parentElement; parent; parent = parent.parentElement) if (candidates.has(parent)) return false;
+    return true;
+  }).sort((a, b) => a === b ? 0 : a.compareDocumentPosition(b) & 4 ? -1 : 1);
+}
+
+function turnRole(node: Element, id: ProviderId): Turn['role'] {
+  const explicit = node.getAttribute('data-message-author-role') || node.getAttribute('data-role');
+  if (explicit === 'user' || explicit === 'assistant') return explicit;
+  if (id === 'deepseek') {
+    if (node.matches('[class*="user" i], [class*="human" i]')) return 'user';
+    if (node.matches('[class*="assistant" i], [class*="agent" i]') || node.querySelector('.ds-markdown')) return 'assistant';
+    return 'user';
+  }
+  return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"]') ? 'user' : 'assistant';
+}
+
 export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAdapter {
   const s = bundle.providers[id];
   const first = (doc: Document, selectors: string[]) => selectors.map(q => doc.querySelector(q)).find(Boolean) as Element | undefined;
   return {
     id, selectorsVersion: bundle.version, windowHours: id === 'claude' || id === 'gemini' ? 5 : undefined,
     extractTurns(doc) {
-      const nodes = s.turns.flatMap(q => Array.from(doc.querySelectorAll(q)));
-      const ordered = [...new Set(nodes)].sort((a, b) => a === b ? 0 : a.compareDocumentPosition(b) & 4 ? -1 : 1);
-      return ordered.map((node, index) => ({
-        role: node.matches('[data-message-author-role="user"], [data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"]') ? 'user' as const : 'assistant' as const,
-        text: cleanNode(node), index
+      return collectTurnNodes(doc, id, bundle).map((node, index) => ({
+        role: turnRole(node, id),
+        text: cleanNode(id === 'deepseek' ? node.querySelector('.ds-markdown') || node : node), index
       })).filter(t => t.text);
     },
     extractArtifacts(doc) {
@@ -101,12 +125,13 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
 export function extract(doc: Document, id: ProviderId, bundle: SelectorBundle): Extraction {
   const adapter = makeAdapter(id, bundle);
   const turns = adapter.extractTurns(doc);
-  const turnNodes = bundle.providers[id].turns.flatMap(selector => Array.from(doc.querySelectorAll(selector)));
+  const turnNodes = collectTurnNodes(doc, id, bundle);
   const hiddenInstruction = turnNodes.some(turn => [turn, ...Array.from(turn.querySelectorAll('*'))].some(node => {
     const style = doc.defaultView?.getComputedStyle(node);
     const hidden = node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true' || style?.display === 'none' || style?.visibility === 'hidden' || style?.opacity === '0';
     return hidden && /ignore (?:all|previous) instructions|system prompt|developer message/i.test(node.textContent || '');
   }));
-  const warnings = [turns.length === 0 ? 'No visible turns found. Use plain-text fallback; older virtualized turns may be missing.' : '', hiddenInstruction ? 'Instruction-like hidden text was removed from the capture. Review the brief.' : ''].filter(Boolean);
-  return { provider: id, turns, artifacts: adapter.extractArtifacts(doc), incomplete: turns.length === 0, warning: warnings.join(' ') || undefined };
+  const hasUserTurn = turns.some(turn => turn.role === 'user');
+  const warnings = [turns.length === 0 ? 'No visible turns found. Use plain-text fallback; older virtualized turns may be missing.' : '', turns.length && !hasUserTurn ? 'No user message was captured. Choose older-message capture or paste the original request before continuing.' : '', hiddenInstruction ? 'Instruction-like hidden text was removed from the capture. Review the brief.' : ''].filter(Boolean);
+  return { provider: id, turns, artifacts: adapter.extractArtifacts(doc), incomplete: turns.length === 0 || !hasUserTurn, warning: warnings.join(' ') || undefined };
 }

@@ -62,4 +62,19 @@ describe('brief', () => {
     expect(draftBudget(wrapHandoff(rendered.text)).fits).toBe(false);
     expect(draftBudget('Reviewed short draft').fits).toBe(true);
   });
+  it('continues the user’s to-do app goal instead of truncating questions or requesting Ready', () => {
+    const conversation = [
+      { role: 'user' as const, text: 'HI i wanna build to do app', index: 0 },
+      { role: 'assistant' as const, text: `Great! I'd love to help you build a to-do app. Let me ask a few questions so I can give you the best guidance:\n1. What's your experience level?\n2. What platform?\n3. What tech stack are you considering?\n4. What features do you want?\n5. Do you need persistence (saving data)?`, index: 1 }
+    ];
+    const brief = updateBrief(undefined, conversation, []);
+    const draft = wrapHandoff(renderBrief(brief).text);
+    expect(brief.goal).toBe('HI i wanna build to do app');
+    expect(brief.open_questions).toHaveLength(5);
+    expect(draft).toContain('What features do you want?');
+    expect(draft).toContain('Do you need persistence (saving data)?');
+    expect(draft).toContain('Continue the conversation naturally');
+    expect(draft).not.toContain('Reply only with Ready');
+    expect(draftBudget(draft).fits).toBe(true);
+  });
 });

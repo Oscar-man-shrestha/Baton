@@ -10,7 +10,7 @@ export function composerStatusText(tokens: number, meter?: Meter): string {
 
 export function statusLinePosition(editor: DOMRect, viewportWidth: number, viewportHeight: number): { left: number; top: number; width: number } | null {
   const top = editor.bottom + 5;
-  if (editor.width < 180 || editor.bottom < 0 || top + 24 > viewportHeight || editor.left >= viewportWidth - 180) return null;
+  if (editor.width < 180 || editor.bottom < 0 || top + 36 > viewportHeight || editor.left >= viewportWidth - 180) return null;
   const left = Math.max(8, editor.left);
   return { left, top, width: Math.min(Math.max(editor.width, 220), viewportWidth - left - 8) };
 }

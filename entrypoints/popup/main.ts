@@ -99,6 +99,7 @@ destination.addEventListener('change', () => { recommendation.textContent = `Sel
 
 captureButton.addEventListener('click', async () => {
   captureButton.disabled = true;
+  flow.hidden = true;
   captureButton.textContent = includeOlder.checked ? 'Loading older messages…' : 'Capturing…';
   status.textContent = includeOlder.checked ? 'Collecting visible and older messages. Your chat will return to its place.' : 'Capturing visible messages…';
   try {
@@ -107,6 +108,7 @@ captureButton.addEventListener('click', async () => {
     const data = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT', includeOlder: includeOlder.checked });
     if (data?.error) throw new Error(data.error);
     if (!data?.turnCount && !data?.artifactCount) throw new Error('No visible chat messages found. Scroll the chat or paste a brief yourself.');
+    if (!data?.hasUserTurn) throw new Error('The original user message was not captured. Try older-message capture, or paste your request into the draft yourself.');
     source = data.provider;
     sourceUrl = data.url;
     copyTranscript.disabled = data.archiveSaved === false;
