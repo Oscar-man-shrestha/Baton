@@ -1,20 +1,31 @@
 import { providerIds, bundledSelectors, type ProviderId } from '../../src/core/selectors';
-import { deleteAll, deleteProject, exportProjects, importProjects, listProjects, pruneExpired, saveProject } from '../../src/core/projects';
+import { deleteAll, deleteProject, exportProjects, importProjects, listProjects, pruneExpired, saveProject, type Project } from '../../src/core/projects';
 import { providerTable, type Intent } from '../../src/core/router';
-import { renderBrief, wrapHandoff } from '../../src/core/brief';
+import { renderBrief, wrapHandoff, redact } from '../../src/core/brief';
+import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 
 const providers = document.querySelector('#providers') as HTMLElement;
 const projectsElement = document.querySelector('#projects') as HTMLElement;
 const health = document.querySelector('#health') as HTMLElement;
 const projectSearch = document.querySelector('#project-search') as HTMLInputElement;
 const retention = document.querySelector('#retention') as HTMLSelectElement;
+const folderDialog = document.querySelector('#folder-dialog') as HTMLDialogElement;
+const folderName = document.querySelector('#folder-name') as HTMLInputElement;
+let editingProject: Project | undefined;
+folderDialog.querySelector('form')?.addEventListener('submit', async event => {
+  if ((event as SubmitEvent).submitter?.getAttribute('value') !== 'save' || !editingProject) return;
+  event.preventDefault();
+  await saveProject({ ...editingProject, folder: folderName.value.trim().slice(0, 80) || undefined, updatedAt: Date.now() });
+  health.textContent = `Folder updated for ${editingProject.name}.`;
+  folderDialog.close(); await showProjects();
+});
 const retained = await chrome.storage.local.get('retentionDays');
 retention.value = String(retained.retentionDays || 0);
 retention.addEventListener('change', async () => { await chrome.storage.local.set({ retentionDays: Number(retention.value) }); const removed = await pruneExpired(); health.textContent = `Retention saved. ${removed} expired item(s) removed.`; await showProjects(); });
 await pruneExpired();
 const lastInsertion = (await chrome.storage.local.get('lastDraftInsertion')).lastDraftInsertion as { at?: number; ok?: boolean; attempts?: number } | undefined;
 if (lastInsertion?.at) health.textContent = `Last draft insertion: ${lastInsertion.ok ? 'editor confirmed' : 'failed; use Copy draft'} after ${lastInsertion.attempts || '?'} attempt(s), ${new Date(lastInsertion.at).toLocaleString()}.`;
-else health.textContent = 'No recent checks yet.';
+else health.textContent = '';
 const settings = await chrome.storage.local.get(['enabledProviders', 'providerIntents']);
 const enabled: Record<string, boolean> = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
 const providerIntents = (settings.providerIntents && typeof settings.providerIntents === 'object' ? settings.providerIntents : {}) as Partial<Record<ProviderId, Intent[]>>;
@@ -44,23 +55,21 @@ for (const id of providerIds) {
 async function showProjects() {
   projectsElement.replaceChildren();
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
-  const visible = projects.filter(project => project.name.toLowerCase().includes(projectSearch.value.trim().toLowerCase()));
+  const visible = projects.filter(project => `${project.name} ${project.folder || ''}`.toLowerCase().includes(projectSearch.value.trim().toLowerCase()));
   if (!visible.length) { const empty = document.createElement('li'); empty.textContent = projects.length ? 'No matching projects.' : 'No projects saved yet.'; projectsElement.append(empty); }
   for (const project of visible) {
     const li = document.createElement('li');
     const summary = document.createElement('span'); summary.textContent = `${project.folder ? `${project.folder} / ` : ''}${project.name} — ${project.threads.length} chat(s), ${project.brief.open_tasks.length} open task(s)`;
     const actions = document.createElement('div');
     const resume = document.createElement('button'); resume.textContent = 'Copy brief'; resume.setAttribute('aria-label', `Copy ${project.name} brief`);
-    resume.addEventListener('click', async () => { await navigator.clipboard.writeText(wrapHandoff(renderBrief(project.brief).text)); health.textContent = `Copied ${project.name} as a readable handoff draft.`; });
+    resume.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(project.draft || wrapHandoff(renderBrief(project.brief).text)).text); health.textContent = `Copied ${project.name} as a readable handoff draft.`; });
     const remove = document.createElement('button'); remove.textContent = 'Delete'; remove.className = 'danger'; remove.setAttribute('aria-label', `Delete ${project.name}`);
     remove.addEventListener('click', async () => { if (!confirm(`Delete ${project.name} from saved projects?`)) return; await deleteProject(project.id); health.textContent = `${project.name} deleted.`; await showProjects(); });
     const move = document.createElement('button'); move.textContent = 'Folder'; move.setAttribute('aria-label', `Change folder for ${project.name}`);
-    move.addEventListener('click', async () => {
-      const folder = prompt(`Folder for ${project.name} (leave blank for none)`, project.folder || '');
-      if (folder === null) return;
-      await saveProject({ ...project, folder: folder.trim().slice(0, 80) || undefined, updatedAt: Date.now() });
-      health.textContent = `Folder updated for ${project.name}.`;
-      await showProjects();
+    move.addEventListener('click', () => {
+      editingProject = project; folderName.value = project.folder || '';
+      (document.querySelector('#folder-project-name') as HTMLElement).textContent = project.name;
+      folderDialog.showModal(); folderName.focus();
     });
     actions.append(resume, move, remove); li.append(summary, actions); projectsElement.append(li);
   }
@@ -76,7 +85,17 @@ document.querySelector('#export')?.addEventListener('click', async () => {
   catch (error) { health.textContent = `Import failed: ${String(error)}`; }
 });
 document.querySelector('#selftest')?.addEventListener('click', async () => {
-  try { const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); if (!tab?.id) throw new Error('No active tab'); const result = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT' }); health.textContent = `${result.provider}: ${result.turnCount} visible turns, ${result.artifactCount} artifacts. Selectors v${bundledSelectors.version}. ${result.warning || ''}`; }
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const tab = tabs.find(tab => tab.active && isSupportedChatUrl(tab.url)) || tabs.filter(tab => isSupportedChatUrl(tab.url)).sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+    if (!tab?.id) throw new Error('No supported chat');
+    const result = await sendWithBootstrap<any>(tab, { type: 'EXTRACT' }, (id, message) => chrome.tabs.sendMessage(id, message), async id => {
+      const script = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
+      if (!script) throw new Error('Missing content script');
+      await chrome.scripting.executeScript({ target: { tabId: id }, files: [script] });
+    });
+    health.textContent = result?.error ? result.error : `${result.provider}: ${result.turnCount} captured messages, ${result.artifactCount} artifacts. Selectors v${bundledSelectors.version}. ${result.warning || ''}`;
+  }
   catch { health.textContent = 'Open a supported AI chat and run the check there.'; }
 });
 document.querySelector('#export-diagnostic')?.addEventListener('click', async () => {

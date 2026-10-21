@@ -1,14 +1,16 @@
-import { renderBrief, wrapHandoff, draftBudget } from '../../src/core/brief';
+import { renderBrief, wrapHandoff, draftBudget, redact } from '../../src/core/brief';
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { rankProviders, trainClassifier, providerTable, type Feedback, type Intent } from '../../src/core/router';
 import { providerIds, type ProviderId } from '../../src/core/selectors';
-import { listProjects, mergeBrief, pruneExpired, saveProject } from '../../src/core/projects';
+import { listProjects, mergeBrief, pruneExpired, saveProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
+import { activeWindows, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
+import { fullContext } from '../../src/core/context-export';
 
 const status = document.querySelector('#status') as HTMLElement;
 const draft = document.querySelector('#draft') as HTMLTextAreaElement;
@@ -36,6 +38,29 @@ const copyTranscript = document.querySelector('#copy-transcript') as HTMLButtonE
 const usageList = document.querySelector('#usage-list') as HTMLElement;
 const desktopAlerts = document.querySelector('#desktop-alerts') as HTMLInputElement;
 const usagePermission = document.querySelector('#usage-permission') as HTMLElement;
+const contextMode = document.querySelector('#context-mode') as HTMLSelectElement;
+const downloadContext = document.querySelector('#download-context') as HTMLButtonElement;
+const librarySearch = document.querySelector('#library-search') as HTMLInputElement;
+const captureView = document.querySelector('#capture-view') as HTMLElement;
+const actionBar = document.querySelector('#action-bar') as HTMLElement;
+const captureCard = document.querySelector('#capture-card') as HTMLElement;
+const destinationPanel = document.querySelector('#destination-panel') as HTMLElement;
+let activeView: 'capture' | 'saved' = 'capture';
+let completeContext: ReturnType<typeof fullContext> | undefined;
+let modeDrafts = { compact: '', full: '' };
+let previousMode = 'compact';
+const setView = (view: 'capture' | 'saved') => {
+  activeView = view;
+  captureView.hidden = view !== 'capture';
+  library.hidden = view !== 'saved';
+  status.hidden = view === 'saved';
+  actionBar.hidden = view !== 'capture' || flow.hidden;
+  (document.querySelector('#idle-footer') as HTMLElement).hidden = !actionBar.hidden;
+  document.querySelector('#tab-capture')?.setAttribute('aria-pressed', String(view === 'capture'));
+  document.querySelector('#tab-saved')?.setAttribute('aria-pressed', String(view === 'saved'));
+};
+document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false; setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
+document.querySelector('#tab-saved')?.addEventListener('click', () => setView('saved'));
 const activeChatTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknown): Promise<T> => sendWithBootstrap(
   tab, message,
@@ -47,25 +72,40 @@ const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknow
   }
 );
 let captureStarted = false;
+let activeWindowId: number | undefined;
 void activeChatTab().then(async tab => {
+  activeWindowId = tab?.windowId;
   if (!tab || !isSupportedChatUrl(tab.url)) return;
   const response = await sendToChat<{ ready?: boolean; provider?: ProviderId }>(tab, { type: 'PING' });
-  if (response.ready && !captureStarted) status.textContent = `Ready on ${providerNames[response.provider || 'chatgpt']}. Capture this chat when you want to move it.`;
+  if (response.ready && !captureStarted) {
+    const name = providerNames[response.provider || 'chatgpt'];
+    status.textContent = `Connected to ${name}. Ready to capture.`;
+    (document.querySelector('#source-label') as HTMLElement).textContent = `${name} · active tab`;
+  }
 }).catch(() => { /* The capture button will show a useful error if connection fails. */ });
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 async function showUsage() {
-  const saved = await chrome.storage.local.get(providerIds.map(id => `meter:${id}`));
+  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`]));
   usageList.replaceChildren();
   for (const id of providerIds) {
     const row = document.createElement('div'); row.className = 'usage-row';
     const name = document.createElement('strong'); name.textContent = providerNames[id];
     const value = document.createElement('span'); value.textContent = meterSummary(saved[`meter:${id}`] as Meter | undefined);
+    const windows = activeWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[]);
+    if (windows.length) {
+      value.className = 'usage-detail'; value.replaceChildren();
+      for (const win of windows) {
+        const bucket = document.createElement('span'); bucket.className = 'usage-window'; bucket.textContent = windowLabel(win);
+        if (win.percent !== undefined) { const progress = document.createElement('progress'); progress.className = 'usage-gauge'; progress.max = 100; progress.value = win.percent; progress.setAttribute('aria-label', `${win.feature}: ${win.percent}% used`); bucket.append(progress); }
+        const source = document.createElement('small'); source.textContent = `Shown on service page · ${win.at ? new Date(win.at).toLocaleTimeString() : ''}`; bucket.append(source); value.append(bucket);
+      }
+    }
     row.append(name, value); usageList.append(row);
   }
 }
 void showUsage();
 document.querySelector('#check-claude-usage')?.addEventListener('click', () => { void chrome.tabs.create({ url: 'https://claude.ai/settings/usage' }); });
-chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`])) void showUsage(); });
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
   if (desktopAlerts.checked) {
@@ -82,14 +122,20 @@ desktopAlerts.addEventListener('change', async () => {
 let reviewed = false;
 const showDraftBudget = () => {
   const budget = draftBudget(draft.value);
-  openDraft.disabled = !budget.fits || !reviewed;
+  saveBrief.disabled = !draft.value.trim();
+  openDraft.disabled = !draft.value.trim() || (reviewed && !budget.fits);
+  openDraft.textContent = reviewed ? 'Open draft in new chat ↗' : 'Review & continue ↗';
+  captureCard.hidden = !flow.hidden;
+  destinationPanel.hidden = !reviewed;
+  actionBar.hidden = activeView !== 'capture' || flow.hidden;
+  (document.querySelector('#idle-footer') as HTMLElement).hidden = !actionBar.hidden;
   copyDraft.disabled = !draft.value.trim();
   draftBudgetLabel.dataset.state = !draft.value.trim() ? 'empty' : budget.fits ? 'ready' : 'over';
   draft.setAttribute('aria-invalid', draft.value.trim() && !budget.fits ? 'true' : 'false');
-  draftBudgetLabel.textContent = draft.value.trim() ? `Whole draft: about ${budget.approximateTokens}/1,500 tokens. ${budget.fits ? 'Ready for review.' : 'Shorten it before opening a destination.'}` : 'Draft is empty.';
-  draftPreview.textContent = !draft.value.trim() ? 'Paste a brief to continue.' : !budget.fits ? 'Draft is too long. Open it below and shorten it.' : reviewed ? 'Draft ready. You can open it in a new chat.' : 'Draft ready. Open it below to review before continuing.';
+  draftBudgetLabel.textContent = draft.value.trim() ? `Whole draft: about ${budget.approximateTokens}/1,500 tokens. ${budget.fits ? 'Ready for review.' : 'Copy or download the full context, or choose a compact handoff for insertion.'}` : 'Draft is empty.';
+  draftPreview.textContent = !draft.value.trim() ? 'Paste a brief to continue.' : !budget.fits ? 'All captured text is retained. This is too long for automatic insertion; copy or download it, or choose the compact handoff.' : reviewed ? 'Draft ready. You can open it in a new chat.' : 'Draft ready. Open it below to review before continuing.';
 };
-draft.addEventListener('input', showDraftBudget);
+draft.addEventListener('input', () => { saveBrief.disabled = !draft.value.trim(); showDraftBudget(); });
 reviewPanel.addEventListener('toggle', () => { if (reviewPanel.open) { reviewed = true; showDraftBudget(); } });
 const urls: Record<ProviderId, string> = { chatgpt: 'https://chatgpt.com/', claude: 'https://claude.ai/new', gemini: 'https://gemini.google.com/app', deepseek: 'https://chat.deepseek.com/', grok: 'https://grok.com/', perplexity: 'https://www.perplexity.ai/' };
 const showAccountHelp = () => { googleAccount.hidden = destination.value !== 'gemini'; };
@@ -100,44 +146,82 @@ let currentBrief: Brief | undefined;
 let sourceUrl = '';
 let currentIntent: Intent = 'planning';
 
+const refreshContext = async () => {
+  const archive = sourceUrl ? (await chrome.storage.local.get(`archive:brief:${sourceUrl}`))[`archive:brief:${sourceUrl}`] as TurnArchive | undefined : undefined;
+  completeContext = archive?.turns.length ? fullContext(archive, sourceUrl) : undefined;
+  copyTranscript.disabled = !completeContext;
+  downloadContext.disabled = !completeContext;
+  contextMode.options[1].disabled = !completeContext;
+  modeDrafts = { compact: currentBrief ? wrapHandoff(renderBrief(currentBrief).text) : draft.value, full: completeContext?.draft || '' };
+  contextMode.value = 'compact'; previousMode = 'compact';
+  draft.value = modeDrafts.compact;
+  (document.querySelector('#summary-goal') as HTMLElement).textContent = currentBrief?.goal || 'Your pasted context';
+  (document.querySelector('#summary-progress') as HTMLElement).textContent = currentBrief?.status || currentBrief?.last_exchange.assistant || 'Review the context before continuing.';
+  (document.querySelector('#summary-next') as HTMLElement).textContent = currentBrief?.next_step || 'Choose your next step in the destination chat.';
+  (document.querySelector('#capture-summary') as HTMLElement).textContent = archive?.turns.length
+    ? `${archive.turns.length} messages saved · ${archive.truncated ? 'earlier text trimmed at storage cap' : archive.incomplete ? 'possible gaps — review full text' : 'rendered text only'}`
+    : currentBrief ? 'Project brief loaded · full transcript unavailable' : 'Manual context · save it to a project to keep it';
+  showDraftBudget();
+};
+contextMode.addEventListener('change', () => {
+  modeDrafts[previousMode as keyof typeof modeDrafts] = draft.value;
+  previousMode = contextMode.value;
+  draft.value = modeDrafts[previousMode as keyof typeof modeDrafts];
+  reviewed = false; reviewPanel.open = false;
+  showDraftBudget();
+});
 const showLibrary = async () => {
-  const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
-  const recent = await listRecentCaptures(5);
-  library.hidden = projects.length === 0 && recent.length === 0;
+  const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
+  const recent = await listRecentCaptures(5000);
+  const items = [
+    ...projects.map(project => ({ name: project.name, brief: project.brief, url: project.threads.at(-1) || '', draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
+    ...recent.map(capture => ({ name: capture.title, brief: capture.brief, url: capture.url, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
+  ];
+  (document.querySelector('#saved-count') as HTMLElement).textContent = String(items.length);
+  (document.querySelector('#chat-count') as HTMLElement).textContent = String(recent.length);
+  (document.querySelector('#project-count') as HTMLElement).textContent = String(projects.length);
+  const folders = await listFolders();
+  (document.querySelector('#folder-count') as HTMLElement).textContent = String(folders.length);
+  const folderOptions = document.querySelector('#folder-options') as HTMLElement; folderOptions.replaceChildren();
+  for (const folder of folders) { const option = document.createElement('option'); option.value = folder; folderOptions.append(option); }
+  const recentList = document.querySelector('#recent-list') as HTMLElement; recentList.replaceChildren();
+  (document.querySelector('#recent-empty') as HTMLElement).hidden = items.length > 0;
+  const needle = librarySearch.value.trim().toLowerCase();
+  const visible = items.filter(item => `${item.name} ${item.detail}`.toLowerCase().includes(needle));
   libraryList.replaceChildren();
-  for (const item of [
-    ...projects.map(project => ({ name: project.name, brief: project.brief, url: project.threads.at(-1) || '', detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
-    ...recent.map(capture => ({ name: capture.title, brief: capture.brief, url: capture.url, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
-  ]) {
-    const button = document.createElement('button');
-    button.type = 'button';
+  const empty = document.querySelector('#library-empty') as HTMLElement;
+  empty.hidden = visible.length > 0;
+  empty.textContent = items.length ? 'No saved chats match your search.' : 'No saved chats yet. Capture a conversation to find it here.';
+  for (const item of visible) {
+    const button = document.createElement('button'); button.type = 'button';
     const title = document.createElement('strong'); title.textContent = item.name;
     const detail = document.createElement('small'); detail.textContent = item.detail;
     button.append(title, detail);
-    button.addEventListener('click', () => {
-      currentBrief = item.brief;
-      sourceUrl = item.url;
-      copyTranscript.disabled = !sourceUrl;
-      draft.value = wrapHandoff(renderBrief(item.brief).text);
-      reviewed = false;
-      reviewPanel.open = false;
-      flow.hidden = false;
+    button.addEventListener('click', async () => {
+      currentBrief = item.brief; sourceUrl = item.url;
+      reviewed = false; reviewPanel.open = false; flow.hidden = false;
       saveBrief.disabled = false;
       recommendation.textContent = 'Choose a service you use. Availability is checked there.';
-      positiveFeedback.disabled = true;
-      negativeFeedback.disabled = true;
-      showDraftBudget();
-      status.textContent = `Loaded ${item.name}. Review the draft before continuing.`;
+      positiveFeedback.disabled = true; negativeFeedback.disabled = true;
+      await refreshContext(); if (item.draft) { draft.value = item.draft; modeDrafts.compact = item.draft; showDraftBudget(); } setView('capture');
+      status.textContent = `Loaded ${item.name}. Review before continuing.`;
     });
     libraryList.append(button);
+    if (recentList.children.length < 3 && !needle) { const quick = button.cloneNode(true) as HTMLButtonElement; quick.addEventListener('click', () => button.click()); recentList.append(quick); }
   }
 };
+librarySearch.addEventListener('input', () => { void showLibrary(); });
+
 void showLibrary();
 
 const settings = await chrome.storage.local.get(['enabledProviders', 'providerIntents', 'routerFeedback']);
-document.querySelector('#manual')?.addEventListener('click', () => {
+document.querySelector('#manual')?.addEventListener('click', async () => {
+  currentBrief = undefined; sourceUrl = ''; completeContext = undefined; draft.value = '';
   flow.hidden = false;
+  await refreshContext();
+  setView('capture');
   reviewPanel.open = true;
+  showDraftBudget();
   status.textContent = 'Paste your brief, then choose where to continue.';
   draft.focus();
 });
@@ -152,8 +236,10 @@ destination.addEventListener('change', () => { recommendation.textContent = `Sel
 
 captureButton.addEventListener('click', async () => {
   captureStarted = true;
+  setView('capture');
   captureButton.disabled = true;
   flow.hidden = true;
+  showDraftBudget();
   captureButton.textContent = includeOlder.checked ? 'Loading older messages…' : 'Capturing…';
   status.textContent = includeOlder.checked ? 'Collecting visible and older messages. Your chat will return to its place.' : 'Capturing visible messages…';
   try {
@@ -181,7 +267,8 @@ captureButton.addEventListener('click', async () => {
     reviewed = false;
     reviewPanel.open = false;
     flow.hidden = false;
-    showDraftBudget();
+    await refreshContext();
+    await showLibrary();
     const meter = data.meter as Meter;
     const intent = trainClassifier()(data.pendingPrompt || brief.last_exchange.user);
     currentIntent = intent;
@@ -207,7 +294,7 @@ captureButton.addEventListener('click', async () => {
     const promptTokens = encode(data.pendingPrompt || '').length;
     cost.textContent = promptTokens ? `Unsent prompt: about ${promptTokens} tokens. ${meter.estimatedReplyCost === undefined ? 'Share of remaining allowance unknown.' : `A rough reply may equal about ${meter.estimatedReplyCost}% of the token count in a past chat that showed a limit; actual allowance unknown.`} ${shouldNudge(meter) ? 'Consider preparing a brief before the limit.' : ''}` : 'No unsent prompt found. Reply cost is unknown.';
   } catch (error) { status.textContent = `Capture failed: ${String(error)}. You can paste a brief instead.`; }
-  finally { captureButton.disabled = false; captureButton.textContent = 'Capture this chat'; }
+  finally { captureButton.disabled = false; captureButton.textContent = 'Capture this chat ↗'; showDraftBudget(); }
 });
 
 for (const [selector, positive] of [['#positive', true], ['#negative', false]] as const) document.querySelector(selector)?.addEventListener('click', async () => {
@@ -219,28 +306,111 @@ for (const [selector, positive] of [['#positive', true], ['#negative', false]] a
 document.querySelector('#save')?.addEventListener('click', async () => {
   const name = (document.querySelector('#project') as HTMLInputElement).value.trim();
   const folder = (document.querySelector('#folder') as HTMLInputElement).value.trim().slice(0, 80);
-  if (!name || !currentBrief) { status.textContent = 'Capture a chat and enter a project name first.'; return; }
+  if (!name || !draft.value.trim()) { status.textContent = 'Enter a project name and some context first.'; return; }
   const projects = await listProjects();
   const existing = projects.find(p => p.name.toLowerCase() === name.toLowerCase() && (p.folder || '').toLowerCase() === folder.toLowerCase());
-  const brief = existing ? mergeBrief(existing.brief, currentBrief) : briefSchema.parse(currentBrief);
-  await saveProject({ id: existing?.id || crypto.randomUUID(), name, folder: folder || undefined, updatedAt: Date.now(), threads: [...new Set([...(existing?.threads || []), sourceUrl].filter(Boolean))], brief });
+  const captured = currentBrief || briefSchema.parse({ goal: name, status: 'User-written context. Review the saved draft.', next_step: 'Continue using the user-reviewed context.' });
+  const brief = existing ? mergeBrief(existing.brief, captured) : captured;
+  await saveProject({ id: existing?.id || crypto.randomUUID(), name, folder: folder || undefined, updatedAt: Date.now(), threads: [...new Set([...(existing?.threads || []), sourceUrl].filter(Boolean))], draft: draft.value, brief });
   status.textContent = `Saved brief to ${name}.`;
   await showLibrary();
 });
+document.querySelector('#recapture')?.addEventListener('click', () => captureButton.click());
+document.querySelector('#manage-projects')?.addEventListener('click', () => { void chrome.runtime.openOptionsPage(); });
 document.querySelector('#settings')?.addEventListener('click', () => { void chrome.runtime.openOptionsPage(); });
 
 document.querySelector('#open')?.addEventListener('click', async () => {
+  if (!reviewed) { reviewPanel.open = true; reviewPanel.scrollIntoView({ block: 'start' }); draft.focus(); return; }
+  const safe = redact(draft.value);
+  if (safe.text !== draft.value) { draft.value = safe.text; reviewed = false; reviewPanel.open = true; showDraftBudget(); status.textContent = 'Sensitive patterns were redacted. Review the updated draft before opening it.'; return; }
   if (!draftBudget(draft.value).fits) { status.textContent = 'Shorten the reviewed draft to 1,500 approximate tokens before opening a destination.'; return; }
   const target = destination.value as ProviderId;
   const response = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: urls[target], text: draft.value });
   status.textContent = response?.ok ? `Opened ${target}. Check the destination editor before sending.` : 'Could not open destination.';
 });
-document.querySelector('#copy')?.addEventListener('click', async () => { await navigator.clipboard.writeText(draft.value); status.textContent = 'Draft copied.'; });
+document.querySelector('#copy')?.addEventListener('click', async () => { const safe = redact(draft.value); draft.value = safe.text; showDraftBudget(); await navigator.clipboard.writeText(safe.text); status.textContent = safe.kinds.length ? 'Draft copied with sensitive patterns redacted.' : 'Draft copied.'; });
 copyTranscript.addEventListener('click', async () => {
-  if (!sourceUrl) return;
-  const archive = (await chrome.storage.local.get(`archive:brief:${sourceUrl}`))[`archive:brief:${sourceUrl}`] as TurnArchive | undefined;
-  if (!archive?.turns.length) { status.textContent = 'No captured text is saved for this chat.'; return; }
-  const text = archive.turns.map((turn, index) => `${index + 1}. ${turn.role === 'user' ? 'You' : 'Assistant'}\n${turn.text}`).join('\n\n');
-  await navigator.clipboard.writeText(text);
-  status.textContent = `Copied ${archive.turns.length} captured text turns. ${archive.incomplete || archive.truncated ? 'This transcript may be incomplete.' : 'Review before sharing.'}`;
+  if (!completeContext) return;
+  await navigator.clipboard.writeText(completeContext.text);
+  status.textContent = 'Full captured text copied, with secret redaction. Review it before sharing.';
+});
+downloadContext.addEventListener('click', () => {
+  if (!completeContext) return;
+  const url = URL.createObjectURL(new Blob([completeContext.text], { type: 'text/markdown;charset=utf-8' }));
+  const link = document.createElement('a'); link.href = url; link.download = 'handoff-context.md'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  status.textContent = 'Captured context downloaded as Markdown.';
+});
+
+document.querySelector('#view-all')?.addEventListener('click', () => setView('saved'));
+const folderDialog = document.querySelector('#new-folder-dialog') as HTMLDialogElement;
+const newFolderName = document.querySelector('#new-folder-name') as HTMLInputElement;
+document.querySelector('#new-folder')?.addEventListener('click', () => { newFolderName.value = ''; folderDialog.showModal(); newFolderName.focus(); });
+document.querySelector('#cancel-folder')?.addEventListener('click', () => folderDialog.close());
+folderDialog.querySelector('form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  try { await createFolder(newFolderName.value); folderDialog.close(); status.textContent = 'Folder created. Choose it when saving a project.'; await showLibrary(); }
+  catch (error) { newFolderName.setCustomValidity(String(error)); newFolderName.reportValidity(); }
+});
+newFolderName.addEventListener('input', () => newFolderName.setCustomValidity(''));
+document.querySelector('#sidebar')?.addEventListener('click', async () => {
+  try {
+    if (!chrome.sidePanel?.open) throw new Error('Sidebar unavailable');
+    if (activeWindowId === undefined) throw new Error('No active window');
+    await chrome.sidePanel.open({ windowId: activeWindowId });
+    window.close();
+  } catch { status.textContent = 'This browser cannot open the sidebar here. Opening a full workspace instead.'; await chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') }); }
+});
+const accountDialog = document.querySelector('#account-dialog') as HTMLDialogElement;
+const backupStatus = document.querySelector('#backup-status') as HTMLElement;
+document.querySelector('#account')?.addEventListener('click', () => accountDialog.showModal());
+document.querySelector('#close-account')?.addEventListener('click', () => accountDialog.close());
+document.querySelector('#backup-all')?.addEventListener('click', async () => {
+  const { exportBackup } = await import('../../src/core/backup');
+  const data = await exportBackup(await chrome.storage.local.get(null));
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = `handoff-backup-${new Date().toISOString().slice(0,10)}.json`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000); backupStatus.textContent = 'Backup downloaded. It contains saved chat text; keep it private.';
+});
+(document.querySelector('#restore-all') as HTMLInputElement).addEventListener('change', async event => {
+  try {
+    const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return;
+    if (file.size > 20000000) throw new Error('Backup exceeds 20 MB.');
+    const { previewBackup, mergeBackup } = await import('../../src/core/backup');
+    const incoming = await previewBackup(await file.text());
+    if (!confirm(`Restore ${incoming.contexts} captured conversations and ${incoming.projects} projects? Newer local copies will be kept. Nothing is uploaded.`)) return;
+    await chrome.storage.local.set(mergeBackup(await chrome.storage.local.get(null), incoming.data));
+    backupStatus.textContent = 'Backup restored. Newer local items were kept.'; await showLibrary();
+  } catch (error) { backupStatus.textContent = `Could not restore: ${String(error)}`; }
+});
+
+const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
+composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
+composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });
+
+const cloudStatus = document.querySelector('#cloud-status') as HTMLElement;
+const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');
+const cloudActions = document.querySelector('#cloud-actions') as HTMLElement;
+cloudActions.hidden = !cloudConfigured;
+cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Handoff cloud account. Uploads happen only when you press Back up now.' : 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.';
+if (cloudConfigured) { const label = await accountLabel(); if (label) { (document.querySelector('#account') as HTMLElement).textContent = 'Connected'; cloudStatus.textContent = `Connected as ${label}.`; } }
+for (const [id, action] of [
+  ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Handoff after authorization.'); const email = result.email; (document.querySelector('#account') as HTMLElement).textContent = 'Connected'; return `Connected as ${email}. Nothing uploaded yet.`; }],
+  ['cloud-backup', async () => { await (await import('../../src/core/cloud')).backupCloud(); return 'Saved contexts backed up to your account.'; }],
+  ['cloud-restore', async () => { const cloud = await import('../../src/core/cloud'); const preview = await cloud.inspectCloud(); if (!confirm(`Restore ${preview.contexts} conversations and ${preview.projects} projects from ${preview.updatedAt}? Newer local copies will be kept.`)) return 'Restore cancelled.'; await cloud.restoreCloud(preview); await showLibrary(); return 'Cloud backup restored.'; }],
+  ['cloud-disconnect', async () => { await (await import('../../src/core/cloud')).disconnectCloud(); (document.querySelector('#account') as HTMLElement).textContent = 'Local'; return 'Disconnected. Local data and cloud backup were kept.'; }],
+  ['cloud-delete', async () => { if (!confirm('Delete the cloud backup for this account? Local data will be kept.')) return 'Deletion cancelled.'; await (await import('../../src/core/cloud')).deleteCloudBackup(); return 'Cloud backup deleted. Local data kept.'; }]
+] as const) {
+  const button = document.querySelector(`#${id}`) as HTMLButtonElement;
+  button.addEventListener('click', async () => { button.disabled = true; cloudStatus.textContent = 'Working…'; try { cloudStatus.textContent = await action(); } catch (error) { cloudStatus.textContent = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.'; } finally { button.disabled = false; } });
+}
+
+document.querySelector('#apply-next-task')?.addEventListener('click', () => {
+  const task = (document.querySelector('#next-task') as HTMLInputElement).value.trim();
+  if (!task) { status.textContent = 'Enter the task you want to continue with.'; return; }
+  draft.value = `${draft.value}\n\nNext task from the user: ${redact(task).text}`;
+  (document.querySelector('#summary-next') as HTMLElement).textContent = task;
+  if (currentBrief) currentBrief = { ...currentBrief, next_step: task };
+  reviewed = false; showDraftBudget();
+  status.textContent = 'Next step added. Review the updated draft before continuing.';
 });

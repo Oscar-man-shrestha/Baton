@@ -6,9 +6,9 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdo
 
 describe('extension screens', () => {
   it('gives the browser popup a fixed initial width', () => {
-    const html = readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8');
-    expect(html).toMatch(/html\s*\{\s*width:\s*400px\s*\}/);
-    expect(html).not.toMatch(/max-width:\s*100vw/);
+    const css = readFileSync(new URL('../entrypoints/popup/style.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/html\s*\{\s*width:\s*400px\s*\}/);
+    expect(css).not.toMatch(/max-width:\s*100vw/);
   });
 
   it('shows a simple first step and keeps later controls behind review', () => {
@@ -35,8 +35,9 @@ describe('extension screens', () => {
     for (const button of Array.from(doc.querySelectorAll('button'))) {
       expect((button.textContent || button.getAttribute('aria-label') || '').trim().length, `${screen}: button needs a name`).toBeGreaterThan(0);
     }
-    expect(html).toContain(':focus-visible');
-    expect(html).toContain('prefers-contrast:more');
-    expect(html).toContain('prefers-reduced-motion');
+    const styles = readFileSync(new URL(`../entrypoints/${screen}/style.css`, import.meta.url), 'utf8');
+    expect(styles).toContain(':focus-visible');
+    expect(styles).toContain('prefers-contrast:more');
+    expect(styles).toContain('prefers-reduced-motion');
   });
 });
