@@ -7,6 +7,7 @@ import { listProjects, mergeBrief, pruneExpired, saveProject } from '../../src/c
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { meterSummary } from '../../src/core/usage-alerts';
+import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 
 const status = document.querySelector('#status') as HTMLElement;
 const draft = document.querySelector('#draft') as HTMLTextAreaElement;
@@ -34,6 +35,22 @@ const copyTranscript = document.querySelector('#copy-transcript') as HTMLButtonE
 const usageList = document.querySelector('#usage-list') as HTMLElement;
 const desktopAlerts = document.querySelector('#desktop-alerts') as HTMLInputElement;
 const usagePermission = document.querySelector('#usage-permission') as HTMLElement;
+const activeChatTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknown): Promise<T> => sendWithBootstrap(
+  tab, message,
+  (id, payload) => chrome.tabs.sendMessage(id, payload) as Promise<T>,
+  async id => {
+    const script = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
+    if (!script) throw new Error('Handoff content script is missing from this build.');
+    await chrome.scripting.executeScript({ target: { tabId: id }, files: [script] });
+  }
+);
+let captureStarted = false;
+void activeChatTab().then(async tab => {
+  if (!tab || !isSupportedChatUrl(tab.url)) return;
+  const response = await sendToChat<{ ready?: boolean; provider?: ProviderId }>(tab, { type: 'PING' });
+  if (response.ready && !captureStarted) status.textContent = `Ready on ${providerNames[response.provider || 'chatgpt']}. Capture this chat when you want to move it.`;
+}).catch(() => { /* The capture button will show a useful error if connection fails. */ });
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 async function showUsage() {
   const saved = await chrome.storage.local.get(providerIds.map(id => `meter:${id}`));
@@ -128,16 +145,24 @@ for (const option of Array.from(destination.options)) {
 destination.addEventListener('change', () => { recommendation.textContent = `Selected ${destination.selectedOptions[0].text}. Check availability in that service.`; showAccountHelp(); });
 
 captureButton.addEventListener('click', async () => {
+  captureStarted = true;
   captureButton.disabled = true;
   flow.hidden = true;
   captureButton.textContent = includeOlder.checked ? 'Loading older messages…' : 'Capturing…';
   status.textContent = includeOlder.checked ? 'Collecting visible and older messages. Your chat will return to its place.' : 'Capturing visible messages…';
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = await activeChatTab();
     if (!tab?.id) throw new Error('No active chat tab');
-    const data = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT', includeOlder: includeOlder.checked });
+    const data = await sendToChat<any>(tab, { type: 'EXTRACT', includeOlder: includeOlder.checked });
     if (data?.error) throw new Error(data.error);
-    if (!data?.turnCount && !data?.artifactCount) throw new Error('No visible chat messages found. Scroll the chat or paste a brief yourself.');
+    if (!data?.turnCount && !data?.artifactCount) {
+      status.textContent = 'Connected. This chat has no messages yet. Handoff is watching from here; send a message, then capture again.';
+      return;
+    }
+    if (!data?.hasUserTurn && data?.provider === 'gemini' && tab.url && new URL(tab.url).pathname === '/app') {
+      status.textContent = 'Connected to Gemini. No user message is visible yet. Handoff is watching from here; send a message, then capture again.';
+      return;
+    }
     if (!data?.hasUserTurn) throw new Error('The original user message was not captured. Try older-message capture, or paste your request into the draft yourself.');
     source = data.provider;
     sourceUrl = data.url;

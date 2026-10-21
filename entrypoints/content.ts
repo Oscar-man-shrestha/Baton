@@ -13,9 +13,11 @@ export default defineContentScript({
   main() {
     const id = providerIds.find(p => bundledSelectors.providers[p].hosts.includes(location.hostname)) as ProviderId | undefined;
     if (!id) return;
+    document.getElementById('handoff-composer-status')?.remove();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const pageUrl = () => location.origin + location.pathname + location.search + location.hash;
     const storageKeys = () => { const key = `brief:${pageUrl()}`; return { key, highWaterKey: `visibleTurnsHighWater:${key}`, archiveKey: `archive:${key}` }; };
+    const genericNewChat = () => id === 'gemini' && location.pathname === '/app';
     const limitHistoryKey = `limitEvents:${id}`;
     let captureInProgress = false;
     let latestMeter: Meter | undefined;
@@ -25,7 +27,7 @@ export default defineContentScript({
     statusHost.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;display:none';
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
-    statusStyle.textContent = ':host{all:initial}span{display:inline-block;max-width:100%;padding:3px 8px;border-radius:6px;background:#172538;color:#f7f9fc;font:12px/18px system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0003}@media(prefers-color-scheme:light){span{background:#eef3ff;color:#233754}}';
+    statusStyle.textContent = ':host{all:initial}span{display:inline-block;max-width:100%;padding:1px 6px;border-radius:5px;background:#172538;color:#f7f9fc;font:11px/15px system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0003}@media(prefers-color-scheme:light){span{background:#eef3ff;color:#233754}}';
     const statusText = document.createElement('span');
     shadow.append(statusStyle, statusText);
     document.body.append(statusHost);
@@ -47,11 +49,21 @@ export default defineContentScript({
       }
       const position = statusLinePosition(surface.getBoundingClientRect(), innerWidth, innerHeight);
       if (!position) { statusHost.style.display = 'none'; return; }
-      const below = document.elementFromPoint(position.left + Math.min(90, position.width / 2), position.top + 9);
+      const sampleX = position.left + Math.min(90, position.width / 2);
+      const occupied = document.elementFromPoint(sampleX, position.top + 16);
+      for (let element = occupied; element && element !== document.body && element !== document.documentElement; element = element.parentElement) {
+        if (element === surface || element.contains(surface)) break;
+        const rect = element.getBoundingClientRect();
+        if (rect.width >= 180 && rect.height <= 64 && rect.top < position.top + 19 && rect.bottom > position.top) {
+          position.top = rect.bottom + 2;
+          break;
+        }
+      }
+      if (position.top + 19 > innerHeight) { statusHost.style.display = 'none'; return; }
+      const below = document.elementFromPoint(sampleX, position.top + 8);
       if (below?.closest('button,input,textarea,select,[contenteditable="true"],[role="button"]')) { statusHost.style.display = 'none'; return; }
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
       const fresh = latestMeter?.at && Date.now() - latestMeter.at < 3600000;
-      if (!value.trim() && (!fresh || latestMeter?.tier !== 'banner' || (latestMeter.remainingPercent === undefined && latestMeter.remainingTokens === undefined && latestMeter.percent !== 100 && !latestMeter.nearLimit))) { statusHost.style.display = 'none'; return; }
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
       statusText.textContent = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
       statusHost.style.left = `${position.left}px`;
@@ -132,7 +144,7 @@ export default defineContentScript({
         history.push({ at: now, approximateTokens: data.turns.reduce((sum, turn) => sum + encode(turn.text).length, 0) });
         await chrome.storage.local.set({ [limitHistoryKey]: history.slice(-12) });
       }
-      const previousArchive = saved[archiveKey] as TurnArchive | undefined;
+      const previousArchive = genericNewChat() ? undefined : saved[archiveKey] as TurnArchive | undefined;
       const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, data.turns, now);
       archive.selectorsVersion = bundledSelectors.version;
       const meter = { ...estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now), at: now };
@@ -157,6 +169,7 @@ export default defineContentScript({
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     void persist();
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type === 'PING') { sendResponse({ ready: true, provider: id }); return; }
       if (message?.type === 'REFRESH_USAGE') {
         void observeUsage(true).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
         return true;
@@ -167,8 +180,12 @@ export default defineContentScript({
           const result = message.includeOlder ? await captureOlderTurns() : extract(document, id, bundledSelectors);
           const editor = bundledSelectors.providers[id].editor.map(selector => document.querySelector(selector)).find(Boolean);
           const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');
+          if (!result.turns.length && !result.artifacts.length) {
+            sendResponse({ provider: id, turnCount: 0, hasUserTurn: false, artifactCount: 0, incomplete: false, archiveSaved: true, warning: '', pendingPrompt: pendingPrompt.trim().slice(0, 8000), meter: estimateMeter(id, makeAdapter(id, bundledSelectors).detectLimit(document).text, [], []), url: pageUrl() });
+            return;
+          }
           const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey]);
-          const previousArchive = saved[archiveKey] as TurnArchive | undefined;
+          const previousArchive = genericNewChat() || !result.turns.some(turn => turn.role === 'user') ? undefined : saved[archiveKey] as TurnArchive | undefined;
           const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, result.turns);
           archive.selectorsVersion = bundledSelectors.version;
           let archiveSaved = true;
@@ -177,7 +194,7 @@ export default defineContentScript({
           const warning = [result.warning, archive.incomplete ? 'Some captured windows did not overlap; transcript order or gaps need review.' : '', archive.truncated ? 'The local transcript reached its size cap; earliest text was trimmed.' : '', archiveSaved ? '' : 'Local storage is full; captured text could not be saved.', hadMoreTurns ? 'This chat previously showed more turns; older messages may be virtualized. Review the brief.' : ''].filter(Boolean).join(' ');
           const limit = makeAdapter(id, bundledSelectors).detectLimit(document);
           const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
-          sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: archive.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(undefined, archive.turns, result.artifacts), meter: estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history), url: pageUrl() });
+          sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: result.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(undefined, archive.turns, result.artifacts), meter: estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history), url: pageUrl() });
         })().catch(error => sendResponse({ error: String(error) }));
         return true;
       }
