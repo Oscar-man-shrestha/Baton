@@ -82,3 +82,26 @@ Not recommended, for the reasons in section 3: automatic account rotation, cooki
 - Other services: [costbench DeepSeek](https://costbench.com/software/ai-chatbots/deepseek/free-plan), [tooldirectory](https://tooldirectory.ai/blog/perplexity-vs-chatgpt-2026-grok-deepseek)
 - Terms: [OpenAI clause via ConductAtlas](https://conductatlas.com/platform/openai/openai-terms-of-use/provision/CA-P-078688/no-interference-with-or-disruption-of-services/), [OpenAI community thread](https://community.openai.com/t/if-i-need-more-tokens-per-minute-limit-is-it-safe-to-just-create-a-new-account/342531), [Anthropic consumer terms](https://www.anthropic.com/legal/archive/2b400cb2-20c8-4e0d-925f-2b3f7f80dc01), [rupt.dev account-sharing summary](https://www.rupt.dev/blog/ai-subscription-account-sharing-policies/), [Gemini Apps terms via ConductAtlas](https://conductatlas.com/platform/google-gemini/gemini-apps-terms-of-service/safety-filter-circumvention-prohibition/)
 - Competitors: [AI Quota Watcher](https://chromewebstore.google.com/detail/coclaoidphfeooblpbplcdbhgblelada), [AI Usage Tracker](https://chromewebstore.google.com/detail/hmdinnfodakcepioloipgejlfdgbhlgi), [Puffer](https://chromewebstore.google.com/detail/blclccmcjdkdelidnfapffbognodhfcg), [AI Karma Tracker](https://www.indiehackers.com/product/ai-karma-tracker), [Rate Limit Rescue](https://chromewebstore.google.com/detail/aheclbiphalnodcoehlkdfmnkeflakkk), [CarryOn](https://chromewebstore.google.com/detail/denjjnkibohpfmiijfljokollligjknn), [LLM Context Bridge](https://www.chromeboard.com/extension/llm-context-bridge-bnhhfhomnkpabjchaekdjlagimphdhfl), [Pickup](https://chromewebstore.google.com/detail/glfhodhcaafncaiibkpfddinicmnncke), [MoveChat](https://addons.mozilla.org/es/firefox/addon/movechat/), [Limit Skip](https://addons.mozilla.org/firefox/addon/limit-skip/)
+
+## Addendum — how “AI Usage Limit Alerts” gets its numbers (inspected 2026-10-22)
+
+Inspected the installed copy (Chrome Web Store ID `nfnpdgcjkggjhkhedkkfhppeeaeopdbo`, version 1.0.0) on the user's Mac. No license file ships with it, so none of its code may be copied. It does not read the pages the user sees. It calls each service's private internal APIs from the extension, using the user's logged-in session (`credentials: 'include'`):
+
+- **Claude:** `/api/organizations`, then `/api/organizations/{id}/usage`.
+- **ChatGPT:** `/api/auth/session` to obtain the user's **access token**, then `/backend-api/conversation/init` (deep research, file upload, image counts) and `/backend-api/wham/usage` (Codex/Work 5-hour and weekly windows) with `Authorization: Bearer <token>`.
+- **Gemini:** fetches `/app` to pull page tokens, then Google's internal `batchexecute` RPC `jSf9Qc`.
+- **Grok:** `/rest/rate-limits` and `GetGrokCreditsConfig`.
+- Uses `alarms` and `notifications` to refresh and alert in the background.
+
+Terms that bear on copying this method:
+- **OpenAI's Terms of Use** prohibit automatically or programmatically extracting data or Output ([OpenAI terms](https://openai.com/policies/terms-of-use/)).
+- **Anthropic's Consumer Terms** prohibit automated or non-human access except through an API key or where Anthropic explicitly permits it ([Anthropic consumer terms](https://www.anthropic.com/legal/archive/99fb8cc5-8a81-4f86-bd11-16ac3503419c), [ConductAtlas record](https://conductatlas.com/platform/anthropic/anthropic-consumer-terms/provision/CA-P-062922/prohibition-on-automated-non-human-service-access/)). Commentary reports enforcement against third parties routing requests through consumer plan credentials ([Zylos](https://zylos.ai/research/2026-07-13-subscription-auth-boundaries-official-cli-agent-automation)).
+- **Gemini's batchexecute** is undocumented, and Google does not publish it for third parties.
+
+These undocumented endpoints can change or break without notice, and another extension being listed on the store does not show the method is allowed. Reading the ChatGPT access token also conflicts with this project's standing rule against handling provider session credentials.
+
+What Handoff can match without private APIs:
+- **ChatGPT Codex/Work usage page** (`chatgpt.com/codex/settings/usage`; 5-hour limit reinstated for Plus from 25 Aug 2026 per [TechRepublic](https://www.techrepublic.com/article/news-openai-five-hour-codex-limit-chatgpt-plus/)): read it when the user opens it, as for Claude and Gemini.
+- **Feature counts** (deep research, uploads, images): read them where ChatGPT shows them in its own interface.
+- **Grok:** whatever limit text grok.com displays.
+- **A user-pressed “Refresh all” action** that opens each service's usage page in a background tab, reads it, and closes it.
