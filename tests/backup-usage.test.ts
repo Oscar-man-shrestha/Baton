@@ -21,6 +21,21 @@ describe('full backup', () => {
     const newer = { ...store, projects: [{ ...store.projects[0], updatedAt: now + 1, draft: 'New draft' }], [`savedAt:brief:${url}`]: now + 1 };
     const changes = mergeBackup(newer, preview.data); expect(changes[`brief:${url}`]).toBeUndefined(); expect((changes.projects as any)[0].draft).toBe('New draft');
   });
+  it('does not upload or resurrect a capsule the user deleted when restoring into an empty profile', async () => {
+    const deleted = { ...store, projects: [], dismissedRecentUrls: [url] };
+    const text = await exportBackup(deleted); expect(text).not.toContain('Original request');
+    const restored = mergeBackup({}, (await previewBackup(text)).data);
+    expect(restored[`brief:${url}`]).toBeUndefined(); expect(restored.dismissedRecentUrls).toEqual([url]);
+  });
+  it('carries deletions into a library that still has the old capture and keeps local dismissals', async () => {
+    const preview = await previewBackup(await exportBackup({ ...store, projects: [], dismissedRecentUrls: [url] }));
+    const changes = mergeBackup({ ...store, dismissedRecentUrls: ['https://claude.ai/chat/local'] }, preview.data);
+    expect(changes.dismissedRecentUrls).toEqual(['https://claude.ai/chat/local', url]);
+  });
+  it('reads version 1 backups made before deletions were recorded', async () => {
+    const legacy = (await previewBackup(await exportBackup(store))).data as Record<string, unknown>; delete legacy.dismissedRecentUrls;
+    expect(mergeBackup({}, legacy as any)[`brief:${url}`]).toEqual(brief);
+  });
   it('does not accept unrecognized backup formats', async () => { await expect(previewBackup('{"projects":[]}')).rejects.toThrow(); });
 });
 describe('real quota windows', () => {
