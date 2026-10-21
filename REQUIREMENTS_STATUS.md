@@ -1,10 +1,10 @@
-# Your nine requirements — Handoff 0.2.2
+# Your nine requirements — Handoff 0.3.0
 
 Checked 2026-10-21 against the source and test evidence. “Implemented” below means present in the local build; it does not mean verified on every signed-in provider page. No requirement is silently treated as complete.
 
 ## 1. Learn from Claude Monitor and use the same clear usage display
 
-**Display implemented; equivalent live data integration incomplete.** Version 0.2.2 puts active-provider usage on Home, adds a Claude usage-page action and handles plain settings rows; live authenticated verification is still pending. Read its website, README, background usage requests, page stream reader and security notes at a pinned commit. Handoff provides separate observed windows, thin progress bars, source times, reset countdowns, toolbar snapshots and optional threshold alerts, including a small below-composer strip. All six supported services use the same display rules.
+**Display implemented; equivalent live data integration incomplete.** Version 0.3.0 puts active-provider usage on Home, adds a Claude usage-page action and handles plain settings rows; live authenticated verification is still pending. Read its website, README, background usage requests, page stream reader and security notes at a pinned commit. Handoff provides separate observed windows, thin progress bars, source times, reset countdowns, toolbar snapshots and optional threshold alerts, including a small below-composer strip. All six supported services use the same display rules.
 
 Claude Monitor's data comes from private Claude usage APIs and reply metadata. Handoff has a tested numeric-shape parser, but the private API/stream connection remains disabled under the original brief and your condition about legal/account risk. Copying its UI does not establish permission or produce the same data on other providers. Sources: [Claude Monitor](https://claude-monitor.com/), [repository](https://github.com/claude-monitor/claude-monitor-browser-extension).
 
@@ -16,7 +16,7 @@ Claude Monitor's data comes from private Claude usage APIs and reply metadata. H
 
 **Partially achieved; exact continuous account balances are not implemented for every LLM.** Visible service observations are distinguished from unknown balances and approximate prompt tokens. Session, weekly, model and feature limits stay separate. Unknown is never invented as 0%. Reset/stale observations expire.
 
-The 0.2.2 audit fixes specific correctness faults: decimal/negative percentage parsing, unrelated retry notices being mistaken for quota exhaustion, relative countdowns drifting forward, expired unchanged labels resurrecting a window, notification races, stale/incorrect toolbar selection, and open chats failing to receive another tab's quota update. The toolbar keeps the most constrained valid bucket and clears stale readings when refreshed/activated. No new quota-access API or alarm permission is introduced.
+The 0.3.0 audit fixes specific correctness faults: decimal/negative percentage parsing, unrelated retry notices being mistaken for quota exhaustion, relative countdowns drifting forward, expired unchanged labels resurrecting a window, notification races, stale/incorrect toolbar selection, and open chats failing to receive another tab's quota update. The toolbar keeps the most constrained valid bucket and clears stale readings when refreshed/activated. No new quota-access API or alarm permission is introduced.
 
 A provider that exposes no account-specific balance still shows unknown. These fixes cannot establish a hidden free-tier remainder. Actual provider notices, resets and account changes remain live-test gates.
 
@@ -38,7 +38,7 @@ Store review pages were not retrievable for several cited listings. A low score 
 
 **Local persistence works; live cloud sign-in remains incomplete.** Supabase Google OAuth/PKCE, manual backup/restore, disconnect and separate remote deletion are coded. A private owner-only table migration is prepared. The app session is separate from all AI provider credentials.
 
-The supplied Supabase MCP is registered and OAuth-authenticated. This running chat still has no Supabase tools in its tool catalog. Reconnect Codex, then inspect the project before applying the schema. The publishable project key, Google provider/callback setup, row isolation and real cross-device restore must still be completed/tested. No remote schema or account has been created by the agent. See CLOUD_SETUP.md.
+Supabase tools are now connected. The owner-scoped backup table is applied, transactional RLS checks passed and the public project key is configured. Google provider is disabled: enable/configure the Google OAuth client and extension redirect, then complete live OAuth and cross-device backup/restore checks. See CLOUD_SETUP.md.
 
 ## 8. Sidebar option
 
@@ -51,3 +51,7 @@ The supplied Supabase MCP is registered and OAuth-authenticated. This running ch
 ## Evidence and remaining acceptance
 
 Read VERIFICATION.md and sibling ui-previews reports for exact test results. Isolated browser checks and mocked authentication are not signed-in provider or production cloud verification. The two-target, three-generation handoff harness has no real model responses yet and reports pending rather than an invented quality score. Privacy-policy publication is pending: repo not yet published.
+
+## 0.3.0 update: Capsule-style workflow and cloud setup
+
+Dashboard, quick actions, recent copy/delete, manual capsule form, six recent cards and sidebar now follow Capsule Infinity’s library structure. Full captures save durable content-fingerprinted snapshots and keep exact full text alongside compact handoffs. Supabase owner-scoped backup storage is applied and SQL isolation checks passed; public configuration is installed. Google remains disabled in Supabase and requires provider/client/redirect setup before live sign-in. Teams, hosted compression and exact hidden quota readings remain incomplete, as detailed in CHANGES_0.3.0.md.

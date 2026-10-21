@@ -1,25 +1,25 @@
 # Handoff project and UI/UX report
 
-Version 0.2.2 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
+Version 0.3.0 — 2026-10-21. This is a browser extension, built with WXT, TypeScript, and Manifest V3. It is a local-first context library and draft transfer tool. The project is not yet accepted for a public release: live provider checks, Google cloud setup, and real multi-model handoff evaluation remain open.
 
 ## Main user journey
 
-1. Open an AI chat and open Handoff. An already-open tab connects without reloading when browser permissions allow injection.
-2. Home shows one Capture this chat action, compact active-service usage, and recent contexts. Extra capture options are collapsed; folder creation lives in Saved. No account is required for local use.
-3. Capture visible messages, optionally scroll to include older rendered messages, and restore the reading position. The receipt describes coverage limitations.
-4. Inspect goal, where the chat left off, and next step. Choose Compact handoff or Full captured conversation. Review/edit and optionally add an explicit next task.
-5. Review first, choose a destination, then open an unsent draft or copy/download the text. Handoff never presses Send. Oversized drafts are kept intact for copy/download; automatic insertion is blocked above 1,500 approximate tokens.
-6. Save a project and edited draft, optionally in a folder. Reopen it from Saved or recent items. Export/restore a full local backup. Configured Google/Supabase backup is optional and explicitly initiated.
+1. Dashboard follows the requested Capsule Infinity library structure: capsule/folder/chat counts, Capture Page, New Capsule, New Folder, six recent cards, View All, account/backups and sidebar.
+2. Capture Page collects visible and older rendered chat messages by default, bounded by the documented capture limits. Reading position is restored. Available full text is saved as an immutable, redacted snapshot; unchanged captures deduplicate.
+3. Open a saved capsule, review full or compact context, choose a destination and open an unsent draft. Full copy/download remain available above the insertion budget. The compact action never replaces the stored full snapshot.
+4. New Capsule opens a short form with name, context and optional folder. Recent cards offer copy/delete, and View All searches names and folders. Existing saved projects and recent chats remain accessible.
+5. Account/backups offers local export/restore. Google/Supabase backup has a configured public project and owner-scoped table; Google provider/client/redirect setup and live testing remain pending and uploads are explicit. No account is needed locally.
 
-## Interface inventory for Stitch or another designer
+## Interface inventory
 
-- Home: Handoff arrow mark, local/connected account pill, sidebar and settings buttons; Home/Saved navigation; active-site label; one primary capture action; compact active-provider usage card; collapsed older-history/manual context controls; recent saved cards. No statistics grid.
-- Review: visible goal and capture receipt, expandable editor, next-task input and destination selector after review. More options contains detailed progress/next step, compact/full selector, project save and capture details. Sticky Copy and Review/Open action area remains reachable.
-- Saved: search across titles and folders; project and recent-context cards; reopen action; settings/backups link.
-- Account/backups dialog: full JSON download/restore; cloud configuration status; configured Google sign-in, Back up now, Restore, Disconnect, and Delete cloud backup.
-- Sidebar: same functional application in a browser side panel, responsive down to 320 pixels. If unsupported, the button opens a workspace tab.
-- Usage: active-service card on Home with Read usage for Claude and Refresh for other services; collapsed cross-provider overview, separate recognized session/weekly/model/feature windows, progress bars, resets and observation times, optional desktop alerts. Small non-interactive strip below the provider composer; hidden if it cannot fit without covering controls. It can be turned off.
-- Settings: searchable projects, folder editing, export/import, service toggles and intent preferences, diagnostics, retention and deletion controls.
+- Dashboard: Capsule-style charcoal/violet cards, real counters, three quick actions, six recent items and a compact active-service usage card.
+- Editor: goal, capture receipt, context review and draft transfer; More options contains detailed summaries, format, project/capsule saving and exports.
+- Library: search, open, copy and delete controls. Manual capsules and captured snapshots share the same local data store as older projects.
+- Sidebar: same application, responsive down to 320 pixels, with a workspace-tab fallback.
+- Usage: separate recognized session/weekly/model/feature readings, reset countdowns, observation times, optional alerts and a non-interactive below-composer strip. Missing readings remain unknown.
+- Account/settings: local backup/restore, configured cloud actions, retention, provider preferences and diagnostics.
+
+See CHANGES_0.3.0.md for the exact competitor parity boundaries and THIRD_PARTY_NOTICES.md for the adapted layout license.
 
 ## Visual implementation
 
@@ -41,7 +41,7 @@ Chrome local storage holds archives, incremental briefs, projects, folders, edit
 
 Full backups contain saved chat text, projects, folders, and edited drafts. They exclude arbitrary settings/API keys/authentication records. Schema validation, a SHA-256 integrity check, a 20 MB import limit, and newer-local-copy preservation protect restore. Integrity checks are not encryption or proof of authorship.
 
-Supabase integration code and owner-only SQL are prepared. A configured build uses Google OAuth/PKCE and exact project host access; app authentication is kept in browser session storage. Upload happens only on Back up now. It stores one current snapshot per user, not a version history or real-time collaborative database. It is not end-to-end encrypted. `CLOUD_SETUP.md` records the remaining setup and live tests. A disabled/configuration-pending feature is not reported as a working login.
+Supabase integration is configured with the public project key; the owner-only table is applied and transactional isolation checks passed. A configured build uses Google OAuth/PKCE and exact project host access; app authentication is kept in browser session storage. Upload happens only on Back up now. It stores one current snapshot per user, not a version history or real-time collaborative database. It is not end-to-end encrypted. `CLOUD_SETUP.md` records the remaining setup and live tests. A disabled/configuration-pending feature is not reported as a working login.
 
 ## Usage accuracy and current boundary
 
@@ -52,7 +52,7 @@ Claude Monitor was audited at a pinned public commit. Its private usage APIs and
 ## What is not implemented or not established
 
 - Automatic AI account switching, cookie/credential manipulation, quota bypass, and automatic submission: prohibited and absent. A normal Gemini link leaves account selection to the provider UI.
-- Google/Supabase live authentication and cross-device restore: code prepared, MCP login complete; server tools need reloading, and database/Google provider setup remains pending.
+- Google/Supabase live authentication and cross-device restore: public configuration and database isolation checks complete; Google provider/client/redirect setup and real authenticated backup/restore tests remain pending.
 - Continuous exact quota data for every provider: not established. A uniform display does not create access to hidden balances.
 - Teams, shared cloud folders, cloud revision history, automatic background cloud sync, semantic embedding search, and attachment/media reconstruction: not implemented. Screenshot-only team counters are not added as fake functionality.
 - Optional paid/model-backed summarization and on-device generative ML: not enabled. The default works without a paid API key.

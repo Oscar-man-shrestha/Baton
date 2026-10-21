@@ -1,3 +1,13 @@
+# Current cloud setup — 2026-10-21
+
+The extension now contains the public URL and publishable key for your Supabase project `qeoduozlznznptwsfzbt`. The owner-scoped `handoff_backups` table has been applied. SQL role fixtures verified owner isolation, cross-owner write denial and anonymous read denial, then rolled back.
+
+**Remaining setup:** Google is disabled in Supabase Authentication → Providers. Configure your own Google OAuth web client there, using Supabase's callback `https://qeoduozlznznptwsfzbt.supabase.co/auth/v1/callback`. Keep the client secret in Supabase. Add the extension's exact `chrome.identity.getRedirectURL('supabase')` result to Supabase Authentication → URL Configuration. Re-enable/verify sign-in after setup; the app checks public provider availability when opening account controls and before sign-in.
+
+No Google client secret or service-role key belongs in the extension. The public key is intentionally distributable and does not bypass owner-only row policies. Full Google sign-in and cloud backup/restore are not yet live-tested.
+
+## Earlier implementation/setup notes
+
 # Google sign-in and Supabase backup setup
 
 Prepared 2026-10-21. The user authorized Supabase project `qeoduozlznznptwsfzbt`. The MCP server is registered in Codex; OAuth authorization succeeded, but this already-running chat does not expose the newly added server tools. Reload/reconnect Codex before using the database tools. No remote table, provider setting, user account, or backup has been created by this build.

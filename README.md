@@ -1,3 +1,13 @@
+# Handoff 0.3.0
+
+Capsule-style context library: Capture Page, New Capsule, New Folder, recent copy/delete, searchable library and sidebar. Captures save full snapshots; compact handoffs can be reviewed and opened as drafts in another AI. No automatic send.
+
+Supabase owner-scoped storage is configured and SQL isolation checks passed. **Google provider is disabled** in the project; finish Google/client/redirect configuration before sign-in. Local saves and full backup/restore require no account. Exact hidden provider quotas remain unavailable.
+
+See [CHANGES_0.3.0.md](CHANGES_0.3.0.md), [VERIFICATION.md](VERIFICATION.md), [CLOUD_SETUP.md](CLOUD_SETUP.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Development and earlier architecture notes
+
 > **0.2.1 follow-up:** see `REQUIREMENTS_STATUS.md` for all nine requested outcomes, including incomplete cloud and quota integration. This release fixes reset drift, alert races, stale badges, malformed quota parsing, and cross-tab reading updates.
 
 > **0.2.0 local build:** improved capture and Markdown, dashboard/recent contexts, full local backup, and sidebar. Google/Supabase code is prepared but not configured; exact continuous quotas across all providers are not established. See `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Load the sibling `handoff-extension-build` folder, which contains `manifest.json`.
