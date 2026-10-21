@@ -81,6 +81,10 @@ export default defineContentScript({
     const observeUsage = async (force = false) => {
       const now = Date.now();
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
+      if (signal.kind === 'unknown') {
+        const savedMeter = (await chrome.storage.local.get(`meter:${id}`))[`meter:${id}`] as Meter | undefined;
+        if (savedMeter?.tier === 'banner' && savedMeter.at && now - savedMeter.at < 3600000) { latestMeter = savedMeter; scheduleStatus(); return; }
+      }
       const sameSignal = signal.text === lastLimitText;
       if (!force && sameSignal && now - lastLimitCheck < 600000) return;
       lastLimitText = signal.text;
@@ -136,7 +140,7 @@ export default defineContentScript({
       const signal = makeAdapter(id, bundledSelectors).detectLimit(document);
       if (!data.turns.length) return;
       const { key, highWaterKey, archiveKey } = storageKeys();
-      const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey]);
+      const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey, `meter:${id}`]);
       const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
       const now = Date.now();
       const reachedLimit = signal.kind === 'banner' && estimateMeter(id, signal.text, [], [], now).percent === 100;
@@ -147,12 +151,14 @@ export default defineContentScript({
       const previousArchive = genericNewChat() ? undefined : saved[archiveKey] as TurnArchive | undefined;
       const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, data.turns, now);
       archive.selectorsVersion = bundledSelectors.version;
-      const meter = { ...estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now), at: now };
+      const calculatedMeter = { ...estimateMeter(id, signal.text, archive.turns.map(turn => turn.text), history, now), at: now };
+      const storedMeter = saved[`meter:${id}`] as Meter | undefined;
+      const meter = signal.kind === 'unknown' && storedMeter?.tier === 'banner' && storedMeter.at && now - storedMeter.at < 3600000 ? storedMeter : calculatedMeter;
       if (signal.text === lastLimitText && latestMeter?.resetAt && latestMeter.resetAt > now) meter.resetAt = latestMeter.resetAt;
       latestMeter = meter;
       scheduleStatus();
       const brief = updateBrief(undefined, archive.turns, data.artifacts);
-      await chrome.storage.local.set({ [key]: brief, [`savedAt:${key}`]: now, [highWaterKey]: previousArchive?.selectorsVersion === bundledSelectors.version ? Math.max(Number(saved[highWaterKey]) || 0, archive.turns.length) : archive.turns.length, [`health:${id}`]: { at: now, turns: data.turns.length, selectorsVersion: bundledSelectors.version }, [`meter:${id}`]: { ...meter, at: now } });
+      await chrome.storage.local.set({ [key]: brief, [`savedAt:${key}`]: now, [highWaterKey]: previousArchive?.selectorsVersion === bundledSelectors.version ? Math.max(Number(saved[highWaterKey]) || 0, archive.turns.length) : archive.turns.length, [`health:${id}`]: { at: now, turns: data.turns.length, selectorsVersion: bundledSelectors.version }, [`meter:${id}`]: meter });
       try { await chrome.storage.local.set({ [archiveKey]: archive }); } catch { /* Brief remains available if local storage is full. */ }
     };
     const editorSelectors = bundledSelectors.providers[id].editor;
@@ -184,7 +190,7 @@ export default defineContentScript({
             sendResponse({ provider: id, turnCount: 0, hasUserTurn: false, artifactCount: 0, incomplete: false, archiveSaved: true, warning: '', pendingPrompt: pendingPrompt.trim().slice(0, 8000), meter: estimateMeter(id, makeAdapter(id, bundledSelectors).detectLimit(document).text, [], []), url: pageUrl() });
             return;
           }
-          const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey]);
+          const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey, `meter:${id}`]);
           const previousArchive = genericNewChat() || !result.turns.some(turn => turn.role === 'user') ? undefined : saved[archiveKey] as TurnArchive | undefined;
           const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, result.turns);
           archive.selectorsVersion = bundledSelectors.version;
@@ -194,7 +200,10 @@ export default defineContentScript({
           const warning = [result.warning, archive.incomplete ? 'Some captured windows did not overlap; transcript order or gaps need review.' : '', archive.truncated ? 'The local transcript reached its size cap; earliest text was trimmed.' : '', archiveSaved ? '' : 'Local storage is full; captured text could not be saved.', hadMoreTurns ? 'This chat previously showed more turns; older messages may be virtualized. Review the brief.' : ''].filter(Boolean).join(' ');
           const limit = makeAdapter(id, bundledSelectors).detectLimit(document);
           const history = Array.isArray(saved[limitHistoryKey]) ? saved[limitHistoryKey] as LimitEvent[] : [];
-          sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: result.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(undefined, archive.turns, result.artifacts), meter: estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history), url: pageUrl() });
+          const observed = estimateMeter(id, limit.text, archive.turns.map(turn => turn.text), history);
+          const storedMeter = saved[`meter:${id}`] as Meter | undefined;
+          const meter = limit.kind === 'unknown' && storedMeter?.tier === 'banner' && storedMeter.at && Date.now() - storedMeter.at < 3600000 ? storedMeter : observed;
+          sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: result.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief: updateBrief(undefined, archive.turns, result.artifacts), meter, url: pageUrl() });
         })().catch(error => sendResponse({ error: String(error) }));
         return true;
       }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { briefSchema, type Brief } from './brief';
 
-export const projectSchema = z.object({ id: z.string(), name: z.string(), updatedAt: z.number(), threads: z.array(z.string()), brief: briefSchema });
+export const projectSchema = z.object({ id: z.string(), name: z.string(), folder: z.string().max(80).optional(), updatedAt: z.number(), threads: z.array(z.string()), brief: briefSchema });
 export type Project = z.infer<typeof projectSchema>;
 
 export function mergeBrief(a: Brief, b: Brief): Brief {

@@ -8,6 +8,7 @@ export const briefSchema = z.object({
   decisions: z.array(decision).default([]), assumptions: z.array(z.object({ text: z.string(), risk: z.string() })).default([]),
   weak_spots: z.array(z.string()).default([]), artifacts: z.array(z.object({ name: z.string(), kind: z.string(), content_verbatim: z.string(), version: z.number() })).default([]),
   open_tasks: z.array(z.string()).default([]), open_questions: z.array(z.string()).default([]), rejected_approaches: z.array(z.string()).default([]),
+  key_findings: z.array(z.string()).default([]),
   last_exchange: z.object({ user: z.string(), assistant: z.string() }).default({ user: '', assistant: '' }),
   next_step: z.string().default(''), recommended_target: z.string().default('')
 });
@@ -59,6 +60,12 @@ function unansweredQuestions(text: string): string[] {
   return [...new Set(questions)].slice(0, 6);
 }
 
+function assistantFindings(text: string): string[] {
+  const lines = text.split('\n').map(line => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, '').replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').trim()).filter(Boolean);
+  const useful = lines.filter(line => !line.endsWith('?') && line.length >= 12 && line.length <= 240 && /(?:edge case|solution|auto.save|localstorage|database|filter|drag|inline edit|shortcut|priority|date|text|race|empty state|feature|stack|platform|persistence|structure|micro.interaction|whitespace|color|typography)/i.test(line));
+  return [...new Set(useful)].slice(0, 12);
+}
+
 export function updateBrief(previous: Brief | undefined, turns: Turn[], artifacts: Artifact[]): Brief {
   const base = previous ? structuredClone(previous) : briefSchema.parse({});
   const safeTurns = turns.map(t => ({ ...t, text: redact(t.text).text }));
@@ -70,6 +77,7 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
   base.open_questions = assistantIsLatest ? unansweredQuestions(lastAssistant?.text || '') : [];
   base.status = base.open_questions.length ? 'The assistant asked questions; the user has not answered yet.' : base.status === 'The assistant asked questions; the user has not answered yet.' ? '' : base.status;
   base.last_exchange = { user: lastUser?.text.slice(0, 600) || '', assistant: assistantOverview(lastAssistant?.text || '') };
+  base.key_findings = assistantIsLatest ? assistantFindings(lastAssistant?.text || '') : [];
   for (const turn of safeTurns) {
     if (turn.role !== 'user') continue;
     if (/\b(must|always|never|do not|don't)\b/i.test(turn.text) && !base.preferences.includes(turn.text.slice(0, 180))) base.preferences.push(turn.text.slice(0, 180));
@@ -96,6 +104,7 @@ export function renderBrief(brief: Brief, cap = 1500): { text: string; receipt: 
     b.artifacts.splice(oldest, 1);
     dropped.push('older artifact version');
   }
+  while (count() > cap && b.key_findings.length > 4) { b.key_findings.pop(); dropped.push('lower priority assistant detail'); }
   while (count() > cap && b.last_exchange.assistant.length > 80) { b.last_exchange.assistant = b.last_exchange.assistant.slice(0, -80); dropped.push('older assistant detail'); }
   while (count() > cap && b.last_exchange.user.length > 80) { b.last_exchange.user = b.last_exchange.user.slice(0, -80); dropped.push('older user detail'); }
   const raw = JSON.stringify(b);
@@ -110,6 +119,7 @@ export function renderBrief(brief: Brief, cap = 1500): { text: string; receipt: 
   list('Known weak spots', b.weak_spots);
   list('Artifacts', b.artifacts.map(a => `${a.name} (${a.kind}, version ${a.version}):\n${a.content_verbatim}`));
   list('Open tasks', b.open_tasks);
+  list('Useful work from the latest reply', b.key_findings);
   list('Unanswered questions', b.open_questions);
   list('Approaches to avoid', b.rejected_approaches);
   field('Latest user message', b.last_exchange.user);

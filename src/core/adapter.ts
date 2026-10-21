@@ -40,10 +40,40 @@ export function cleanNode(node: Element): string {
       const index = codeBlocks.push(children.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\r\n?/g, '\n').trimEnd()) - 1;
       return `\n\uFFF0${index}\uFFF1\n`;
     }
-    if (/^(P|DIV|LI|H[1-6]|BLOCKQUOTE)$/.test(element.tagName) && current !== clone) return `${children}\n`;
+    if (/^H[1-6]$/.test(element.tagName)) return `\n${'#'.repeat(Number(element.tagName[1]))} ${children.trim()}\n`;
+    if (element.tagName === 'LI') {
+      const parent = element.parentElement;
+      const prefix = parent?.tagName === 'OL' ? `${Array.from(parent.children).indexOf(element) + Number(parent.getAttribute('start') || 1)}. ` : '- ';
+      return `\n${prefix}${children.trim().replace(/\n/g, '\n  ')}\n`;
+    }
+    if (element.tagName === 'BLOCKQUOTE') return `\n> ${children.trim().replace(/\n/g, '\n> ')}\n`;
+    if (/^(P|DIV)$/.test(element.tagName) && current !== clone) return `${children}\n`;
     return children;
   };
-  return text(clone).replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim().replace(/\uFFF0(\d+)\uFFF1/g, (_, index: string) => codeBlocks[Number(index)] || '');
+  return text(clone).replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim().replace(/\uFFF0(\d+)\uFFF1/g, (_, index: string) => `\`\`\`\n${codeBlocks[Number(index)] || ''}\n\`\`\``);
+}
+
+function messageContent(node: Element, id: ProviderId): Element {
+  if (id === 'deepseek') return node.querySelector('.ds-markdown') || node;
+  if (id === 'gemini') {
+    const selector = node.matches('user-query')
+      ? '.query-text, .query-content, [class*="query-text"], [class*="query-content"]'
+      : '.model-response-text, .response-container, message-content, .markdown, [class*="response-content"]';
+    return node.querySelector(selector) || node;
+  }
+  if (id === 'claude') return node.querySelector('.standard-markdown, .progressive-markdown') || node;
+  return node;
+}
+
+function cleanTurn(node: Element, id: ProviderId): string {
+  const content = messageContent(node, id);
+  let result = cleanNode(content);
+  if (id === 'gemini') {
+    result = result.replace(/^(?:You|Gemini) said\s*\n?/i, '').trim();
+    const lines = result.split('\n').map(line => line.trim()).filter(Boolean);
+    if (lines.length === 2 && lines[0] === lines[1]) result = lines[0];
+  }
+  return result;
 }
 
 function cleanArtifact(node: Element): string {
@@ -57,6 +87,7 @@ export function collectTurnNodes(doc: Document, id: ProviderId, bundle: Selector
   const scopedRoot = id === 'deepseek' ? doc.querySelector('main, [role="main"]') : null;
   const collect = (root: Document | Element) => selectors.flatMap(selector => Array.from(root.querySelectorAll(selector)));
   const nodes = collect(scopedRoot || doc);
+  if (id === 'claude' && nodes.length === 0) nodes.push(...Array.from(doc.querySelectorAll('.font-user-message, [data-testid="human-message"], [data-testid="message-human"], [data-testid="ai-message"], [data-testid="assistant-message"], [data-testid="message-assistant"], .font-claude-message')));
   const fallback = scopedRoot && nodes.length === 0 ? collect(doc) : nodes;
   const allowed = [...new Set(fallback)].filter(node => !node.closest('nav, aside, [role="navigation"], [class*="sidebar" i], [id*="sidebar" i]'));
   const preferred = id === 'deepseek' && allowed.some(node => node.matches('.ds-message')) ? allowed.filter(node => node.matches('.ds-message')) : allowed;
@@ -75,6 +106,7 @@ function turnRole(node: Element, id: ProviderId): Turn['role'] {
     if (node.matches('[class*="assistant" i], [class*="agent" i]') || node.querySelector('.ds-markdown')) return 'assistant';
     return 'user';
   }
+  if (id === 'claude') return node.matches('.font-user-message, [data-testid="user-message"], [data-testid="human-message"], [data-testid="message-human"]') ? 'user' : 'assistant';
   return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"]') ? 'user' : 'assistant';
 }
 
@@ -86,7 +118,7 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
     extractTurns(doc) {
       return collectTurnNodes(doc, id, bundle).map((node, index) => ({
         role: turnRole(node, id),
-        text: cleanNode(id === 'deepseek' ? node.querySelector('.ds-markdown') || node : node), index
+        text: cleanTurn(node, id), index
       })).filter(t => t.text);
     },
     extractArtifacts(doc) {
@@ -124,7 +156,15 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
         const accessiblePercent = node.getAttribute('role') === 'progressbar' && node.hasAttribute('aria-valuenow') && /(?:usage|quota|session|weekly)/i.test(label) && Number.isFinite(current) && Number.isFinite(maximum) && maximum === 100 ? ` ${Math.round(current)}% used` : '';
         return `${label}${accessiblePercent} ${cleanNode(node)}`.trim();
       }).find(text => /(?:usage|quota|session|weekly|message|model|free).{0,90}(?:(?:\d{1,3}\s*%\s*(?:remaining|left|used|consumed))|(?:(?:remaining|left)\s*:?\s*\d{1,3}\s*%)|(?:\d[\d,]*\s+tokens?\s+(?:remaining|left))|(?:limit\s+(?:reached|exceeded)))|(?:limit reached|quota exceeded|(?:close to|approaching|almost at).{0,35}(?:usage|message|limit|quota))/i.test(text));
-      return match ? { kind: 'banner', text: match.slice(0, 240) } : { kind: 'unknown', text: '' };
+      if (match) return { kind: 'banner', text: match.slice(0, 240) };
+      // On Claude's own usage screen, read only a labeled value that the user can see.
+      if (id === 'claude' && /^\/settings\/usage\/?$/.test(doc.location.pathname)) {
+        const main = doc.querySelector('main, [role="main"]');
+        const visible = main ? cleanNode(main).slice(0, 5000) : '';
+        const session = visible.match(/(?:current\s+session|5.hour\s+session|session\s+usage)\s*[:\n ]*\s*(\d{1,3})\s*%\s*(?:used|consumed)?/i);
+        if (session && Number(session[1]) <= 100) return { kind: 'banner', text: `Session usage ${session[1]}% used (shown on Claude usage page)` };
+      }
+      return { kind: 'unknown', text: '' };
     }
   };
 }

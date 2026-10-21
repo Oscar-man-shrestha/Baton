@@ -8,6 +8,7 @@ import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
+import { listRecentCaptures } from '../../src/core/recent';
 
 const status = document.querySelector('#status') as HTMLElement;
 const draft = document.querySelector('#draft') as HTMLTextAreaElement;
@@ -63,6 +64,7 @@ async function showUsage() {
   }
 }
 void showUsage();
+document.querySelector('#check-claude-usage')?.addEventListener('click', () => { void chrome.tabs.create({ url: 'https://claude.ai/settings/usage' }); });
 chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
@@ -100,19 +102,23 @@ let currentIntent: Intent = 'planning';
 
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
-  library.hidden = projects.length === 0;
+  const recent = await listRecentCaptures(5);
+  library.hidden = projects.length === 0 && recent.length === 0;
   libraryList.replaceChildren();
-  for (const project of projects) {
+  for (const item of [
+    ...projects.map(project => ({ name: project.name, brief: project.brief, url: project.threads.at(-1) || '', detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
+    ...recent.map(capture => ({ name: capture.title, brief: capture.brief, url: capture.url, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
+  ]) {
     const button = document.createElement('button');
     button.type = 'button';
-    const title = document.createElement('strong'); title.textContent = project.name;
-    const detail = document.createElement('small'); detail.textContent = `${project.brief.open_tasks.length} open task${project.brief.open_tasks.length === 1 ? '' : 's'}`;
+    const title = document.createElement('strong'); title.textContent = item.name;
+    const detail = document.createElement('small'); detail.textContent = item.detail;
     button.append(title, detail);
     button.addEventListener('click', () => {
-      currentBrief = project.brief;
-      sourceUrl = project.threads.at(-1) || '';
+      currentBrief = item.brief;
+      sourceUrl = item.url;
       copyTranscript.disabled = !sourceUrl;
-      draft.value = wrapHandoff(renderBrief(project.brief).text);
+      draft.value = wrapHandoff(renderBrief(item.brief).text);
       reviewed = false;
       reviewPanel.open = false;
       flow.hidden = false;
@@ -121,7 +127,7 @@ const showLibrary = async () => {
       positiveFeedback.disabled = true;
       negativeFeedback.disabled = true;
       showDraftBudget();
-      status.textContent = `Loaded ${project.name}. Review the draft before continuing.`;
+      status.textContent = `Loaded ${item.name}. Review the draft before continuing.`;
     });
     libraryList.append(button);
   }
@@ -212,11 +218,12 @@ for (const [selector, positive] of [['#positive', true], ['#negative', false]] a
 
 document.querySelector('#save')?.addEventListener('click', async () => {
   const name = (document.querySelector('#project') as HTMLInputElement).value.trim();
+  const folder = (document.querySelector('#folder') as HTMLInputElement).value.trim().slice(0, 80);
   if (!name || !currentBrief) { status.textContent = 'Capture a chat and enter a project name first.'; return; }
   const projects = await listProjects();
-  const existing = projects.find(p => p.name.toLowerCase() === name.toLowerCase());
+  const existing = projects.find(p => p.name.toLowerCase() === name.toLowerCase() && (p.folder || '').toLowerCase() === folder.toLowerCase());
   const brief = existing ? mergeBrief(existing.brief, currentBrief) : briefSchema.parse(currentBrief);
-  await saveProject({ id: existing?.id || crypto.randomUUID(), name, updatedAt: Date.now(), threads: [...new Set([...(existing?.threads || []), sourceUrl])], brief });
+  await saveProject({ id: existing?.id || crypto.randomUUID(), name, folder: folder || undefined, updatedAt: Date.now(), threads: [...new Set([...(existing?.threads || []), sourceUrl].filter(Boolean))], brief });
   status.textContent = `Saved brief to ${name}.`;
   await showLibrary();
 });

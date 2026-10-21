@@ -48,13 +48,21 @@ async function showProjects() {
   if (!visible.length) { const empty = document.createElement('li'); empty.textContent = projects.length ? 'No matching projects.' : 'No projects saved yet.'; projectsElement.append(empty); }
   for (const project of visible) {
     const li = document.createElement('li');
-    const summary = document.createElement('span'); summary.textContent = `${project.name} — ${project.threads.length} chat(s), ${project.brief.open_tasks.length} open task(s)`;
+    const summary = document.createElement('span'); summary.textContent = `${project.folder ? `${project.folder} / ` : ''}${project.name} — ${project.threads.length} chat(s), ${project.brief.open_tasks.length} open task(s)`;
     const actions = document.createElement('div');
     const resume = document.createElement('button'); resume.textContent = 'Copy brief'; resume.setAttribute('aria-label', `Copy ${project.name} brief`);
     resume.addEventListener('click', async () => { await navigator.clipboard.writeText(wrapHandoff(renderBrief(project.brief).text)); health.textContent = `Copied ${project.name} as a readable handoff draft.`; });
     const remove = document.createElement('button'); remove.textContent = 'Delete'; remove.className = 'danger'; remove.setAttribute('aria-label', `Delete ${project.name}`);
     remove.addEventListener('click', async () => { if (!confirm(`Delete ${project.name} from saved projects?`)) return; await deleteProject(project.id); health.textContent = `${project.name} deleted.`; await showProjects(); });
-    actions.append(resume, remove); li.append(summary, actions); projectsElement.append(li);
+    const move = document.createElement('button'); move.textContent = 'Folder'; move.setAttribute('aria-label', `Change folder for ${project.name}`);
+    move.addEventListener('click', async () => {
+      const folder = prompt(`Folder for ${project.name} (leave blank for none)`, project.folder || '');
+      if (folder === null) return;
+      await saveProject({ ...project, folder: folder.trim().slice(0, 80) || undefined, updatedAt: Date.now() });
+      health.textContent = `Folder updated for ${project.name}.`;
+      await showProjects();
+    });
+    actions.append(resume, move, remove); li.append(summary, actions); projectsElement.append(li);
   }
 }
 projectSearch.addEventListener('input', () => { void showProjects(); });

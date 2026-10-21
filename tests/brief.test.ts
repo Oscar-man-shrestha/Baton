@@ -77,4 +77,16 @@ describe('brief', () => {
     expect(draft).not.toContain('Reply only with Ready');
     expect(draftBudget(draft).fits).toBe(true);
   });
+  it('carries actionable details from a long Gemini answer into the next chat', () => {
+    const turns = [
+      { role: 'user' as const, text: 'Hey I wanna make to do list beautiful that works in all edge cases', index: 0 },
+      { role: 'assistant' as const, text: '## Handling the Edge Cases\n- Extremely Long Text: Wrap task names and avoid overflow.\n- Rapid-Fire Creation & Deletion: Use unique IDs.\n- Accidental Data Loss: Auto-save edits and persist to localStorage.\n## Feature Checklist\n- Inline Editing: edit task text.\n- Keyboard Shortcuts: Enter, Escape and undo delete.\n- Filtering Tabs: All, Active, Completed.\nWhat specific tech stack or platform are you planning to build this in?', index: 1 }
+    ];
+    const handoff = wrapHandoff(renderBrief(updateBrief(undefined, turns, [])).text);
+    expect(handoff).toContain('Extremely Long Text');
+    expect(handoff).toContain('Accidental Data Loss');
+    expect(handoff).toContain('Inline Editing');
+    expect(handoff).toContain('What specific tech stack or platform');
+    expect(draftBudget(handoff).fits).toBe(true);
+  });
 });

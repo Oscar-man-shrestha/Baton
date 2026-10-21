@@ -25,5 +25,5 @@ export function usageAlert(meter: Meter, delivered: readonly string[], now = Dat
 export function meterSummary(meter?: Meter, now = Date.now()): string {
   if (!meter || meter.tier !== 'banner' || !meter.at || now - meter.at > 3600000) return 'No recent service limit signal';
   const status = meter.percent === 100 ? 'Limit reached' : meter.remainingPercent !== undefined ? `${meter.remainingPercent}% left` : meter.remainingTokens !== undefined ? `${meter.remainingTokens.toLocaleString()} tokens left` : meter.nearLimit ? 'Near limit' : 'Balance unknown';
-  return `${status}, shown by service${meter.resetAt && meter.resetAt > now ? ` · resets ${new Date(meter.resetAt).toLocaleString()}` : ''}`;
+  return `${status}, ${now - meter.at > 300000 ? `last shown ${new Date(meter.at).toLocaleTimeString()}` : 'shown by service'}${meter.resetAt && meter.resetAt > now ? ` · resets ${new Date(meter.resetAt).toLocaleString()}` : ''}`;
 }
