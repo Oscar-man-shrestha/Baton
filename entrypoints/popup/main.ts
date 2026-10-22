@@ -629,6 +629,12 @@ if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefres
 const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
 composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
 composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });
+// While the bar under chat boxes is hidden (× on the bar), offer one click to bring it back.
+const showBar = document.querySelector('#show-composer-bar') as HTMLButtonElement | null;
+const syncShowBar = (enabled: boolean) => { if (showBar) showBar.hidden = enabled; composerToggle.checked = enabled; };
+syncShowBar(composerToggle.checked);
+showBar?.addEventListener('click', () => { void chrome.storage.local.set({ composerUsageEnabled: true }); });
+chrome.storage.onChanged.addListener(changes => { if (changes.composerUsageEnabled) syncShowBar(changes.composerUsageEnabled.newValue !== false); });
 
 const cloudStatus = document.querySelector('#cloud-status') as HTMLElement;
 const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');

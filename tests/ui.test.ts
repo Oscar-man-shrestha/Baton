@@ -79,6 +79,8 @@ describe('Baton naming', () => {
     // The current AI's card comes first; every other AI is inside the closed “Other AIs” drop-down.
     expect(order.querySelector('#active-usage')!.compareDocumentPosition(order.querySelector('#other-lanes')!) & 4).toBeTruthy();
     expect(order.querySelector('#other-lanes')?.contains(order.querySelector('#lanes'))).toBe(true);
+    // The bar under chat boxes can be hidden with its ×; this link (hidden by default) brings it back.
+    expect(order.querySelector('.lanes-section #show-composer-bar')?.hasAttribute('hidden')).toBe(true);
     const doc = new JSDOM(popup).window.document;
     // Not Capsule Infinity's layout: no stat tiles, one primary pass action, lanes above the list.
     expect(doc.querySelector('.stats')?.tagName).toBe('P');
