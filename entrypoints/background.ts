@@ -8,6 +8,7 @@ import { refreshAfterSendDue, refreshAllUsage } from '../src/core/usage-refresh'
 import { usagePageUrl } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
 import { providerEnabled, providerNames } from '../src/core/rescue';
+import { fetchRankings } from '../src/core/task-fit';
 
 export default defineBackground(() => {
   const enqueueUsage = usageQueue();
@@ -31,6 +32,18 @@ export default defineBackground(() => {
   chrome.tabs.onUpdated.addListener((tabId, change) => {
     if (change.status !== 'loading') return;
     void enqueueUsage(async () => { await chrome.storage.session.remove(badgeKey(tabId)); await chrome.action.setBadgeText({ tabId, text: '' }); }).catch(() => {});
+  });
+  // Suggestion rankings: a public file in Baton's GitHub repo, checked once a day so a better model can be
+  // suggested without a new release. Only that file is downloaded; nothing is sent. The bundled list is the fallback.
+  const updateRankings = async () => { const saved = await fetchRankings(); if (saved) await chrome.storage.local.set({ rankingsRemote: saved }); return !!saved; };
+  const scheduleRankings = () => { void chrome.alarms.get('baton-rankings').then(alarm => { if (!alarm) void chrome.alarms.create('baton-rankings', { delayInMinutes: 1, periodInMinutes: 1440 }); }).catch(() => {}); };
+  chrome.runtime.onInstalled.addListener(scheduleRankings);
+  chrome.runtime.onStartup.addListener(scheduleRankings);
+  chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'baton-rankings') void updateRankings().catch(() => {}); });
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'REFRESH_RANKINGS' || !_sender.url?.startsWith(chrome.runtime.getURL(''))) return;
+    void updateRankings().then(ok => sendResponse({ ok }), () => sendResponse({ ok: false }));
+    return true;
   });
   // Existing chat tabs connect after installation/update without reloading them.
   chrome.runtime.onInstalled.addListener(() => { void (async () => {

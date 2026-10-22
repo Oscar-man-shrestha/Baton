@@ -18,6 +18,10 @@ When the user opens Baton on a supported chat tab that was already open before i
 
 The source includes an opt-in, hash-verified remote selector updater, but the current interface does not enable it. If introduced later, the privacy policy and permission disclosures must be updated with the exact endpoint and data transferred.
 
+## Suggestion rankings
+
+Once a day Baton downloads one public file, `rankings.json`, from its GitHub repository (`raw.githubusercontent.com/Oscar-man-shrestha/handoff/main/rankings.json`). The file holds the order in which Baton suggests AIs for each kind of task. The request carries no cookies and no information about the user, their chats or their prompts. The file is checked before use, and Baton keeps its built-in list if the file is missing, invalid or older. The task type of a prompt is guessed on the device from keywords; prompts are never sent for this. The order a user sets in Settings, and the AIs they pick, are stored only in this browser.
+
 ## Optional Google sign-in and Supabase backup
 
 The source now includes optional Google OAuth/PKCE and Supabase backup code. When configured and connected, Google and Supabase process app sign-in; Baton stores its own app authentication in extension session storage, cleared when the browser exits. It never reads an AI provider's session credentials. The configured build requests identity access and the exact Supabase project origin, not arbitrary websites.

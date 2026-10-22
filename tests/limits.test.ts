@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { estimateMeter, parseReset, shouldNudge } from '../src/core/limits';
-import { providerTable, rankProviders, trainClassifier } from '../src/core/router';
 import { encode } from 'gpt-tokenizer';
 
 describe('limits and routing', () => {
@@ -25,18 +24,5 @@ describe('limits and routing', () => {
     expect(meter.confidence).toBe('low');
     expect(shouldNudge(meter)).toBe(true);
     expect(meter.explanation).toContain('not the provider allowance');
-  });
-  it('classifies planning and ranks enabled alternatives', () => {
-    expect(trainClassifier()('make a plan for my app')).toBe('planning');
-    expect(rankProviders('planning', 'claude')[0]?.id).not.toBe('claude');
-  });
-  it('uses edited provider intent fit in ranking', () => {
-    const table = providerTable.map(provider => ({ ...provider, enabled: provider.id === 'gemini' || provider.id === 'claude', intents: provider.id === 'gemini' ? ['coding' as const] : [] }));
-    expect(rankProviders('coding', 'chatgpt', table)[0]?.id).toBe('gemini');
-  });
-  it('downranks a destination with a visible limit notice', () => {
-    const table = providerTable.map(provider => ({ ...provider, enabled: provider.id === 'gemini' || provider.id === 'claude', intents: ['planning' as const] }));
-    const limited = estimateMeter('claude', 'Usage limit reached', []);
-    expect(rankProviders('planning', 'chatgpt', table, { claude: limited })[0]?.id).toBe('gemini');
   });
 });

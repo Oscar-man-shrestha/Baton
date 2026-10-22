@@ -3,8 +3,8 @@ import { bundledSelectors, providerIds, type ProviderId } from '../src/core/sele
 import { collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/adapter';
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule } from '../src/core/capsules';
-import { accountSwitch, newChatUrls, providerNames, reachedLimit, rescueOptions } from '../src/core/rescue';
-import { fitReason, promptTopic, rankForTopic, topicNames } from '../src/core/task-fit';
+import { accountSwitch, newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
+import { addPick, suggest, suggestionKeys, topicNames, type TaskPicks } from '../src/core/task-fit';
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
@@ -108,16 +108,17 @@ export default defineContentScript({
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
       return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
     };
-    const usageKeys = () => [...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders'];
     const updateRescue = async () => {
-      const saved = await chrome.storage.local.get([...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders']);
+      const saved = await chrome.storage.local.get(suggestionKeys());
       const limit = reachedLimit(saved, id);
       const signature = limit ? `${limit.feature}:${limit.resetAt ?? ''}` : '';
       if (!limit || signature === dismissedRescue) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); rescueSignature = ''; return; }
       if (signature === rescueSignature) return;
       rescueSignature = signature;
       const name = providerNames[id];
-      const card = buildRescueCard(document, limit, rescueOptions(id, saved, (saved.enabledProviders || {}) as Record<string, boolean>), {
+      // Ranked for what this chat is about, the same as the Baton menu.
+      const asked = extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-3).map(turn => turn.text).join('\n');
+      const card = buildRescueCard(document, limit, suggest(asked, id, saved).options, {
         continueIn: passTo,
         switchAccount: async () => {
           const draft = await rescueDraft();
@@ -164,13 +165,12 @@ export default defineContentScript({
     const laneColor: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
     const closePassMenu = () => { passMenu.hidden = true; passButton.setAttribute('aria-expanded', 'false'); };
     const openPassMenu = async () => {
-      const saved = await chrome.storage.local.get(usageKeys());
+      const saved = await chrome.storage.local.get(suggestionKeys());
       // Suggest by what the prompt is about: the text being typed, else the last few things the user asked.
       const editor = findEditor(document, bundledSelectors.providers[id].editor);
       const typed = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '';
       const asked = typed.trim() || extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-3).map(turn => turn.text).join('\n');
-      const topic = promptTopic(asked);
-      const options = rankForTopic(rescueOptions(id, saved, (saved.enabledProviders || {}) as Record<string, boolean>), topic);
+      const { topic, options, reason } = suggest(asked, id, saved);
       const suggested = options.find(option => option.status !== 'limited');
       passMenu.replaceChildren();
       const title = document.createElement('h2'); title.textContent = 'Pass the baton to…';
@@ -181,11 +181,15 @@ export default defineContentScript({
       for (const option of options) {
         const item = document.createElement('button'); item.type = 'button'; item.className = 'opt'; item.setAttribute('role', 'menuitem');
         const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', laneColor[option.provider]);
-        const text = document.createElement('span'); const name = document.createElement('b'); name.textContent = providerNames[option.provider]; const detail = document.createElement('small'); const why = fitReason(topic, option.provider); detail.textContent = why && option.status !== 'limited' ? `${why} · ${option.detail}` : option.detail; text.append(name, detail);
+        const text = document.createElement('span'); const name = document.createElement('b'); name.textContent = providerNames[option.provider]; const detail = document.createElement('small'); const why = reason(option.provider); detail.textContent = why && option.status !== 'limited' ? `${why} · ${option.detail}` : option.detail; text.append(name, detail);
         item.append(dot, text);
         if (option === suggested) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Suggested'; item.append(tag); }
         if (option.status === 'limited') item.setAttribute('aria-disabled', 'true');
-        else item.addEventListener('click', () => { void run(() => passTo(option.provider)); });
+        else item.addEventListener('click', () => {
+          // Each pass teaches the order for this kind of task (kept on this device).
+          void chrome.storage.local.get('taskPicks').then(stored => chrome.storage.local.set({ taskPicks: addPick(stored.taskPicks as TaskPicks | undefined, topic, option.provider) })).catch(() => {});
+          void run(() => passTo(option.provider));
+        });
         passMenu.append(item);
       }
       const row = document.createElement('div'); row.className = 'row';

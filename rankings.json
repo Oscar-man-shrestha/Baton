@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "updated": "2026-10-22",
+  "note": "Which AI Baton suggests for each kind of task, best first. Baton reads this file from GitHub once a day; edit it to change suggestions without a new release. See RANKINGS.md.",
+  "bestFor": {
+    "code": ["claude", "deepseek", "chatgpt", "gemini", "grok", "perplexity"],
+    "research": ["perplexity", "gemini", "chatgpt", "claude", "grok", "deepseek"],
+    "news": ["perplexity", "grok", "gemini", "chatgpt", "claude", "deepseek"],
+    "writing": ["claude", "chatgpt", "gemini", "grok", "deepseek", "perplexity"],
+    "math": ["deepseek", "chatgpt", "gemini", "claude", "grok", "perplexity"],
+    "image": ["chatgpt", "gemini", "grok", "perplexity", "claude", "deepseek"],
+    "general": ["chatgpt", "claude", "gemini", "deepseek", "grok", "perplexity"]
+  },
+  "reasons": {
+    "code": { "claude": "strong at code", "deepseek": "strong at code", "chatgpt": "good at code" },
+    "research": { "perplexity": "searches the web with sources", "gemini": "searches with Google", "chatgpt": "can search the web" },
+    "news": { "perplexity": "live web search", "grok": "live web and X posts", "gemini": "searches with Google" },
+    "writing": { "claude": "natural writing", "chatgpt": "versatile writer" },
+    "math": { "deepseek": "step-by-step reasoning", "chatgpt": "strong reasoning" },
+    "image": { "chatgpt": "makes images", "gemini": "makes images", "grok": "makes images" }
+  },
+  "keywords": {}
+}

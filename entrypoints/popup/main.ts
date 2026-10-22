@@ -1,7 +1,7 @@
 import { renderBrief, wrapHandoff, draftBudget, redact } from '../../src/core/brief';
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
-import { rankProviders, trainClassifier, providerTable, type Feedback, type Intent } from '../../src/core/router';
+import { addPick, suggest, suggestionKeys, topicNames, type TaskPicks, type Topic } from '../../src/core/task-fit';
 import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
@@ -294,7 +294,7 @@ await pruneExpired();
 let source: ProviderId = 'chatgpt';
 let currentBrief: Brief | undefined;
 let sourceUrl = '';
-let currentIntent: Intent = 'planning';
+let currentTopic: Topic = 'general';
 
 const refreshContext = async () => {
   const archive = sourceUrl ? (await chrome.storage.local.get(`archive:brief:${sourceUrl}`))[`archive:brief:${sourceUrl}`] as TurnArchive | undefined : undefined;
@@ -409,7 +409,7 @@ librarySearch.addEventListener('input', () => { void showLibrary(); });
 
 void showLibrary();
 
-const settings = await chrome.storage.local.get(['enabledProviders', 'providerIntents', 'routerFeedback']);
+const settings = await chrome.storage.local.get(['enabledProviders']);
 const capsuleDialog = document.querySelector('#new-capsule-dialog') as HTMLDialogElement;
 document.querySelector('#manual')?.addEventListener('click', () => { capsuleDialog.showModal(); (document.querySelector('#capsule-name') as HTMLInputElement).focus(); });
 document.querySelector('#cancel-capsule')?.addEventListener('click', () => capsuleDialog.close());
@@ -425,8 +425,6 @@ capsuleDialog.querySelector('form')?.addEventListener('submit', async event => {
   } catch { (document.querySelector('#capsule-error') as HTMLElement).textContent = 'Could not save this baton. Your text is still here; try again.'; }
 });
 const enabled = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
-const providerIntents = (settings.providerIntents && typeof settings.providerIntents === 'object' ? settings.providerIntents : {}) as Record<string, Intent[]>;
-let feedback = Array.isArray(settings.routerFeedback) ? settings.routerFeedback as Feedback[] : [];
 for (const option of Array.from(destination.options)) {
   const id = option.value;
   option.disabled = !providerEnabled(id as ProviderId, enabled);
@@ -476,23 +474,16 @@ captureButton.addEventListener('click', async () => {
     }
     await showLibrary();
     const meter = data.meter as Meter;
-    const intent = trainClassifier()(data.pendingPrompt || brief.last_exchange.user);
-    currentIntent = intent;
-    intentLabel.textContent = `Task type: ${intent}. Suggestions are approximate.`;
-    const table = providerTable.map(p => ({ ...p, enabled: enabled[p.id] ?? p.enabled, intents: providerIntents[p.id] ?? p.intents }));
-    const savedMeters = await chrome.storage.local.get(providerIds.map(id => `meter:${id}`));
-    const meters: Partial<Record<ProviderId, Meter>> = {};
-    for (const id of providerIds) {
-      const observed = savedMeters[`meter:${id}`] as (Meter & { at?: number }) | undefined;
-      const age = Date.now() - Number(observed?.at);
-      if (observed && Number.isFinite(age) && age >= 0 && age < 3600000 && observed.provider === id) meters[id] = observed;
-    }
-    const choices = rankProviders(intent, source, table, meters, feedback);
+    // Same suggestions as the Baton button: the task's topic, Baton's rankings list, your order and picks, then usage left.
+    const suggestion = suggest(data.pendingPrompt || brief.last_exchange.user, source, await chrome.storage.local.get(suggestionKeys()));
+    currentTopic = suggestion.topic;
+    intentLabel.textContent = `Task type: ${topicNames[suggestion.topic]}. Suggestions are approximate.`;
+    const choices = suggestion.options.filter(option => option.status !== 'limited').map(option => ({ id: option.provider }));
     positiveFeedback.disabled = choices.length === 0;
     negativeFeedback.disabled = choices.length === 0;
     destination.value = choices[0]?.id || 'chatgpt';
     showAccountHelp();
-    recommendation.textContent = choices[0] ? `Suggested: ${destination.selectedOptions[0].text} for ${intent}. You can change this.` : 'No other service is enabled. You can copy the draft.';
+    recommendation.textContent = choices[0] ? `Suggested: ${destination.selectedOptions[0].text} for ${topicNames[currentTopic].toLowerCase()}. You can change this.` : 'No other service is enabled. You can copy the draft.';
     const visibleWarnings = [data.warning, ...rendered.receipt.warnings].filter(Boolean);
     status.textContent = `${data.turnCount} visible messages captured. ${visibleWarnings.length ? visibleWarnings.join(' ') : 'Review the draft before continuing.'}`;
     meterLabel.textContent = `Usage balance: ${meter.tier === 'banner' && meter.remainingPercent !== undefined ? `${meter.remainingPercent}% shown by ${source}` : meter.tier === 'banner' && meter.remainingTokens !== undefined ? `${meter.remainingTokens.toLocaleString()} tokens shown by ${source}` : meter.tier === 'banner' && meter.percent === 100 ? 'limit reached, shown by service' : 'unknown'}. ${meter.resetAt ? `Approximate reset: ${new Date(meter.resetAt).toLocaleString()}.` : 'Reset time unknown.'}`;
@@ -504,9 +495,9 @@ captureButton.addEventListener('click', async () => {
 });
 
 for (const [selector, positive] of [['#positive', true], ['#negative', false]] as const) document.querySelector(selector)?.addEventListener('click', async () => {
-  feedback = [...feedback, { intent: currentIntent, provider: destination.value as ProviderId, positive }];
-  await chrome.storage.local.set({ routerFeedback: feedback });
-  status.textContent = 'Recommendation feedback saved locally.';
+  const stored = await chrome.storage.local.get('taskPicks');
+  await chrome.storage.local.set({ taskPicks: addPick(stored.taskPicks as TaskPicks | undefined, currentTopic, destination.value as ProviderId, positive ? 1 : -1) });
+  status.textContent = 'Thanks. Baton will lean this way for this kind of task (saved on this device).';
 });
 
 document.querySelector('#save')?.addEventListener('click', async () => {

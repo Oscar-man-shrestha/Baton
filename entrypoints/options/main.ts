@@ -1,6 +1,7 @@
 import { providerIds, bundledSelectors, type ProviderId } from '../../src/core/selectors';
 import { deleteAll, deleteProject, exportProjects, importProjects, listProjects, pruneExpired, saveProject, type Project } from '../../src/core/projects';
-import { providerTable, type Intent } from '../../src/core/router';
+import { providerNames } from '../../src/core/rescue';
+import { activeRankings, topicNames, topicOrder, topics, type TaskPicks, type Topic, type UserOrder } from '../../src/core/task-fit';
 import { renderBrief, wrapHandoff, redact } from '../../src/core/brief';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 
@@ -26,32 +27,62 @@ await pruneExpired();
 const lastInsertion = (await chrome.storage.local.get('lastDraftInsertion')).lastDraftInsertion as { at?: number; ok?: boolean; attempts?: number } | undefined;
 if (lastInsertion?.at) health.textContent = `Last draft insertion: ${lastInsertion.ok ? 'editor confirmed' : 'failed; use Copy draft'} after ${lastInsertion.attempts || '?'} attempt(s), ${new Date(lastInsertion.at).toLocaleString()}.`;
 else health.textContent = '';
-const settings = await chrome.storage.local.get(['enabledProviders', 'providerIntents']);
+const settings = await chrome.storage.local.get(['enabledProviders']);
 const enabled: Record<string, boolean> = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
-const providerIntents = (settings.providerIntents && typeof settings.providerIntents === 'object' ? settings.providerIntents : {}) as Partial<Record<ProviderId, Intent[]>>;
-const intents: Intent[] = ['planning', 'coding', 'writing', 'research', 'reasoning'];
 for (const id of providerIds) {
-  const row = document.createElement('div');
-  row.style.marginBottom = '12px';
   const label = document.createElement('label');
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox'; checkbox.checked = enabled[id] ?? true;
   checkbox.addEventListener('change', () => { enabled[id] = checkbox.checked; void chrome.storage.local.set({ enabledProviders: enabled }); });
-  const defaults = providerTable.find(provider => provider.id === id);
-  label.append(checkbox, document.createTextNode(` ${id} — last verified: ${defaults?.lastVerified || 'unverified'}`)); row.append(label);
-  const fits = document.createElement('div'); fits.style.marginLeft = '20px';
-  for (const intent of intents) {
-    const fitLabel = document.createElement('label'); fitLabel.style.marginRight = '8px';
-    const fit = document.createElement('input'); fit.type = 'checkbox'; fit.checked = (providerIntents[id] || defaults?.intents || []).includes(intent);
-    fit.addEventListener('change', () => {
-      const selected = new Set(providerIntents[id] || defaults?.intents || []);
-      if (fit.checked) selected.add(intent); else selected.delete(intent);
-      providerIntents[id] = [...selected]; void chrome.storage.local.set({ providerIntents });
-    });
-    fitLabel.append(fit, document.createTextNode(` ${intent}`)); fits.append(fitLabel);
-  }
-  row.append(fits); providers.append(row);
+  label.append(checkbox, document.createTextNode(` ${providerNames[id]}`)); providers.append(label);
 }
+// Order per task: Baton's list (from GitHub when newer), nudged by your picks, unless you set your own order here.
+const rankingTopic = document.querySelector('#ranking-topic') as HTMLSelectElement;
+const rankingList = document.querySelector('#ranking-list') as HTMLOListElement;
+const rankingSource = document.querySelector('#ranking-source') as HTMLElement;
+const rankingHint = document.querySelector('#ranking-hint') as HTMLElement;
+for (const topic of topics) rankingTopic.append(new Option(topicNames[topic], topic));
+const showRanking = async () => {
+  const saved = await chrome.storage.local.get(['rankingsRemote', 'rankingsUser', 'taskPicks']);
+  const { rankings, online, fetchedAt } = activeRankings(saved.rankingsRemote);
+  const userOrder = (saved.rankingsUser || {}) as UserOrder;
+  const picks = saved.taskPicks as TaskPicks | undefined;
+  const topic = rankingTopic.value as Topic;
+  const order = topicOrder(topic, rankings, userOrder, picks);
+  rankingSource.textContent = online ? `Baton's list updated ${rankings.updated}, checked ${new Date(fetchedAt!).toLocaleString()}.` : `Baton's built-in list (${rankings.updated}). Updates are checked once a day.`;
+  rankingHint.textContent = userOrder[topic]?.length ? 'Your own order is used for this task.' : Object.values(picks?.[topic] || {}).some(Boolean) ? "Baton's order, adjusted by the AIs you picked for this task." : "Baton's order. Move an AI up or down to set your own.";
+  rankingList.replaceChildren(...order.map((id, index) => {
+    const item = document.createElement('li');
+    const name = document.createElement('span'); name.className = 'name'; name.textContent = providerNames[id];
+    const why = document.createElement('span'); why.className = 'why'; why.textContent = rankings.reasons[topic]?.[id] || '';
+    const move = (delta: number, label: string, symbol: string) => {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = symbol; button.setAttribute('aria-label', `Move ${providerNames[id]} ${label}`);
+      button.disabled = index + delta < 0 || index + delta >= order.length;
+      button.addEventListener('click', async () => {
+        const next = [...order]; [next[index], next[index + delta]] = [next[index + delta], next[index]];
+        await chrome.storage.local.set({ rankingsUser: { ...userOrder, [topic]: next } }); await showRanking();
+        (rankingList.children[index + delta]?.querySelector(`button[aria-label^="Move ${providerNames[id]} ${label}"]`) as HTMLButtonElement | null)?.focus();
+      });
+      return button;
+    };
+    item.append(name, why, move(-1, 'up', '↑'), move(1, 'down', '↓'));
+    return item;
+  }));
+};
+rankingTopic.addEventListener('change', () => { void showRanking(); });
+document.querySelector('#ranking-reset')?.addEventListener('click', async () => {
+  const userOrder = { ...((await chrome.storage.local.get('rankingsUser')).rankingsUser || {}) } as UserOrder;
+  delete userOrder[rankingTopic.value as Topic];
+  await chrome.storage.local.set({ rankingsUser: userOrder }); await showRanking();
+});
+document.querySelector('#ranking-forget')?.addEventListener('click', async () => { await chrome.storage.local.remove('taskPicks'); await showRanking(); });
+document.querySelector('#ranking-update')?.addEventListener('click', async event => {
+  const button = event.currentTarget as HTMLButtonElement; button.disabled = true; rankingSource.textContent = 'Checking…';
+  const result = await chrome.runtime.sendMessage({ type: 'REFRESH_RANKINGS' }).catch(() => undefined);
+  await showRanking(); if (!result?.ok) rankingSource.textContent += ' No newer list was found; nothing changed.';
+  button.disabled = false;
+});
+await showRanking();
 async function showProjects() {
   projectsElement.replaceChildren();
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
