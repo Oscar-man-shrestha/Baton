@@ -325,7 +325,7 @@ function renderActiveUsage(saved: Record<string, any>) {
     container.append(row);
   }
   // ChatGPT's page covers Codex/Work and credits only; say plainly that chat itself shows no limit.
-  if (activeProvider === 'chatgpt' && readings.length && !readings.some(reading => estimable(reading))) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = 'Chat: ChatGPT shows no chat limit. The figures below are for Codex and Work.'; container.prepend(line); }
+  if (activeProvider === 'chatgpt' && readings.length && !readings.some(reading => estimable(reading))) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = 'Chat: ChatGPT has no chat limit. Thinking and feature allowances come from ChatGPT; 5-hour and weekly are for Codex and Work.'; container.prepend(line); }
   const counted = countedLine(saved, activeProvider);
   if (counted) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = counted; container.append(line); }
   if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }

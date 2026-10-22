@@ -15,7 +15,7 @@ import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
-import { chatFeature, chatSegments, workSegments, type Segment } from '../src/core/composer-line';
+import { chatFeature, chatSegments, countSegments, workSegments, type Segment } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
@@ -395,7 +395,7 @@ export default defineContentScript({
         nextBody.append(node);
       };
       // ChatGPT: its Plan limits (Codex/Work, not chat) are the only numbers it publishes, so they follow the chat count.
-      const work = id === 'chatgpt' ? workSegments(extras) : [];
+      const work = id === 'chatgpt' ? [...countSegments(windows), ...workSegments(extras)] : [];
       const segments = chatSegments(chat);
       if (segments.length) segments.forEach(addSegment);
       else {
@@ -706,6 +706,15 @@ export default defineContentScript({
     };
     chrome.storage.onChanged.addListener(settingsChanged);
     ctx.onInvalidated(() => chrome.storage.onChanged.removeListener(settingsChanged));
+    // Usage the site fetched for itself (copied by the usage tap in the page): handed to the background to read and save.
+    const tapped = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== location.origin) return;
+      const data = event.data as { source?: unknown; kind?: unknown; text?: unknown } | null;
+      if (!data || data.source !== 'baton-usage-tap' || typeof data.kind !== 'string' || typeof data.text !== 'string' || data.text.length > 400000) return;
+      void chrome.runtime.sendMessage({ type: 'API_USAGE', kind: data.kind, text: data.text }).catch(() => {});
+    };
+    window.addEventListener('message', tapped);
+    ctx.onInvalidated(() => window.removeEventListener('message', tapped));
     scheduleStatus();
     const captureOlderTurns = async (): Promise<Extraction> => {
       const initial = extract(document, id, bundledSelectors);

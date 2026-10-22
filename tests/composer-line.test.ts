@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatFeature, chatSegments, workSegments } from '../src/core/composer-line';
+import { chatFeature, chatSegments, countSegments, workSegments } from '../src/core/composer-line';
 
 const now = Date.UTC(2026, 9, 22, 4);
 const min = 60000;
@@ -32,5 +32,13 @@ describe('usage bar under the composer', () => {
     ]);
     expect(workSegments([work('Work 5-hour', 88, now + 42 * min)], now)).toEqual([{ label: 'Work 5h', value: '12% left', left: 12, level: 'low', note: '42m' }]);
     expect(workSegments([win('Session', 40), win('Weekly', 10)], now)).toEqual([]);
+  });
+  it('shows ChatGPT’s Thinking allowance as a count, never as a chat percentage', () => {
+    const thinking = (remaining: number, extra: Record<string, unknown> = {}) => ({ ...win('Thinking', 0), provider: 'chatgpt', key: 'chatgpt:Thinking', percent: undefined, remainingPercent: undefined, remainingCount: remaining, source: 'provider-response', resetAt: now + 286 * min, ...extra });
+    expect(countSegments([thinking(3)], now)).toEqual([{ label: 'Thinking', value: '3 left', level: 'ok', note: '4h 46m' }]);
+    expect(countSegments([thinking(1, { percent: 90, remainingPercent: 10 })], now)).toEqual([{ label: 'Thinking', value: '1 left', left: 10, level: 'mid', note: '4h 46m' }]);
+    expect(countSegments([thinking(0, { percent: 100 })], now)[0].level).toBe('low');
+    expect(chatSegments([thinking(1, { percent: 90, remainingPercent: 10 })], now)).toEqual([]);
+    expect(countSegments([win('Session', 20)], now)).toEqual([]);
   });
 });

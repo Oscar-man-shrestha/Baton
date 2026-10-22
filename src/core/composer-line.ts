@@ -11,7 +11,8 @@ const short = (feature: string) => feature.replace(/\s*usage$/i, '').replace(/^c
 
 /** The tightest chat windows first, at most two, as “N% left” with their reset. */
 export function chatSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
-  return windows.filter(win => chatFeature(win.feature) && win.percent !== undefined)
+  // Allowances counted in messages (ChatGPT's Thinking) read as “N left” in countSegments, not as a percentage here.
+  return windows.filter(win => chatFeature(win.feature) && win.percent !== undefined && !(win.source === 'provider-response' && win.remainingCount !== undefined))
     .sort((a, b) => b.percent! - a.percent!).slice(0, 2)
     .map(win => {
       const left = Math.max(0, Math.round(100 - win.percent!));
@@ -33,4 +34,14 @@ export function workSegments(windows: DisplayWindow[], now = Date.now()): Segmen
     const reset = resetCountdown(win.resetAt, now);
     return [{ label, value: `${left}% left`, left, level: level(left), ...(reset ? { note: reset } : {}) }];
   });
+}
+
+/** ChatGPT's Thinking allowance, as the site reports it: “Thinking 3 left · 4h 46m” (a ring when the maximum is known). */
+export function countSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
+  const win = windows.find(candidate => candidate.feature === 'Thinking' && candidate.remainingCount !== undefined);
+  if (!win) return [];
+  const count = win.remainingCount!;
+  const reset = resetCountdown(win.resetAt, now);
+  const left = win.percent !== undefined ? Math.max(0, Math.round(100 - win.percent)) : undefined;
+  return [{ label: 'Thinking', value: `${count} left`, ...(left !== undefined ? { left } : {}), level: count === 0 ? 'low' : count <= 2 ? 'mid' : 'ok', ...(reset ? { note: reset } : {}) }];
 }

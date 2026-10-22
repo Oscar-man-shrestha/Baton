@@ -3,7 +3,8 @@ import { bundledSelectors, providerIds, type ProviderId } from '../src/core/sele
 import { usageAlert } from '../src/core/usage-alerts';
 import { isSupportedChatUrl } from '../src/core/connection';
 import { currentBadge, updateBadge, usageQueue, type BadgeRecord } from '../src/core/usage-delivery';
-import { isCurrentReading, type UsageWindow } from '../src/core/usage-windows';
+import { isCurrentReading, mergeUsageWindows, type UsageWindow } from '../src/core/usage-windows';
+import { kindProvider, parseUsageResponse, type UsageKind } from '../src/core/usage-api';
 import { refreshAfterSendDue, refreshAllUsage } from '../src/core/usage-refresh';
 import { usagePageUrl } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
@@ -80,7 +81,8 @@ export default defineBackground(() => {
   });
   // Existing chat tabs connect after installation/update without reloading them.
   chrome.runtime.onInstalled.addListener(() => { void (async () => {
-    const script = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
+    // Baton's own content script, not the usage tap that runs beside it in the page.
+    const script = chrome.runtime.getManifest().content_scripts?.flatMap(entry => entry.js || []).find(file => /content-scripts\/content\.js$/.test(file));
     if (!script) return;
     for (const tab of await chrome.tabs.query({})) {
       if (!tab.id || !isSupportedChatUrl(tab.url)) continue;
@@ -168,6 +170,22 @@ export default defineBackground(() => {
         await chrome.storage.local.set({ deliveredUsageAlerts: [...delivered, alert.key].slice(-100) });
       }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
       return true;
+    }
+    // Usage a chat site fetched for itself, copied by the usage tap: only from that site's own tab, only its own kinds.
+    if (message?.type === 'API_USAGE') {
+      let host = '';
+      try { host = _sender.url ? new URL(_sender.url).hostname : ''; } catch { return; }
+      const provider = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(host));
+      const kind = message.kind as UsageKind;
+      if (!provider || kindProvider[kind] !== provider || typeof message.text !== 'string') return;
+      const readings = parseUsageResponse(kind, message.text);
+      if (!readings.length) return;
+      void enqueueUsage(async () => {
+        const key = `usageWindows:${provider}`;
+        const saved = ((await chrome.storage.local.get(key))[key] || []) as UsageWindow[];
+        await chrome.storage.local.set({ [key]: mergeUsageWindows(saved, readings) });
+      }).catch(() => {});
+      return;
     }
     if (message?.type === 'REFRESH_ALL_USAGE') {
       if (!_sender.url?.startsWith(chrome.runtime.getURL(''))) return;
