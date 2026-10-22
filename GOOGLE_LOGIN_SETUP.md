@@ -26,6 +26,8 @@ Reload the current Handoff build, click Local/account → Google sign-in and bac
 
 In Supabase Authentication → URL Configuration → Redirect URLs, add the copied address exactly. It has the form `https://<your-extension-id>.chromiumapp.org/supabase`. Do not put the Supabase callback from step 1 in this field instead. Loading the unpacked extension from a different path/browser may produce a different extension ID and require another exact callback.
 
+If this address is missing, Supabase still completes the Google login but then sends the browser to its Site URL (by default `http://localhost:3000`) instead of back to Baton: you pick your account, land on a page that won't load, and Baton says sign-in didn't come back. Baton's message names the exact address to add for that browser.
+
 ## 4. Test
 
 In Handoff choose Check Google setup again, then Sign in with Google. Complete Google's consent screen yourself. If the Google OAuth app is in Testing, add your account under Google Auth Platform → Audience → Test users first.

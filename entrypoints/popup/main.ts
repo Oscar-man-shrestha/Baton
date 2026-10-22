@@ -835,6 +835,8 @@ document.querySelector('#sidebar')?.addEventListener('click', async () => {
 const accountDialog = document.querySelector('#account-dialog') as HTMLDialogElement;
 let cloudReady = false;
 const backupStatus = document.querySelector('#backup-status') as HTMLElement;
+// Why the last Google sign-in failed, kept until the account dialog has shown it.
+let signInError: string | undefined;
 async function refreshGoogleSetup() {
   if (!cloudReady || !cloudConfigured) return;
   const button = document.querySelector('#google-sign-in') as HTMLButtonElement;
@@ -847,8 +849,9 @@ async function refreshGoogleSetup() {
     (document.querySelector('#extension-callback') as HTMLInputElement).value = setup.extensionCallback;
     const available = await cloud.googleSignInAvailable();
     button.disabled = !available;
-    (document.querySelector('#google-setup') as HTMLDetailsElement).open = !available;
-    cloudStatus.textContent = available ? 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' : 'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local batons are already saved.';
+    (document.querySelector('#google-setup') as HTMLDetailsElement).open = !available || !!signInError;
+    cloudStatus.textContent = available ? signInError || 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' :'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local batons are already saved.';
+    signInError = undefined;
   } catch { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. Try Check Google setup again. Local batons are safe.'; }
 }
 const openAccountDialog = () => { accountDialog.showModal(); void refreshGoogleSetup(); };
@@ -1030,6 +1033,12 @@ document.querySelector('#menu-switch')?.addEventListener('click', async () => {
 cloudCard.hidden = !cloudConfigured;
 await showAccountButton(undefined);
 if (cloudConfigured) await showCloudAccount(await accountLabel());
+// The toolbar popup closes when Google's window takes focus, so a sign-in that failed meanwhile is shown on the next open.
+const storedSignInError = (await chrome.storage.session.get('cloudSignInError')).cloudSignInError as string | undefined;
+if (storedSignInError) {
+  await chrome.storage.session.remove('cloudSignInError');
+  if (cloudConfigured && !cloudAccount) { signInError = cloudCardStatus.textContent = storedSignInError; openAccountDialog(); }
+}
 cloudCardAction.addEventListener('click', () => (document.querySelector(cloudAccount ? '#cloud-backup' : '#google-sign-in') as HTMLButtonElement).click());
 for (const [id, action] of [
   ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Baton after authorization.'); await showCloudAccount(result.email, `${result.email} · not backed up yet`); return `Connected as ${result.email}. Nothing uploaded yet.`; }],
@@ -1042,7 +1051,11 @@ for (const [id, action] of [
   button.addEventListener('click', async () => {
     button.disabled = true; cloudCardAction.disabled = true; cloudStatus.textContent = 'Working…';
     try { cloudStatus.textContent = await action(); }
-    catch (error) { cloudStatus.textContent = cloudCardStatus.textContent = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.'; }
+    catch (error) {
+      cloudStatus.textContent = cloudCardStatus.textContent = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.';
+      // The top Sign in button starts this with the dialog closed; open it so the reason is visible.
+      if (id === 'google-sign-in') { await chrome.storage.session.remove('cloudSignInError'); if (!accountDialog.open) { signInError = cloudStatus.textContent; openAccountDialog(); } }
+    }
     finally { button.disabled = false; cloudCardAction.disabled = false; }
   });
 }

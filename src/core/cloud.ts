@@ -40,13 +40,19 @@ export async function googleSignInAvailable(): Promise<boolean> {
   const settings = await response.json();
   return settings.external?.google === true;
 }
+export const signInDidNotReturn = (callback: string) => `Google sign-in didn't come back to Baton. If you picked your account and then saw a page that wouldn't load, add ${callback} to Supabase → Authentication → URL Configuration → Redirect URLs. If you closed the window, try again.`;
 export async function signInGoogle(): Promise<string> {
   if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local batons are saved normally.');
   const supabase = client();
   const redirect = googleOAuthSetup().extensionCallback;
   const result = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirect, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } } });
   if (result.error || !result.data.url) throw new Error(result.error?.message || 'Could not start Google sign-in.');
-  const returned = await chrome.identity.launchWebAuthFlow({ url: result.data.url, interactive: true });
+  // Supabase silently sends the code to its Site URL (not back here) when this extension's callback isn't in its
+  // Redirect URLs, so the window ends on a page that won't load and the browser only reports “did not approve”.
+  // Unpacked builds get a new extension ID (and callback) per folder and per browser.
+  let returned: string | undefined;
+  try { returned = await chrome.identity.launchWebAuthFlow({ url: result.data.url, interactive: true }); }
+  catch { throw new Error(signInDidNotReturn(redirect)); }
   if (!returned) throw new Error('Sign-in was cancelled.');
   const callback = new URL(returned); const expected = new URL(redirect);
   if (callback.origin !== expected.origin || callback.pathname !== expected.pathname) throw new Error('Sign-in returned an unexpected address.');

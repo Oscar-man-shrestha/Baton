@@ -138,7 +138,12 @@ export default defineBackground(() => {
     if (message?.type === 'CLOUD_SIGN_IN') {
       if (!_sender.url?.startsWith(chrome.runtime.getURL(''))) return;
       // The toolbar popup closes when OAuth opens. Keep the flow in the worker.
-      void import('../src/core/cloud').then(cloud => cloud.signInGoogle()).then(email => sendResponse({ ok: true, email })).catch(error => sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Sign-in failed.' }));
+      // The popup may be gone by the time this settles, so a failure is kept for it to show when reopened.
+      void import('../src/core/cloud').then(cloud => cloud.signInGoogle()).then(async email => { await chrome.storage.session.remove('cloudSignInError'); sendResponse({ ok: true, email }); }).catch(async error => {
+        const message = error instanceof Error ? error.message : 'Sign-in failed.';
+        await chrome.storage.session.set({ cloudSignInError: message }).catch(() => {});
+        sendResponse({ ok: false, error: message });
+      });
       return true;
     }
     if (message?.type === 'OBSERVE_USAGE' || message?.type === 'REFRESH_USAGE_BADGE') {
