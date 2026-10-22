@@ -403,6 +403,9 @@ let libraryItems: LibraryItem[] = [];
 let libraryDismissed: string[] = [];
 const selectedBatons = new Set<string>();
 let selectingBatons = false;
+// The folder open in All Batons (undefined: the top level), and the batons it currently shows.
+let openFolder: string | undefined;
+let shownItems: LibraryItem[] = [];
 const batonKey = (item: LibraryItem) => item.id || item.url;
 const deleteBatons = async (list: LibraryItem[]) => {
   const dismiss: string[] = [];
@@ -452,7 +455,7 @@ const toggleBaton = (key: string) => { if (selectedBatons.has(key)) selectedBato
 for (const tools of Array.from(document.querySelectorAll<HTMLElement>('.baton-tools'))) {
   tools.querySelector('.sel-start')?.addEventListener('click', () => { selectingBatons = true; updateBatonTools(); });
   tools.querySelector('.sel-cancel')?.addEventListener('click', () => { selectingBatons = false; selectedBatons.clear(); updateBatonTools(); });
-  tools.querySelector('.sel-all')?.addEventListener('click', () => { for (const item of libraryItems) selectedBatons.add(batonKey(item)); updateBatonTools(); });
+  tools.querySelector('.sel-all')?.addEventListener('click', () => { for (const item of tools.dataset.list === 'library' ? shownItems : libraryItems) selectedBatons.add(batonKey(item)); updateBatonTools(); });
   tools.querySelector('.sel-delete')?.addEventListener('click', () => { askDelete(libraryItems.filter(item => selectedBatons.has(batonKey(item)))); });
   tools.querySelector('.sel-move')?.addEventListener('click', () => { void askMove(libraryItems.filter(item => selectedBatons.has(batonKey(item)))); });
   tools.querySelector('.del-all')?.addEventListener('click', () => { askDelete(libraryItems); });
@@ -489,14 +492,47 @@ moveDialog.querySelector('form')?.addEventListener('submit', async event => {
   event.preventDefault();
   const picked = moveFolders.querySelector<HTMLInputElement>('input:checked');
   if (!moveNew.value.trim() && !picked) { moveError.textContent = 'Choose a folder or type a new folder name.'; return; }
-  try {
-    const folder = await moveToFolder(pendingMove, moveNew.value.trim() || picked!.value);
-    const count = pendingMove.length;
-    moveDialog.close(); pendingMove = []; selectedBatons.clear(); selectingBatons = false;
-    await showLibrary();
-    status.hidden = false; status.textContent = `${count} baton${count === 1 ? '' : 's'} ${folder ? `moved to ${folder}` : `taken out of ${count === 1 ? 'its folder' : 'their folders'}`}.`;
-  } catch { moveError.textContent = 'Could not move these batons. Try again.'; }
+  try { await fileBatons(pendingMove, moveNew.value.trim() || picked!.value); moveDialog.close(); pendingMove = []; }
+  catch { moveError.textContent = 'Could not move these batons. Try again.'; }
 });
+const fileBatons = async (list: LibraryItem[], name: string) => {
+  const folder = await moveToFolder(list, name);
+  selectedBatons.clear(); selectingBatons = false;
+  await showLibrary();
+  status.hidden = false; status.textContent = `${list.length} baton${list.length === 1 ? '' : 's'} ${folder ? `moved to ${folder}` : `taken out of ${list.length === 1 ? 'its folder' : 'their folders'}`}.`;
+};
+// Drag a baton (or, while selecting, every ticked baton) onto a folder to file it, or onto “All batons” to take it out.
+const dragType = 'application/x-baton-keys';
+const dropTarget = (target: HTMLElement, folder: string) => {
+  target.addEventListener('dragover', event => { if (!event.dataTransfer?.types.includes(dragType)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; target.classList.add('drop'); });
+  target.addEventListener('dragleave', () => target.classList.remove('drop'));
+  target.addEventListener('drop', event => {
+    event.preventDefault(); target.classList.remove('drop');
+    const keys: unknown = JSON.parse(event.dataTransfer?.getData(dragType) || '[]');
+    const list = libraryItems.filter(item => Array.isArray(keys) && keys.includes(batonKey(item)) && (item.folder || '') !== folder);
+    if (list.length) void fileBatons(list, folder).catch(() => { status.hidden = false; status.textContent = 'Could not move these batons. Try again.'; });
+  });
+};
+const folderRow = (folder: string, count: number) => {
+  const row = document.createElement('button'); row.type = 'button'; row.className = 'folder-row'; row.dataset.folder = folder;
+  const text = document.createElement('span'); const name = document.createElement('strong'); name.textContent = folder;
+  const meta = document.createElement('small'); meta.textContent = count ? `${count} baton${count === 1 ? '' : 's'}` : 'Empty · drag batons here';
+  text.append(name, meta);
+  row.insertAdjacentHTML('afterbegin', iconSvg('folder', 20)); row.append(text); row.insertAdjacentHTML('beforeend', iconSvg('chevron', 16));
+  row.setAttribute('aria-label', `Open folder ${folder}, ${meta.textContent}`);
+  row.addEventListener('click', () => { openFolder = folder; void showLibrary(); });
+  dropTarget(row, folder); return row;
+};
+const folderCrumb = (folder: string, count: number) => {
+  const bar = document.createElement('div'); bar.className = 'folder-crumb';
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'link-button folder-back'; back.innerHTML = iconSvg('back', 14);
+  back.append('All batons'); back.title = 'Back to all batons. Drop a baton here to take it out of this folder.';
+  back.addEventListener('click', () => { openFolder = undefined; void showLibrary(); });
+  dropTarget(back, '');
+  const name = document.createElement('strong'); name.insertAdjacentHTML('afterbegin', iconSvg('folder', 16)); name.append(folder);
+  const meta = document.createElement('small'); meta.textContent = `${count} baton${count === 1 ? '' : 's'}`;
+  bar.append(back, name, meta); return bar;
+};
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
   const recent = await listRecentCaptures(5000);
@@ -525,9 +561,15 @@ const showLibrary = async () => {
   const needle = librarySearch.value.trim().toLowerCase();
   const visible = items.filter(item => `${item.name} ${item.detail}`.toLowerCase().includes(needle));
   libraryList.replaceChildren();
+  // Folders sit on top and open in place; unfiled batons follow. A search looks through every baton at once.
+  if (openFolder !== undefined && !folders.includes(openFolder)) openFolder = undefined;
+  const inView = needle ? visible : visible.filter(item => (item.folder || '') === (openFolder || ''));
+  shownItems = inView;
+  if (!needle && openFolder) libraryList.append(folderCrumb(openFolder, inView.length));
+  else if (!needle) for (const folder of folders) libraryList.append(folderRow(folder, items.filter(item => item.folder === folder).length));
   const empty = document.querySelector('#library-empty') as HTMLElement;
-  empty.hidden = visible.length > 0;
-  empty.textContent = items.length ? 'No saved chats match your search.' : 'No saved chats yet. Capture a conversation to find it here.';
+  empty.hidden = inView.length > 0 || (!needle && !openFolder && folders.length > 0 && items.length > 0);
+  empty.textContent = !items.length ? 'No saved chats yet. Capture a conversation to find it here.' : needle ? 'No saved chats match your search.' : 'This folder is empty. Drag a baton onto it, or use Select → Move to folder.';
   for (const item of visible) {
     const button = document.createElement('button'); button.type = 'button';
     const title = document.createElement('strong'); title.textContent = item.name;
@@ -574,7 +616,16 @@ const showLibrary = async () => {
       file.addEventListener('click', () => { void askMove([item]); });
       actions.append(file, copy, remove); row.append(pick, open, actions); return row;
     };
-    libraryList.append(card());
+    if (inView.includes(item)) {
+      const row = card(); row.draggable = true;
+      row.addEventListener('dragstart', event => {
+        const keys = selectingBatons && selectedBatons.has(batonKey(item)) ? [...selectedBatons] : [batonKey(item)];
+        event.dataTransfer?.setData(dragType, JSON.stringify(keys)); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+        row.classList.add('dragging'); libraryList.classList.add('dragging-baton');
+      });
+      row.addEventListener('dragend', () => { row.classList.remove('dragging'); libraryList.classList.remove('dragging-baton'); });
+      libraryList.append(row);
+    }
     if (recentList.children.length < 6 && !needle) recentList.append(card());
   }
   updateBatonTools();
