@@ -85,3 +85,38 @@ export async function createFolder(name: string): Promise<void> {
   if (folders.some(folder => folder.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) throw new Error('That folder already exists.');
   await chrome.storage.local.set({ folders: [...folders, trimmed] });
 }
+
+/** A baton to file: a saved project (id) or a recent chat (url only), which becomes a project so it can hold a folder. */
+export type FileTarget = { id: string; url: string; name: string; brief: Brief };
+/** Matches an existing folder whatever the case, so “school” files into “School”. Blank means no folder. */
+export function resolveFolder(name: string, folders: string[]): string | undefined {
+  const trimmed = name.trim().slice(0, 80);
+  if (!trimmed) return undefined;
+  return folders.find(folder => folder.toLocaleLowerCase() === trimmed.toLocaleLowerCase()) || trimmed;
+}
+// Records this version cannot read are carried over unchanged, as in saveProject.
+export function fileIntoFolder(stored: unknown, targets: FileTarget[], folder: string | undefined, now = Date.now()): unknown[] {
+  const projects = Array.isArray(stored) ? [...stored] : [];
+  for (const target of targets) {
+    if (target.id) {
+      const index = projects.findIndex(item => rawId(item) === target.id);
+      const parsed = projectSchema.safeParse(projects[index]);
+      if (index < 0 || !parsed.success) continue;
+      const { folder: _old, ...rest } = parsed.data;
+      projects[index] = folder ? { ...rest, folder } : rest;
+    } else if (folder && target.url) {
+      // Prefixed “capture:” so deleting it later also hides the recent chat it came from.
+      const id = `capture:${target.url}`;
+      if (projects.some(item => rawId(item) === id)) continue;
+      projects.push({ id, name: target.name.trim().slice(0, 160) || 'Saved chat', folder, updatedAt: now, threads: [target.url], brief: target.brief });
+    }
+  }
+  return projects;
+}
+export async function moveToFolder(targets: FileTarget[], name: string): Promise<string | undefined> {
+  const folders = await listFolders();
+  const folder = resolveFolder(name, folders);
+  const stored = (await chrome.storage.local.get('projects')).projects;
+  await chrome.storage.local.set({ projects: fileIntoFolder(stored, targets, folder), ...(folder && !folders.includes(folder) ? { folders: [...folders, folder] } : {}) });
+  return folder;
+}

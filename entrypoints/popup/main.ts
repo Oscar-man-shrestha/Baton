@@ -3,7 +3,7 @@ import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
 import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/selectors';
-import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
+import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder, moveToFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
@@ -397,7 +397,7 @@ contextMode.addEventListener('change', () => {
 });
 document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Compact handoff selected. The full baton is still saved.'; });
 // Batons can be deleted one at a time, a selection, or all at once. Every delete first shows what it removes.
-type LibraryItem = { id: string; url: string; variants?: string[]; name: string };
+type LibraryItem = { id: string; url: string; variants?: string[]; name: string; brief: Brief; folder?: string };
 let libraryItems: LibraryItem[] = [];
 let libraryDismissed: string[] = [];
 const selectedBatons = new Set<string>();
@@ -436,9 +436,10 @@ const updateBatonTools = () => {
     tools.hidden = !libraryItems.length;
     const show = (selector: string, visible: boolean) => { (tools.querySelector(selector) as HTMLElement).hidden = !visible; };
     show('.sel-start', !selectingBatons); show('.del-all', !selectingBatons);
-    show('.sel-count', selectingBatons); show('.sel-all', selectingBatons); show('.sel-delete', selectingBatons); show('.sel-cancel', selectingBatons);
+    show('.sel-count', selectingBatons); show('.sel-all', selectingBatons); show('.sel-delete', selectingBatons); show('.sel-move', selectingBatons); show('.sel-cancel', selectingBatons);
     (tools.querySelector('.sel-count') as HTMLElement).textContent = `${selectedBatons.size} selected`;
     const remove = tools.querySelector('.sel-delete') as HTMLButtonElement; remove.disabled = !selectedBatons.size; remove.textContent = selectedBatons.size ? `Delete ${selectedBatons.size}` : 'Delete selected';
+    (tools.querySelector('.sel-move') as HTMLButtonElement).disabled = !selectedBatons.size;
   }
   for (const list of ['#recent-list', '#library-list']) document.querySelector(list)?.classList.toggle('selecting', selectingBatons);
   for (const row of Array.from(document.querySelectorAll<HTMLElement>('.capsule-row[data-key]'))) {
@@ -452,16 +453,57 @@ for (const tools of Array.from(document.querySelectorAll<HTMLElement>('.baton-to
   tools.querySelector('.sel-cancel')?.addEventListener('click', () => { selectingBatons = false; selectedBatons.clear(); updateBatonTools(); });
   tools.querySelector('.sel-all')?.addEventListener('click', () => { for (const item of libraryItems) selectedBatons.add(batonKey(item)); updateBatonTools(); });
   tools.querySelector('.sel-delete')?.addEventListener('click', () => { askDelete(libraryItems.filter(item => selectedBatons.has(batonKey(item)))); });
+  tools.querySelector('.sel-move')?.addEventListener('click', () => { void askMove(libraryItems.filter(item => selectedBatons.has(batonKey(item)))); });
   tools.querySelector('.del-all')?.addEventListener('click', () => { askDelete(libraryItems); });
 }
+// Filing: pick batons (Select, or the ▤ button on one), then an existing folder, “No folder”, or a new name.
+const moveDialog = document.querySelector('#move-dialog') as HTMLDialogElement;
+const moveFolders = document.querySelector('#move-folders') as HTMLFieldSetElement;
+const moveNew = document.querySelector('#move-new') as HTMLInputElement;
+const moveError = document.querySelector('#move-error') as HTMLElement;
+let pendingMove: LibraryItem[] = [];
+const askMove = async (list: LibraryItem[]) => {
+  if (!list.length) return;
+  pendingMove = list;
+  (document.querySelector('#move-title') as HTMLElement).textContent = list.length === 1 ? 'Move this baton to a folder' : `Move ${list.length} batons to a folder`;
+  (document.querySelector('#move-what') as HTMLElement).textContent = list.length === 1 ? `“${list[0].name}”` : list.slice(0, 3).map(item => `“${item.name.slice(0, 40)}”`).join(', ') + (list.length > 3 ? ` and ${list.length - 3} more` : '');
+  const current = new Set(list.map(item => item.folder || ''));
+  const only = current.size === 1 ? [...current][0] : undefined;
+  for (const option of Array.from(moveFolders.querySelectorAll('label'))) option.remove();
+  for (const folder of ['', ...await listFolders()]) {
+    const label = document.createElement('label'); label.className = 'move-option';
+    const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'move-folder'; radio.value = folder; radio.checked = folder === only;
+    radio.addEventListener('change', () => { moveNew.value = ''; moveError.textContent = ''; });
+    const text = document.createElement('span'); text.textContent = folder || 'No folder';
+    if (folder === only) { const note = document.createElement('small'); note.textContent = ' (now)'; text.append(note); }
+    label.append(radio, text); moveFolders.append(label);
+  }
+  moveNew.value = ''; moveError.textContent = '';
+  moveDialog.showModal();
+  if (moveFolders.querySelectorAll('label').length === 1) moveNew.focus();
+};
+moveNew.addEventListener('input', () => { moveError.textContent = ''; if (moveNew.value.trim()) for (const radio of Array.from(moveFolders.querySelectorAll<HTMLInputElement>('input'))) radio.checked = false; });
+document.querySelector('#cancel-move')?.addEventListener('click', () => moveDialog.close());
+moveDialog.querySelector('form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const picked = moveFolders.querySelector<HTMLInputElement>('input:checked');
+  if (!moveNew.value.trim() && !picked) { moveError.textContent = 'Choose a folder or type a new folder name.'; return; }
+  try {
+    const folder = await moveToFolder(pendingMove, moveNew.value.trim() || picked!.value);
+    const count = pendingMove.length;
+    moveDialog.close(); pendingMove = []; selectedBatons.clear(); selectingBatons = false;
+    await showLibrary();
+    status.hidden = false; status.textContent = `${count} baton${count === 1 ? '' : 's'} ${folder ? `moved to ${folder}` : `taken out of ${count === 1 ? 'its folder' : 'their folders'}`}.`;
+  } catch { moveError.textContent = 'Could not move these batons. Try again.'; }
+});
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
   const recent = await listRecentCaptures(5000);
   const dismissed = (await chrome.storage.local.get('dismissedRecentUrls')).dismissedRecentUrls;
   const dismissedUrls: string[] = Array.isArray(dismissed) ? dismissed.filter((url): url is string => typeof url === 'string') : [];
   const items = [
-    ...projects.map(project => ({ id: project.id, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', variants: undefined as string[] | undefined, draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
-    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, variants: capture.variants, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
+    ...projects.map(project => ({ id: project.id, folder: project.folder, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', variants: undefined as string[] | undefined, draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
+    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', folder: undefined as string | undefined, snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, variants: capture.variants, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
   ];
   libraryItems = items; libraryDismissed = dismissedUrls;
   for (const key of [...selectedBatons]) if (!items.some(item => batonKey(item) === key)) selectedBatons.delete(key);
@@ -527,7 +569,9 @@ const showLibrary = async () => {
       copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Baton copied. Paste it into your next AI chat.'; });
       const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button danger'; remove.textContent = '×'; remove.setAttribute('aria-label', `Delete ${item.name}`);
       remove.addEventListener('click', () => askDelete([item]));
-      actions.append(copy, remove); row.append(pick, open, actions); return row;
+      const file = document.createElement('button'); file.type = 'button'; file.className = 'icon-button'; file.textContent = '▤'; file.title = 'Move to folder'; file.setAttribute('aria-label', `Move ${item.name} to a folder`);
+      file.addEventListener('click', () => { void askMove([item]); });
+      actions.append(file, copy, remove); row.append(pick, open, actions); return row;
     };
     libraryList.append(card());
     if (recentList.children.length < 6 && !needle) recentList.append(card());
@@ -680,7 +724,7 @@ document.querySelector('#new-folder')?.addEventListener('click', () => { newFold
 document.querySelector('#cancel-folder')?.addEventListener('click', () => folderDialog.close());
 folderDialog.querySelector('form')?.addEventListener('submit', async event => {
   event.preventDefault();
-  try { await createFolder(newFolderName.value); folderDialog.close(); status.textContent = 'Folder created. Choose it when saving a project.'; await showLibrary(); }
+  try { await createFolder(newFolderName.value); folderDialog.close(); status.textContent = 'Folder created. Press Select on your batons, then Move to folder.'; await showLibrary(); }
   catch (error) { newFolderName.setCustomValidity(String(error)); newFolderName.reportValidity(); }
 });
 newFolderName.addEventListener('input', () => newFolderName.setCustomValidity(''));

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { briefSchema } from '../src/core/brief';
-import { deleteProject, listProjects, mergeBrief, pruneExpired, saveProject } from '../src/core/projects';
+import { deleteProject, fileIntoFolder, listFolders, listProjects, mergeBrief, moveToFolder, pruneExpired, resolveFolder, saveProject } from '../src/core/projects';
 import { exportBackup, mergeBackup, previewBackup } from '../src/core/backup';
 
 it('merges tasks and preserves versioned artifacts', () => {
@@ -66,5 +66,50 @@ it('keeps every readable project and never erases an unreadable one', async () =
   const backup = await previewBackup(await exportBackup(store));
   expect(backup.projects).toBe(1);
   expect((mergeBackup(store, backup.data).projects as unknown[])).toContainEqual(broken);
+  vi.unstubAllGlobals();
+});
+
+it('files a folder name onto an existing folder whatever the case', () => {
+  expect(resolveFolder('  school ', ['School', 'Work'])).toBe('School');
+  expect(resolveFolder('Maths', ['School'])).toBe('Maths');
+  expect(resolveFolder('   ', ['School'])).toBeUndefined();
+});
+
+it('moves projects into a folder and back out, leaving others and unreadable records alone', () => {
+  const brief = briefSchema.parse({ goal: 'test' });
+  const broken = { id: 'broken', name: 'From a newer version', updatedAt: 3 };
+  const stored = [{ id: 'one', name: 'One', updatedAt: 1, threads: [], brief }, { id: 'two', name: 'Two', folder: 'Work', updatedAt: 2, threads: [], brief }, broken];
+  const filed = fileIntoFolder(stored, [{ id: 'one', url: '', name: 'One', brief }, { id: 'broken', url: '', name: 'x', brief }], 'School') as { id: string; folder?: string; updatedAt: number }[];
+  expect(filed.map(item => [item.id, item.folder])).toEqual([['one', 'School'], ['two', 'Work'], ['broken', undefined]]);
+  expect(filed[0].updatedAt).toBe(1);
+  expect(filed[2]).toBe(broken);
+  const unfiled = fileIntoFolder(filed, [{ id: 'two', url: '', name: 'Two', brief }], undefined) as { folder?: string }[];
+  expect('folder' in unfiled[1]).toBe(false);
+  expect((stored[1] as { folder?: string }).folder).toBe('Work');
+});
+
+it('turns a recent chat into a filed baton that a later delete also hides', () => {
+  const brief = briefSchema.parse({ goal: 'essay' });
+  const recent = { id: '', url: 'https://claude.ai/chat/1', name: 'Essay plan', brief };
+  expect(fileIntoFolder([], [recent], undefined)).toEqual([]);
+  const filed = fileIntoFolder([], [recent], 'School', 5);
+  expect(filed).toEqual([{ id: 'capture:https://claude.ai/chat/1', name: 'Essay plan', folder: 'School', updatedAt: 5, threads: ['https://claude.ai/chat/1'], brief }]);
+  expect(fileIntoFolder(filed, [recent], 'Work')).toHaveLength(1);
+});
+
+it('moves batons into a new folder and remembers that folder', async () => {
+  const brief = briefSchema.parse({ goal: 'test' });
+  const store: Record<string, unknown> = { folders: ['School'], projects: [{ id: 'one', name: 'One', updatedAt: 1, threads: [], brief }] };
+  vi.stubGlobal('chrome', { storage: { local: {
+    get: async () => store,
+    set: async (data: Record<string, unknown>) => Object.assign(store, data)
+  } } });
+  expect(await moveToFolder([{ id: 'one', url: '', name: 'One', brief }], 'school')).toBe('School');
+  expect(store.folders).toEqual(['School']);
+  expect(await moveToFolder([{ id: 'one', url: '', name: 'One', brief }], ' Exams ')).toBe('Exams');
+  expect(await listFolders()).toEqual(['Exams', 'School']);
+  expect((await listProjects())[0].folder).toBe('Exams');
+  expect(await moveToFolder([{ id: 'one', url: '', name: 'One', brief }], '')).toBeUndefined();
+  expect((await listProjects())[0].folder).toBeUndefined();
   vi.unstubAllGlobals();
 });
