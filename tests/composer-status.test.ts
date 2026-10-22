@@ -15,3 +15,16 @@ describe('composer status line', () => {
     expect(statusLinePosition({ ...rect, bottom: 479 } as DOMRect, 800, 500)?.top).toBe(481);
   });
 });
+
+import { statusLineAbove } from '../src/core/composer-status';
+describe('status line above the composer', () => {
+  const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON() {} }) as DOMRect;
+  it('sits just above the composer when there is room', () => {
+    expect(statusLineAbove(rect(300, 700, 600, 90), 1440)).toEqual({ left: 300, top: 679, width: 600 });
+  });
+  it('gives up when the composer is at the very top, too narrow, or off to the right', () => {
+    expect(statusLineAbove(rect(300, 10, 600, 90), 1440)).toBeNull();
+    expect(statusLineAbove(rect(300, 700, 120, 90), 1440)).toBeNull();
+    expect(statusLineAbove(rect(1300, 700, 600, 90), 1440)).toBeNull();
+  });
+});

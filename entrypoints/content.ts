@@ -10,7 +10,7 @@ import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type Stat
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
-import { composerStatusText, statusLinePosition } from '../src/core/composer-status';
+import { composerStatusText, statusLineAbove, statusLinePosition } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
 import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
 
@@ -148,21 +148,30 @@ export default defineContentScript({
         const rect = ancestor.getBoundingClientRect();
         if (rect.width >= editorRect.width * 0.85 && rect.height <= 360 && rect.bottom >= editorRect.bottom + 10) surface = ancestor;
       }
-      const position = statusLinePosition(surface.getBoundingClientRect(), innerWidth, innerHeight);
-      if (!position) { statusHost.style.display = 'none'; return; }
-      const sampleX = position.left + Math.min(90, position.width / 2);
-      const occupied = document.elementFromPoint(sampleX, position.top + 16);
-      for (let element = occupied; element && element !== document.body && element !== document.documentElement; element = element.parentElement) {
-        if (element === surface || element.contains(surface)) break;
-        const rect = element.getBoundingClientRect();
-        if (rect.width >= 180 && rect.height <= 64 && rect.top < position.top + 19 && rect.bottom > position.top) {
-          position.top = rect.bottom + 2;
-          break;
+      const surfaceRect = surface.getBoundingClientRect();
+      const interactive = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
+      let position = statusLinePosition(surfaceRect, innerWidth, innerHeight);
+      if (position) {
+        const sampleX = position.left + Math.min(90, position.width / 2);
+        const occupied = document.elementFromPoint(sampleX, position.top + 16);
+        for (let element = occupied; element && element !== document.body && element !== document.documentElement; element = element.parentElement) {
+          if (element === surface || element.contains(surface)) break;
+          const rect = element.getBoundingClientRect();
+          if (rect.width >= 180 && rect.height <= 64 && rect.top < position.top + 19 && rect.bottom > position.top) {
+            position.top = rect.bottom + 2;
+            break;
+          }
         }
+        const below = document.elementFromPoint(sampleX, position.top + 8);
+        if (position.top + 19 > innerHeight || below?.closest(interactive)) position = null;
       }
-      if (position.top + 19 > innerHeight) { statusHost.style.display = 'none'; return; }
-      const below = document.elementFromPoint(sampleX, position.top + 8);
-      if (below?.closest('button,input,textarea,select,[contenteditable="true"],[role="button"]')) { statusHost.style.display = 'none'; return; }
+      // No room below: sit just above the composer, but never over a control.
+      if (!position) {
+        const above = statusLineAbove(surfaceRect, innerWidth);
+        const spot = above && document.elementFromPoint(above.left + Math.min(90, above.width / 2), above.top + 8);
+        if (!above || spot?.closest(interactive) || (spot && surface.contains(spot))) { statusHost.style.display = 'none'; return; }
+        position = above;
+      }
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
       const fresh = isCurrentReading(latestMeter);
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }

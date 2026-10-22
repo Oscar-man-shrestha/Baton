@@ -74,7 +74,11 @@ describe('Baton naming', () => {
     }
     const popup = readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8');
     expect(popup).toContain('New Baton');
-    for (const text of ['Pass the baton', 'Your lanes', 'Capture this chat', 'id="lanes"']) expect(popup).toContain(text);
+    for (const text of ['Pass the baton', 'Other AIs', 'Capture this chat', 'id="lanes"']) expect(popup).toContain(text);
+    const order = new JSDOM(popup).window.document;
+    // The current AI's card comes first; every other AI is inside the closed “Other AIs” drop-down.
+    expect(order.querySelector('#active-usage')!.compareDocumentPosition(order.querySelector('#other-lanes')!) & 4).toBeTruthy();
+    expect(order.querySelector('#other-lanes')?.contains(order.querySelector('#lanes'))).toBe(true);
     const doc = new JSDOM(popup).window.document;
     // Not Capsule Infinity's layout: no stat tiles, one primary pass action, lanes above the list.
     expect(doc.querySelector('.stats')?.tagName).toBe('P');

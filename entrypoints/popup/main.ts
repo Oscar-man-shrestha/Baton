@@ -7,7 +7,7 @@ import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, lis
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
-import { displayLabel, displayWindows, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
+import { displayLabel, displayWindows, estimable, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
 import { messageSummary, type LimitHit } from '../../src/core/message-counts';
 import { laneFor, laneInUse } from '../../src/core/usage-lanes';
 import { providerEnabled } from '../../src/core/rescue';
@@ -134,14 +134,23 @@ const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 
 const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], Date.now(), saved[`statedLimit:${id}`]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Baton` : ''; };
 // Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
 const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
-// “Your lanes”: services in use this week (plus the active one) first; the rest behind “＋ N more”.
+// Usage: the current AI's card stays on top; every other AI is in the “Other AIs” drop-down,
+// services used this week first and the rest behind “＋ N more”.
 let showAllLanes = false;
+let otherLanesTouched = false;
 function renderLanes(saved: Record<string, any>) {
   const lanes = document.querySelector('#lanes') as HTMLElement | null;
   if (!lanes) return;
   const enabled = (saved.enabledProviders || {}) as Record<string, boolean>;
-  const order = providerIds.filter(id => providerEnabled(id, enabled)).sort((a, b) => Number(b === activeProvider) - Number(a === activeProvider));
-  const used = order.filter(id => id === activeProvider || laneInUse(saved, id));
+  const order = providerIds.filter(id => providerEnabled(id, enabled) && id !== activeProvider);
+  const used = order.filter(id => laneInUse(saved, id));
+  const box = document.querySelector('#other-lanes') as HTMLDetailsElement | null;
+  if (box) {
+    (document.querySelector('#other-lanes-title') as HTMLElement).textContent = activeProvider ? 'Other AIs' : 'All AIs';
+    (document.querySelector('#other-lanes-summary') as HTMLElement).textContent = (used.length ? used : order).slice(0, 2).map(id => `${providerNames[id]} ${laneFor(saved, id).value}`).join(' · ');
+    if (!otherLanesTouched) box.open = !activeProvider;
+    if (!box.dataset.wired) { box.dataset.wired = 'true'; box.addEventListener('toggle', () => { otherLanesTouched = true; }); }
+  }
   const rest = order.filter(id => !used.includes(id));
   const shown = showAllLanes || !used.length ? order : used;
   const more = document.createElement('button'); more.type = 'button'; more.className = 'link-button lanes-more';
@@ -234,6 +243,8 @@ function renderActiveUsage(saved: Record<string, any>) {
     const detail = document.createElement('small'); detail.textContent = displayLabel(reading as DisplayWindow) || windowLabel(reading as UsageWindow); row.append(detail);
     container.append(row);
   }
+  // ChatGPT's page covers Codex/Work and credits only; say plainly that chat itself shows no limit.
+  if (activeProvider === 'chatgpt' && readings.length && !readings.some(reading => estimable(reading))) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = 'Chat: ChatGPT shows no chat limit. The figures above are for Codex and Work.'; container.prepend(line); }
   const counted = countedLine(saved, activeProvider);
   if (counted) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = counted; container.append(line); }
   if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }

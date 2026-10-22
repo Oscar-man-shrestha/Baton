@@ -11,6 +11,14 @@ export function composerStatusText(tokens: number, meter?: Meter): string {
   return `${prompt}Usage left: unknown`;
 }
 
+/** Fallback when there is no room below (DeepSeek's disclaimer sits right under its composer): just above the box. */
+export function statusLineAbove(editor: DOMRect, viewportWidth: number): { left: number; top: number; width: number } | null {
+  const top = editor.top - 21;
+  if (editor.width < 180 || top < 0 || editor.left >= viewportWidth - 180) return null;
+  const left = Math.max(8, editor.left);
+  return { left, top, width: Math.min(Math.max(editor.width, 220), viewportWidth - left - 8) };
+}
+
 export function statusLinePosition(editor: DOMRect, viewportWidth: number, viewportHeight: number): { left: number; top: number; width: number } | null {
   const top = editor.bottom + 2;
   if (editor.width < 180 || editor.bottom < 0 || top + 19 > viewportHeight || editor.left >= viewportWidth - 180) return null;
