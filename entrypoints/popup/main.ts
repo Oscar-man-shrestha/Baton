@@ -3,7 +3,7 @@ import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
 import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/selectors';
-import { iconSvg } from './icons';
+import { iconSvg, type IconName } from './icons';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder, moveToFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
@@ -403,7 +403,7 @@ let libraryItems: LibraryItem[] = [];
 let libraryDismissed: string[] = [];
 const selectedBatons = new Set<string>();
 let selectingBatons = false;
-// The folder open in All Batons (undefined: the top level), and the batons it currently shows.
+// The folder open in All Batons (undefined: the top level; '': not in a folder, wide layout only), and the batons it shows.
 let openFolder: string | undefined;
 let shownItems: LibraryItem[] = [];
 const batonKey = (item: LibraryItem) => item.id || item.url;
@@ -533,6 +533,39 @@ const folderCrumb = (folder: string, count: number) => {
   const meta = document.createElement('small'); meta.textContent = `${count} baton${count === 1 ? '' : 's'}`;
   bar.append(back, name, meta); return bar;
 };
+const draggable = (row: HTMLElement, item: LibraryItem) => {
+  row.draggable = true;
+  row.addEventListener('dragstart', event => {
+    const keys = selectingBatons && selectedBatons.has(batonKey(item)) ? [...selectedBatons] : [batonKey(item)];
+    event.dataTransfer?.setData(dragType, JSON.stringify(keys)); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    row.classList.add('dragging'); document.body.classList.add('dragging-baton');
+  });
+  row.addEventListener('dragend', () => { row.classList.remove('dragging'); document.body.classList.remove('dragging-baton'); });
+  return row;
+};
+// Wide screens (the side panel, opened wide) show All Batons as two panes, like Finder: folders on the left, batons on the right.
+const wideLibrary = matchMedia('(min-width: 560px)');
+wideLibrary.addEventListener('change', () => { void showLibrary(); });
+const folderNav = document.querySelector('#folder-nav') as HTMLElement;
+const navItem = (label: string, count: number, folder: string | undefined, icon: IconName) => {
+  const item = document.createElement('button'); item.type = 'button'; item.className = 'folder-nav-item'; if (folder !== undefined) item.dataset.folder = folder;
+  if (openFolder === folder) item.setAttribute('aria-current', 'true');
+  const name = document.createElement('span'); name.textContent = label;
+  const meta = document.createElement('small'); meta.textContent = String(count);
+  item.insertAdjacentHTML('afterbegin', iconSvg(icon, 16)); item.append(name, meta);
+  item.addEventListener('click', () => { openFolder = folder; void showLibrary(); });
+  if (folder !== undefined) dropTarget(item, folder);
+  return item;
+};
+// Home: a chip per folder above the latest batons. Drop a baton on a chip to file it; tap a chip to open the folder.
+const folderChip = (folder: string, count: number) => {
+  const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'folder-chip'; chip.dataset.folder = folder;
+  const name = document.createElement('span'); name.textContent = folder; const meta = document.createElement('small'); meta.textContent = String(count);
+  chip.insertAdjacentHTML('afterbegin', iconSvg('folder', 14)); chip.append(name, meta);
+  chip.title = `Open ${folder}. Drop a baton here to file it.`;
+  chip.addEventListener('click', () => { openFolder = folder; void showLibrary(); setView('saved'); });
+  dropTarget(chip, folder); return chip;
+};
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
   const recent = await listRecentCaptures(5000);
@@ -562,14 +595,28 @@ const showLibrary = async () => {
   const visible = items.filter(item => `${item.name} ${item.detail}`.toLowerCase().includes(needle));
   libraryList.replaceChildren();
   // Folders sit on top and open in place; unfiled batons follow. A search looks through every baton at once.
-  if (openFolder !== undefined && !folders.includes(openFolder)) openFolder = undefined;
-  const inView = needle ? visible : visible.filter(item => (item.folder || '') === (openFolder || ''));
+  const wide = wideLibrary.matches;
+  if (openFolder && !folders.includes(openFolder)) openFolder = undefined;
+  if (openFolder === '' && !wide) openFolder = undefined;
+  const countIn = (folder: string) => items.filter(item => (item.folder || '') === folder).length;
+  const inView = needle || (wide && openFolder === undefined) ? visible : visible.filter(item => (item.folder || '') === (openFolder || ''));
   shownItems = inView;
-  if (!needle && openFolder) libraryList.append(folderCrumb(openFolder, inView.length));
-  else if (!needle) for (const folder of folders) libraryList.append(folderRow(folder, items.filter(item => item.folder === folder).length));
+  folderNav.replaceChildren();
+  if (wide) {
+    folderNav.append(navItem('All batons', items.length, undefined, 'stack'), navItem('Not in a folder', countIn(''), '', 'tray'));
+    const heading = document.createElement('p'); heading.className = 'folder-nav-heading'; heading.textContent = 'Folders'; folderNav.append(heading);
+    for (const folder of folders) folderNav.append(navItem(folder, countIn(folder), folder, 'folder'));
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'folder-nav-item folder-nav-add'; add.insertAdjacentHTML('afterbegin', iconSvg('folderPlus', 16)); add.append('New folder');
+    add.addEventListener('click', () => (document.querySelector('#new-folder') as HTMLButtonElement).click());
+    folderNav.append(add);
+  } else if (!needle && openFolder) libraryList.append(folderCrumb(openFolder, inView.length));
+  else if (!needle) for (const folder of folders) libraryList.append(folderRow(folder, countIn(folder)));
+  const homeFolders = document.querySelector('#home-folders') as HTMLElement; homeFolders.replaceChildren();
+  for (const folder of folders) homeFolders.append(folderChip(folder, countIn(folder)));
+  homeFolders.hidden = !folders.length || !items.length;
   const empty = document.querySelector('#library-empty') as HTMLElement;
-  empty.hidden = inView.length > 0 || (!needle && !openFolder && folders.length > 0 && items.length > 0);
-  empty.textContent = !items.length ? 'No saved chats yet. Capture a conversation to find it here.' : needle ? 'No saved chats match your search.' : 'This folder is empty. Drag a baton onto it, or use Select → Move to folder.';
+  empty.hidden = inView.length > 0 || (!needle && !wide && !openFolder && folders.length > 0 && items.length > 0);
+  empty.textContent = !items.length ? 'No saved chats yet. Capture a conversation to find it here.' : needle ? 'No saved chats match your search.' : openFolder === '' ? 'Every baton is in a folder.' : 'This folder is empty. Drag a baton onto it, or use Select → Move to folder.';
   for (const item of visible) {
     const button = document.createElement('button'); button.type = 'button';
     const title = document.createElement('strong'); title.textContent = item.name;
@@ -616,17 +663,8 @@ const showLibrary = async () => {
       file.addEventListener('click', () => { void askMove([item]); });
       actions.append(file, copy, remove); row.append(pick, open, actions); return row;
     };
-    if (inView.includes(item)) {
-      const row = card(); row.draggable = true;
-      row.addEventListener('dragstart', event => {
-        const keys = selectingBatons && selectedBatons.has(batonKey(item)) ? [...selectedBatons] : [batonKey(item)];
-        event.dataTransfer?.setData(dragType, JSON.stringify(keys)); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-        row.classList.add('dragging'); libraryList.classList.add('dragging-baton');
-      });
-      row.addEventListener('dragend', () => { row.classList.remove('dragging'); libraryList.classList.remove('dragging-baton'); });
-      libraryList.append(row);
-    }
-    if (recentList.children.length < 6 && !needle) recentList.append(card());
+    if (inView.includes(item)) libraryList.append(draggable(card(), item));
+    if (recentList.children.length < 6 && !needle) recentList.append(draggable(card(), item));
   }
   updateBatonTools();
 };
