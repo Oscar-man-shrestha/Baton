@@ -1,5 +1,5 @@
 // Wraps site/page.html (the page source) into docs/index.html, the full document GitHub Pages serves from main /docs.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const page = readFileSync(new URL('../site/page.html', import.meta.url), 'utf8');
 const head = page.slice(0, page.indexOf('<style>'));
 const rest = page.slice(page.indexOf('<style>'));
@@ -18,4 +18,6 @@ ${rest.slice(rest.indexOf('</style>') + 8).trim()}
 </body>
 </html>
 `);
-console.log('docs/index.html written');
+// The uninstall feedback page is already a full document.
+copyFileSync(new URL('../site/uninstall.html', import.meta.url), new URL('../docs/uninstall.html', import.meta.url));
+console.log('docs/index.html and docs/uninstall.html written');

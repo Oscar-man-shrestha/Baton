@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome to Baton</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main>
+  <header class="intro">
+    <span class="mark" aria-hidden="true"><i></i></span>
+    <p class="eyebrow">Baton Pass is installed</p>
+    <h1>You're all set.<br><span>Three steps to your first pass.</span></h1>
+    <p class="lede">When an AI runs out, Baton moves your chat to another one as a ready-to-send draft. It takes about a minute to try.</p>
+  </header>
+
+  <ol class="steps">
+    <li class="step" id="step-pin">
+      <span class="num" aria-hidden="true">1</span>
+      <div class="body">
+        <h2>Pin Baton to your toolbar</h2>
+        <p>Press the puzzle icon <span class="key" aria-label="puzzle icon">🧩</span> at the top right of your browser, then the pin <span class="key" aria-label="pin icon">📌</span> next to <b>Baton Pass</b>.</p>
+        <p class="status" id="pin-status" role="status">Checking…</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="num" aria-hidden="true">2</span>
+      <div class="body">
+        <h2>Open an AI chat</h2>
+        <p>Baton works on these six. Open the one you use most:</p>
+        <div class="ais" id="ais"></div>
+      </div>
+    </li>
+    <li class="step">
+      <span class="num" aria-hidden="true">3</span>
+      <div class="body">
+        <h2>Look for the glowing button by Send</h2>
+        <p>Under the chat box you'll see how much you have left. Press the glowing button any time, or when you hit a limit, to continue in another AI.</p>
+        <div class="mock" aria-label="Example: the chat box with Baton's usage bar and glowing button">
+          <div class="composer">Message ChatGPT<span class="send" aria-hidden="true">↑</span><span class="pass" aria-hidden="true"><i></i></span></div>
+          <div class="pill" aria-hidden="true"><span class="k">Chat</span><span class="ring"></span><b>63% left</b><span class="n">3h 9m</span><span class="x">×</span></div>
+          <p class="hint">Don't want them? Press × on the bar, or <b>Hide this button</b> in its menu. Turn them back on in Baton under <b>Show on AI chat pages</b>.</p>
+        </div>
+      </div>
+    </li>
+  </ol>
+
+  <section class="good" aria-labelledby="good-title">
+    <h2 id="good-title">Good to know</h2>
+    <ul>
+      <li><b>You always press Send.</b> Baton only types a draft. It never sends anything for you.</li>
+      <li><b>Saved on this device.</b> Your batons stay in your browser. Want a backup? Press <b>Sign in</b> at the top of Baton.</li>
+      <li><b>Real numbers only.</b> Usage comes from each AI's own pages. Where a service shows no limit, Baton counts your messages and says so.</li>
+      <li><b>Private suggestions.</b> Baton picks the best AI for your task with a small model that runs in your browser.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <button id="open-settings" type="button">Baton settings</button>
+    <a href="https://oscar-man-shrestha.github.io/handoff/" target="_blank" rel="noopener">How Baton works</a>
+    <a href="https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy policy</a>
+  </footer>
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

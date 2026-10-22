@@ -26,3 +26,23 @@
 The local build adds recent contexts, folders, exact edited draft saving, full local backup/restore, rich Markdown/full-conversation export, and a responsive sidebar. It retains only rendered text and explicitly warns about missing history/media and the archive cap. The configured build includes optional Google sign-in, identity permission and the exact Supabase project origin; local use remains available without an account.
 
 When configured, Google/Supabase sign-in adds `identity` and the exact configured Supabase project origin. Installed Google sign-in, manual upload and same-installation restore passed live in Brave. Cross-device restore, disconnect, session lifecycle and cloud deletion still need acceptance before publication. Do not advertise live cloud sync or continuous exact quota tracking in the current listing. The planned privacy-policy URL above remains pending: repo not yet published.
+
+## Store images (0.3.41)
+
+Rendered with `npm run render:store` from `store/src/*.html` (local Brave or Chrome, throwaway profile). Upload these files from `store/`:
+
+| Store field | File | Size |
+|---|---|---|
+| Screenshot 1 | `screenshot-01-continue.png`: hit the limit, pass the baton | 1280×800 |
+| Screenshot 2 | `screenshot-02-usage.png`: usage bar and all six lanes | 1280×800 |
+| Screenshot 3 | `screenshot-03-suggest.png`: suggestions by task | 1280×800 |
+| Screenshot 4 | `screenshot-04-draft.png`: arrives as a draft, you press Send | 1280×800 |
+| Screenshot 5 | `screenshot-05-private.png`: privacy rules | 1280×800 |
+| Small promo tile | `promo-small-440x280.png` | 440×280 |
+| Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
+
+The screenshots show Baton's real interface with example chats and figures.
+
+**Suggested name and summary.** The name carries the use case, because people search for the problem:
+- Name: `Baton Pass: Continue AI chats when you hit the limit`
+- Summary (132 characters max): `Hit your ChatGPT, Claude or Gemini limit? Continue the same chat in another AI in one click, with your context. Free and private.`

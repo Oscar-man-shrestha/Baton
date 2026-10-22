@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baton Pass removed</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root { --ink: #0e0c16; --ink-2: #161325; --ink-3: #1f1b33; --line: #2c2744; --chalk: #f2efff; --mute: #a59fc2; --violet: #8b6cff; --violet-soft: #c4b5ff; --tartan: #ff6b4a; --ok: #4ade80; --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ink); color: var(--chalk); font: 17px/1.6 var(--body); }
+main { max-width: 680px; margin: 0 auto; padding: 56px max(18px, env(safe-area-inset-right, 0px)) 48px max(18px, env(safe-area-inset-left, 0px)); }
+a { color: var(--violet-soft); }
+:focus-visible { outline: 2px solid var(--violet-soft); outline-offset: 3px; border-radius: 6px; }
+.eyebrow { font: 700 .78rem/1 ui-monospace, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--tartan); margin: 0 0 14px; }
+h1 { font: 900 clamp(2.6rem, 9vw, 4rem)/.92 var(--display); text-transform: uppercase; margin: 0 0 16px; text-wrap: balance; }
+.lede { color: var(--mute); margin: 0 0 28px; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+legend { font-weight: 700; margin-bottom: 10px; }
+.reason { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--ink-2); cursor: pointer; }
+.reason:has(input:checked) { border-color: var(--violet); background: color-mix(in srgb, var(--violet) 12%, var(--ink-2)); }
+.reason input { accent-color: var(--violet); width: 18px; height: 18px; }
+.fix { display: none; margin: -2px 0 4px; padding: 12px 14px; border-left: 3px solid var(--ok); background: var(--ink-2); border-radius: 0 10px 10px 0; color: var(--mute); font-size: .95rem; }
+.fix.show { display: block; }
+.fix b { color: var(--chalk); }
+label.more { display: block; font-weight: 700; margin: 22px 0 8px; }
+textarea { width: 100%; min-height: 110px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--ink-2); color: var(--chalk); font: inherit; resize: vertical; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px; }
+button, .btn { font: 700 1rem/1 var(--body); padding: .9em 1.3em; border-radius: 999px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+.primary { background: radial-gradient(circle at 30% 25%, #c9b8ff, var(--violet) 50%, #5b3fd8); color: #fff; }
+.ghost { background: var(--ink-3); color: var(--chalk); border-color: var(--line); }
+.note { color: var(--mute); font-size: .88rem; margin: 14px 0 0; }
+.thanks { display: none; padding: 22px; border: 1px solid color-mix(in srgb, var(--ok) 50%, var(--line)); border-radius: 16px; background: var(--ink-2); }
+.thanks.show { display: block; }
+.thanks h2 { font: 900 2rem/1 var(--display); text-transform: uppercase; margin: 0 0 8px; }
+.thanks p { color: var(--mute); margin: 0 0 8px; }
+footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; gap: 18px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Baton Pass was removed</p>
+  <h1>Sorry to see you go.</h1>
+  <p class="lede">Your saved batons were removed with the extension. If you have a minute, tell us why. It takes one tap, and it shapes what we fix next.</p>
+
+  <form id="feedback" novalidate>
+    <fieldset>
+      <legend>Why did you remove Baton?</legend>
+      <label class="reason"><input type="radio" name="reason" value="in-the-way"> The button or usage bar got in the way</label>
+      <p class="fix" data-for="in-the-way">You can keep Baton and hide either one: press <b>×</b> on the usage bar, or <b>Hide this button</b> in the button's menu. Turn them back on in Baton under <b>Show on AI chat pages</b>.</p>
+      <label class="reason"><input type="radio" name="reason" value="broken"> It didn't work on an AI site</label>
+      <p class="fix" data-for="broken">AI sites change often. Please say which one below, and what happened, so it can be fixed.</p>
+      <label class="reason"><input type="radio" name="reason" value="confusing"> I didn't understand how to use it</label>
+      <p class="fix" data-for="confusing">The short version: open an AI chat, press the glowing button by Send, pick an AI, then press Send in the new tab. There's a walkthrough on <a href="./#how">the Baton site</a>.</p>
+      <label class="reason"><input type="radio" name="reason" value="numbers"> The usage numbers looked wrong</label>
+      <label class="reason"><input type="radio" name="reason" value="once"> I only needed it once</label>
+      <label class="reason"><input type="radio" name="reason" value="privacy"> Privacy or permission worries</label>
+      <p class="fix" data-for="privacy">Baton keeps everything in your browser, reads only the six AI sites, never sends messages for you, and its task model runs on your device. Every permission is explained on <a href="./#access">the Baton site</a>.</p>
+      <label class="reason"><input type="radio" name="reason" value="other"> Something else</label>
+    </fieldset>
+    <label class="more" for="details">Anything else? (optional)</label>
+    <textarea id="details" name="details" maxlength="1500" placeholder="Which AI site, what you expected, what happened…"></textarea>
+    <div class="row">
+      <button class="primary" type="submit">Send feedback</button>
+      <a class="btn ghost" id="reinstall" href="./#install">Reinstall Baton</a>
+    </div>
+    <p class="note">Only your answer and the Baton version are sent, nothing else. Please don't include personal details.</p>
+  </form>
+
+  <div class="thanks" id="thanks" role="status">
+    <h2>Thank you.</h2>
+    <p id="thanks-text">Your feedback was sent.</p>
+    <p id="copy-wrap" hidden><button class="ghost" type="button" id="copy">Copy my feedback</button></p>
+  </div>
+
+  <footer><a href="./">Baton Pass</a><a href="https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md">Privacy policy</a></footer>
+</main>
+<script>
+(() => {
+  /* Where feedback goes. Create a Google Form with two short-answer questions ("Reason" and "Details") plus one
+     for "Version", then paste its formResponse URL and the three entry ids here. Until then, the page offers to copy. */
+  const FORM = { action: '', reason: '', details: '', version: '' };
+  const STORE_URL = '';
+  const version = new URLSearchParams(location.search).get('v') || '';
+  if (STORE_URL) document.getElementById('reinstall').href = STORE_URL;
+
+  const form = document.getElementById('feedback');
+  form.addEventListener('change', () => {
+    const chosen = form.reason.value;
+    document.querySelectorAll('.fix').forEach(fix => fix.classList.toggle('show', fix.dataset.for === chosen));
+  });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const reason = form.reason.value || 'not given';
+    const details = form.details.value.trim().slice(0, 1500);
+    const text = `Reason: ${reason}\nVersion: ${version || 'unknown'}\n${details}`;
+    let sent = false;
+    if (FORM.action) {
+      const body = new URLSearchParams({ [FORM.reason]: reason, [FORM.details]: details, [FORM.version]: version });
+      try { await fetch(FORM.action, { method: 'POST', mode: 'no-cors', body }); sent = true; } catch { sent = false; }
+    }
+    form.hidden = true;
+    document.getElementById('thanks').classList.add('show');
+    if (!sent) {
+      document.getElementById('thanks-text').textContent = 'Feedback sending isn\'t set up yet. You can copy your answer and share it with the Baton team.';
+      document.getElementById('copy-wrap').hidden = false;
+      document.getElementById('copy').addEventListener('click', async event => {
+        try { await navigator.clipboard.writeText(text); event.target.textContent = 'Copied'; } catch { event.target.textContent = 'Could not copy'; }
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>

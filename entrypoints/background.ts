@@ -38,6 +38,14 @@ export default defineBackground(() => {
   const updateRankings = async () => { const saved = await fetchRankings(); if (saved) await chrome.storage.local.set({ rankingsRemote: saved }); return !!saved; };
   const scheduleRankings = () => { void chrome.alarms.get('baton-rankings').then(alarm => { if (!alarm) void chrome.alarms.create('baton-rankings', { delayInMinutes: 1, periodInMinutes: 1440 }); }).catch(() => {}); };
   chrome.runtime.onInstalled.addListener(scheduleRankings);
+  // First install: open the welcome page (pin Baton, open an AI chat, find the glowing button).
+  // Uninstall: the browser opens a short feedback page on Baton's site; only the version is in the address.
+  const uninstallPage = () => { void chrome.runtime.setUninstallURL(`https://oscar-man-shrestha.github.io/handoff/uninstall.html?v=${encodeURIComponent(chrome.runtime.getManifest().version)}`).catch(() => {}); };
+  chrome.runtime.onInstalled.addListener(details => {
+    uninstallPage();
+    if (details.reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') }).catch(() => {});
+  });
+  chrome.runtime.onStartup.addListener(uninstallPage);
   chrome.runtime.onStartup.addListener(scheduleRankings);
   chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'baton-rankings') void updateRankings().catch(() => {}); });
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
