@@ -12,6 +12,7 @@ import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText, statusLineAbove, statusLinePosition } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
+import { chatFeature, chatSegments, type Segment } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
@@ -49,9 +50,9 @@ export default defineContentScript({
     statusHost.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;display:none';
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
-    statusStyle.textContent = ':host{all:initial}span{display:inline-block;max-width:100%;padding:2px 7px;border-radius:5px;background:#172538;color:#f7f9fc;font:10px/14px system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0003}@media(prefers-color-scheme:light){span{background:#eef3ff;color:#233754}}';
+    // A compact pill under the composer: baton mark, then “Session ▰▰▱ 63% left 3h 9m” segments.
+    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:8px;max-width:100%;box-sizing:border-box;padding:3px 10px 3px 8px;border-radius:999px;background:rgba(24,24,33,.9);border:1px solid rgba(255,255,255,.09);color:#f1f0f8;font:500 10.5px/16px system-ui,-apple-system,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden}.brand{flex:none;width:12px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b09aff 0 3px,rgba(255,255,255,.35) 3px 4px)}.seg{display:inline-flex;align-items:center;gap:5px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:10px;background:rgba(255,255,255,.16);margin-right:3px}.k{color:#a9a8bd}.v{font-weight:650}.n{color:#a9a8bd}.meter{flex:none;width:30px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden}.meter i{display:block;height:100%;border-radius:2px;background:#2bc4a6}.meter i.mid{background:#f2b544}.meter i.low{background:#ff6b6b}.quiet{color:#a9a8bd;font-weight:400}@media(prefers-color-scheme:light){.line{background:rgba(255,255,255,.95);border-color:rgba(20,20,40,.1);color:#20202d;box-shadow:0 2px 8px rgba(20,20,40,.12)}.k,.n,.quiet{color:#626275}.meter{background:rgba(20,20,40,.1)}.seg+.seg:before{background:rgba(20,20,40,.14)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.18) 3px 4px)}}@media(prefers-reduced-motion:no-preference){.meter i{transition:width .3s ease}}';
     const statusText = document.createElement('span');
-    statusStyle.textContent += 'progress{width:32px;height:4px;accent-color:#a99aff;vertical-align:middle;margin:0 4px}';
     shadow.append(statusStyle, statusText);
     document.body.append(statusHost);
     // Limit rescue: interactive, shown only while the service reports a limit, placed above the composer.
@@ -144,9 +145,11 @@ export default defineContentScript({
       if (!exposed || !editor.contains(exposed)) { statusHost.style.display = 'none'; return; }
       let surface: Element = editor;
       let ancestor = editor.parentElement;
-      for (let depth = 0; ancestor && depth < 5 && !ancestor.matches('body,main'); depth++, ancestor = ancestor.parentElement) {
+      // Climb to the whole composer box (Gemini's single-row box is several levels up and barely taller than its editor),
+      // but not to a page-wide wrapper.
+      for (let depth = 0; ancestor && depth < 8 && !ancestor.matches('body,main'); depth++, ancestor = ancestor.parentElement) {
         const rect = ancestor.getBoundingClientRect();
-        if (rect.width >= editorRect.width * 0.85 && rect.height <= 360 && rect.bottom >= editorRect.bottom + 10) surface = ancestor;
+        if (rect.width >= editorRect.width * 0.85 && rect.width <= Math.max(editorRect.width * 1.6, editorRect.width + 160) && rect.height <= 360 && rect.bottom >= editorRect.bottom) surface = ancestor;
       }
       const surfaceRect = surface.getBoundingClientRect();
       const interactive = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
@@ -184,21 +187,29 @@ export default defineContentScript({
       const chat = windows.filter(win => !/image|file|upload|voice|deep research|work|codex|credit|limit resets|^model$/i.test(win.feature));
       const extras = windows.filter(win => !chat.includes(win));
       statusText.replaceChildren();
-      if (chat.length) {
-        if (lastPromptTokens) statusText.append(`≈${lastPromptTokens} prompt tokens · `);
-        chat.slice(0, 2).forEach((win, index) => {
-          if (index) statusText.append(' · ');
-          statusText.append(displayLabel(win) || windowLabel(win));
-          if (win.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = win.percent; bar.setAttribute('aria-label', `${win.feature}: ${win.percent}% used`); statusText.append(bar); }
-        });
-      } else {
-        const text = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
+      statusText.className = 'line';
+      const brand = document.createElement('i'); brand.className = 'brand'; brand.setAttribute('aria-hidden', 'true'); statusText.append(brand);
+      const piece = (className: string, text: string) => { const node = document.createElement('span'); node.className = className; node.textContent = text; return node; };
+      const addSegment = (segment: Segment) => {
+        const node = document.createElement('span'); node.className = 'seg';
+        if (segment.label) node.append(piece('k', segment.label));
+        if (segment.left !== undefined) { const meter = document.createElement('span'); meter.className = 'meter'; const fill = document.createElement('i'); fill.className = segment.level || 'ok'; fill.style.width = `${segment.left}%`; meter.append(fill); node.append(meter); }
+        node.append(piece('v', segment.value));
+        if (segment.note) node.append(piece('n', segment.note));
+        statusText.append(node);
+      };
+      const segments = chatSegments(chat);
+      if (segments.length) segments.forEach(addSegment);
+      else {
+        // Only a chat notice may stand in: ChatGPT's “latest reading” is often its Work allowance.
+        const chatMeter = fresh && latestMeter && chatFeature(latestMeter.feature) ? latestMeter : undefined;
+        const text = composerStatusText(0, chatMeter);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
-        // Services that show no numbers: say what Handoff counted instead of only “unknown”.
-        statusText.textContent = !text.endsWith('Usage left: unknown') ? text
-          : counted.count || counted.learnedLimit !== undefined ? text.replace('Usage left: unknown', `${counted.text} (counted by Baton)`)
-          : extras.length ? text.replace('Usage left: unknown', 'Chat: no limit shown') : text;
+        if (!text.endsWith('Usage left: unknown')) addSegment({ label: '', value: text.replace(/^Usage left: /, '') });
+        else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
+        else addSegment({ label: 'Chat', value: extras.length ? 'no limit shown' : 'usage not shown' });
       }
+      if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); statusText.append(tokens); }
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
       statusHost.setAttribute('aria-label', `Baton: ${statusText.textContent}`);
       statusHost.style.left = `${position.left}px`;
