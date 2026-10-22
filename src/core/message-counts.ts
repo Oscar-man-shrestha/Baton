@@ -19,7 +19,10 @@ export function recordLimitHit(hits: LimitHit[], sends: number[], provider: Prov
   return [...hits, { at, count: inWindow(sends, provider, at, stated?.hours) }].slice(-10);
 }
 
-export type MessageSummary = { count: number; hours: number; learnedLimit?: number; left?: number; text: string };
+export type MessageSummary = { count: number; hours: number; learnedLimit?: number; left?: number; text: string; uncapped?: boolean };
+/** Services whose free text chat has no published cap (ChatGPT since Aug 2026): count per day, not per window. */
+export const uncappedChat = (provider: ProviderId) => provider === 'chatgpt';
+const sentToday = (sends: number[], now: number) => { const start = new Date(now); start.setHours(0, 0, 0, 0); return sends.filter(time => time >= start.getTime() && time <= now).length; };
 /**
  * “4 of 20 msgs in last 2 h · ≈16 left (limit stated by Grok)” when the service stated its limit, else
  * “12 msgs in last 2 h · limit hit after ~20 last time · ≈8 left (learned)”; without either, only the count.
@@ -34,6 +37,8 @@ export function messageSummary(provider: ProviderId, sends: number[], hits: Limi
   const seen = hits.filter(hit => hit.count > 0).slice(-3).map(hit => hit.count).sort((a, b) => a - b);
   const learnedLimit = seen.length ? seen[Math.floor(seen.length / 2)] : undefined;
   const left = learnedLimit !== undefined ? Math.max(0, learnedLimit - count) : undefined;
+  // No published chat cap and none learned: a per-day count, so no one reads a made-up window as a limit.
+  if (learnedLimit === undefined && uncappedChat(provider)) { const today = sentToday(sends, now); return { count: today, hours: 24, uncapped: true, text: `No chat cap · ${today} sent today` }; }
   const base = `${count} msg${count === 1 ? '' : 's'} in last ${span(hours)}`;
   const text = learnedLimit !== undefined ? `${base} · limit hit after ~${learnedLimit} last time · ≈${left} left (learned)` : base;
   return { count, hours, ...(learnedLimit !== undefined ? { learnedLimit, left } : {}), text };

@@ -385,6 +385,7 @@ export default defineContentScript({
         const text = composerStatusText(0, chatMeter);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
         if (!text.endsWith('Usage left: unknown')) addSegment({ label: '', value: text.replace(/^Usage left: /, '') });
+        else if (counted.uncapped) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} sent today` });
         else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
         else addSegment({ label: 'Chat', value: extras.length ? 'no limit shown' : 'usage not shown' });
       }

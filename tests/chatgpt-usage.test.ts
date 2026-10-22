@@ -17,7 +17,7 @@ describe('ChatGPT usage page', () => {
   it('reads Work limits as left, with exact tooltip resets, plus credits and banked resets', () => {
     const windows = read(page(63, 100));
     expect(windows.map(win => [win.feature, win.percent, win.remainingPercent, win.remainingCount])).toEqual([
-      ['Work 5-hour', 37, 63, undefined], ['Work weekly', 0, 100, undefined], ['Credits', undefined, undefined, 2500], ['Limit resets', undefined, undefined, 0]
+      ['Work 5-hour', 37, 63, undefined], ['Work weekly', 0, 100, undefined], ['Credits', undefined, undefined, 2500], ['Banked limit resets', undefined, undefined, 0]
     ]);
     expect(windows[0].resetAt).toBe(Date.parse('2026-10-22T00:09:17Z'));
     expect(windows[1].resetAt).toBe(Date.parse('2026-10-27T10:34:33Z'));

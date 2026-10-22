@@ -9,7 +9,7 @@
 **Permissions justification:**
 
 - `storage`: keeps bounded local transcripts, briefs, settings, project records, and diagnostics.
-- `tabs`: opens the destination selected by the user and sends its draft to that tab.
+- Tabs: Baton opens the AI you choose in a new tab and sends its draft there. It needs no `tabs` permission for this; it can only see tabs on the six AI sites listed below.
 - `activeTab`: checks the chat tab the user is working in.
 - `scripting`: connects the packaged Baton content script to the active supported chat after the user opens Baton, if that tab predates installation or update. Explicit host access to the same six supported chat sites allows the persistent sidebar to reconnect on tab changes. No page reload is required.
 - `sidePanel`: opens the library/capture interface in the browser sidebar at the user’s request.

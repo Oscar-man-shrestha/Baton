@@ -11,9 +11,12 @@ export default defineConfig({
     name: 'Baton Pass',
     short_name: 'Baton',
     description: 'Continue any AI chat where you left off: save your project, see usage limits, and pass it to another AI as a draft.',
-    action: { default_title: 'Baton' },
+    icons: { 16: 'icon-16.png', 32: 'icon-32.png', 48: 'icon-48.png', 128: 'icon-128.png' },
+    action: { default_title: 'Baton', default_icon: { 16: 'icon-16.png', 32: 'icon-32.png', 48: 'icon-48.png' } },
+    // No “tabs” permission: Baton only reads the addresses of the six AI sites, which its host access already allows,
+    // so Chrome doesn't warn about reading browsing history.
     // offscreen: a hidden extension page that runs the on-device task model (Chrome shows no warning for it).
-    permissions: ['storage', 'tabs', 'activeTab', 'scripting', 'sidePanel', 'alarms', 'offscreen', ...(cloudEnabled ? ['identity'] : [])],
+    permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'alarms', 'offscreen', ...(cloudEnabled ? ['identity'] : [])],
     // The task model runs as WebAssembly; this is the narrowest setting that allows it (no remote code, no eval).
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
     optional_permissions: ['notifications'],

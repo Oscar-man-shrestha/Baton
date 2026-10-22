@@ -210,7 +210,8 @@ function readChatGptUsage(doc: Document, now: number, page: { excluded: (node: E
     const credits = title.match(/^([\d,]+)\s+credits?\s+remaining$/i);
     if (credits && !windows.some(win => win.feature === 'Credits')) windows.push(reading('Credits', title, { remainingCount: Number(credits[1].replaceAll(',', '')) }));
     const resets = node.getAttribute('role') === 'tab' ? title.match(/^Available\s*(\d+)$/i) : null;
-    if (resets && !windows.some(win => win.feature === 'Limit resets')) windows.push(reading('Limit resets', title, { remainingCount: Number(resets[1]) }));
+    // ChatGPT's banked limit resets (Codex/Work), named so “0 left” doesn't read like a broken limit.
+    if (resets && !windows.some(win => /limit resets/i.test(win.feature))) windows.push(reading('Banked limit resets', title, { remainingCount: Number(resets[1]) }));
   }
   return windows;
 }

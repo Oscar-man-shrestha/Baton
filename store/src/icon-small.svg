@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Baton logo, simplified for 16 and 32px toolbar icons: bolder baton, two stripes, no glow. -->
+  <defs>
+    <radialGradient id="tile" cx="0.3" cy="0.22" r="0.95">
+      <stop offset="0" stop-color="#c9b8ff"/>
+      <stop offset="0.5" stop-color="#8462ff"/>
+      <stop offset="1" stop-color="#4f2fcf"/>
+    </radialGradient>
+    <clipPath id="capsule"><rect x="4" y="12.5" width="24" height="7" rx="3.5"/></clipPath>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#tile)"/>
+  <g transform="rotate(-35 16 16)" clip-path="url(#capsule)">
+    <rect x="4" y="12.5" width="24" height="7" fill="#fff"/>
+    <rect x="11" y="12.5" width="3" height="7" fill="#a993ff"/><rect x="18" y="12.5" width="3" height="7" fill="#a993ff"/>
+  </g>
+</svg>

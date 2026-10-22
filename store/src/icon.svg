@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <!-- Baton logo: a glowing violet tile with a striped baton passed across it. Detailed version for 48px and up. -->
+  <defs>
+    <radialGradient id="tile" cx="0.3" cy="0.22" r="0.95">
+      <stop offset="0" stop-color="#d4c6ff"/>
+      <stop offset="0.45" stop-color="#8b6cff"/>
+      <stop offset="1" stop-color="#4f2fcf"/>
+    </radialGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+    <clipPath id="capsule"><rect x="16" y="39" width="64" height="18" rx="9"/></clipPath>
+  </defs>
+  <rect width="96" height="96" rx="24" fill="url(#tile)"/>
+  <rect width="96" height="96" rx="24" fill="url(#shine)"/>
+  <rect x="0.75" y="0.75" width="94.5" height="94.5" rx="23.25" fill="none" stroke="#fff" stroke-opacity="0.28" stroke-width="1.5"/>
+  <g transform="rotate(-35 48 48)">
+    <rect x="16" y="39" width="64" height="18" rx="9" fill="#fff" opacity="0.55" filter="url(#glow)"/>
+    <g clip-path="url(#capsule)">
+      <rect x="16" y="39" width="64" height="18" fill="#ffffff"/>
+      <g fill="#b9a6ff"><rect x="28" y="39" width="7" height="18"/><rect x="43" y="39" width="7" height="18"/><rect x="58" y="39" width="7" height="18"/></g>
+    </g>
+  </g>
+</svg>

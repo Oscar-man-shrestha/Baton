@@ -111,6 +111,11 @@ try {
     await page.close().catch(() => {});
   }
   report.rankingsStored = !!(await getStorage('rankingsRemote')).rankingsRemote;
+  // Without the “tabs” permission Baton must still see its AI tabs (host access), and nothing else.
+  { const chat = await open('https://chatgpt.com/'); await wait(3000);
+    report.tabsWithoutPermission = await extPage.evaluate(() => chrome.tabs.query({}).then(tabs => ({ chatTabUrlVisible: tabs.some(tab => (tab.url || '').startsWith('https://chatgpt.com')), otherUrlsHidden: tabs.filter(tab => tab.url && !/^(https:\/\/(chatgpt\.com|claude\.ai|gemini\.google\.com|chat\.deepseek\.com|grok\.com|www\.perplexity\.ai)|chrome-extension:)/.test(tab.url)).length === 0 })));
+    report.permissions = await extPage.evaluate(() => chrome.runtime.getManifest().permissions);
+    await chat.close().catch(() => {}); }
 } catch (error) { report.error = String(error); } finally {
   await browser.close().catch(() => {});
   rmSync(profile, { recursive: true, force: true });

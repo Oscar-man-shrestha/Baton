@@ -28,3 +28,13 @@ describe('message counts for services without official numbers', () => {
     expect(messageSummary('claude', [], [{ at: now, count: 0 }], now).learnedLimit).toBeUndefined();
   });
 });
+
+describe('ChatGPT has no published chat cap', () => {
+  it('counts per day instead of a made-up window, until a limit is learned', () => {
+    const at = new Date(2026, 9, 22, 15, 0).getTime();
+    const sends = [new Date(2026, 9, 21, 23, 0).getTime(), new Date(2026, 9, 22, 9, 0).getTime(), new Date(2026, 9, 22, 14, 30).getTime()];
+    expect(messageSummary('chatgpt', sends, [], at)).toMatchObject({ count: 2, uncapped: true, text: 'No chat cap · 2 sent today' });
+    expect(messageSummary('chatgpt', sends, [{ at: at - 3600000, count: 40 }] as any, at).text).toContain('limit hit after ~40');
+    expect(messageSummary('claude', sends, [], at).uncapped).toBeUndefined();
+  });
+});

@@ -12,7 +12,7 @@ describe('dashboard lanes', () => {
   });
   it('keeps ChatGPT Work limits and credits as extras, not as the chat lane', () => {
     const saved = { 'usageWindows:chatgpt': [win('chatgpt', 'Work 5-hour', { percent: 0, remainingPercent: 100 }), win('chatgpt', 'Credits', { remainingCount: 2500 })], 'usageSends:chatgpt': [now - 10 * min] };
-    expect(laneFor(saved, 'chatgpt', now)).toMatchObject({ value: '1 sent', source: 'counted', detail: '1 msg in last 5 h · counted by Baton', extras: ['Work 5-hour: 100% left', 'Credits: 2,500'] });
+    expect(laneFor(saved, 'chatgpt', now)).toMatchObject({ value: '1 sent', source: 'counted', detail: 'No chat cap · 1 sent today · counted by Baton', extras: ['Work 5-hour: 100% left', 'Credits: 2,500'] });
   });
   it('uses a stated or learned limit when the service shows no numbers', () => {
     const saved = { 'usageSends:grok': [now - 30 * min, now - 10 * min], 'statedLimit:grok': { count: 20, hours: 2 } };
