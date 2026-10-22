@@ -10,7 +10,7 @@ import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type Stat
 import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
-import { composerStatusText, statusLineAbove, statusLinePosition } from '../src/core/composer-status';
+import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
 import { chatFeature, chatSegments, type Segment } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
@@ -157,29 +157,9 @@ export default defineContentScript({
         if (rect.width >= editorRect.width * 0.85 && rect.width < innerWidth * 0.95 && rect.height <= 360 && rect.bottom >= editorRect.bottom && looksLikeBox(ancestor)) surface = ancestor;
       }
       const surfaceRect = surface.getBoundingClientRect();
-      const interactive = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
-      let position = statusLinePosition(surfaceRect, innerWidth, innerHeight);
-      if (position) {
-        const sampleX = position.left + Math.min(90, position.width / 2);
-        const occupied = document.elementFromPoint(sampleX, position.top + 16);
-        for (let element = occupied; element && element !== document.body && element !== document.documentElement; element = element.parentElement) {
-          if (element === surface || element.contains(surface)) break;
-          const rect = element.getBoundingClientRect();
-          if (rect.width >= 180 && rect.height <= 64 && rect.top < position.top + 19 && rect.bottom > position.top) {
-            position.top = rect.bottom + 2;
-            break;
-          }
-        }
-        const below = document.elementFromPoint(sampleX, position.top + 8);
-        if (position.top + 19 > innerHeight || below?.closest(interactive)) position = null;
-      }
-      // No room below: sit just above the composer, but never over a control.
-      if (!position) {
-        const above = statusLineAbove(surfaceRect, innerWidth);
-        const spot = above && document.elementFromPoint(above.left + Math.min(90, above.width / 2), above.top + 8);
-        if (!above || spot?.closest(interactive) || (spot && surface.contains(spot))) { statusHost.style.display = 'none'; return; }
-        position = above;
-      }
+      if (surfaceRect.width < 180 || surfaceRect.bottom < 0 || surfaceRect.left >= innerWidth - 180) { statusHost.style.display = 'none'; return; }
+      const pillLeft = Math.max(8, surfaceRect.left);
+      const pillMaxWidth = Math.min(Math.max(surfaceRect.width, 220), innerWidth - pillLeft - 8);
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
       const fresh = isCurrentReading(latestMeter);
       if (value !== lastPrompt) { lastPrompt = value; lastPromptTokens = encode(value).length; }
@@ -221,10 +201,45 @@ export default defineContentScript({
       if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); statusText.append(tokens); }
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
       statusHost.setAttribute('aria-label', `Baton: ${statusText.textContent}`);
-      statusHost.style.left = `${position.left}px`;
-      statusHost.style.top = `${position.top}px`;
-      statusHost.style.maxWidth = `${position.width}px`;
+      // Measure the real pill, then try: below the box (left-aligned), below a row of controls under the box
+      // (Claude's Project / model row), then above the box. A spot is taken only where the pill would not cover
+      // visible text or a control; empty full-width wrappers (Gemini's and DeepSeek's centred disclaimers) are fine.
+      statusHost.style.visibility = 'hidden';
       statusHost.style.display = 'block';
+      statusHost.style.left = `${pillLeft}px`;
+      statusHost.style.top = '0px';
+      statusHost.style.maxWidth = `${pillMaxWidth}px`;
+      const pill = statusHost.getBoundingClientRect();
+      const pillHeight = pill.height || 28;
+      const interactive = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
+      const ownText = (element: Element) => Array.from(element.childNodes).some(node => node.nodeType === 3 && !!node.textContent?.trim());
+      const conflict = (top: number): Element | true | undefined => {
+        if (top < 0 || top + pillHeight > innerHeight - 2) return true;
+        for (let x = pillLeft + 6; x < pillLeft + pill.width - 4; x += 32) {
+          for (const y of [top + 4, top + pillHeight / 2, top + pillHeight - 4]) {
+            const element = document.elementFromPoint(x, y);
+            if (!element || element === document.body || element === document.documentElement) continue;
+            if (surface.contains(element)) return element;
+            if (element.closest(interactive) || ownText(element)) return element;
+          }
+        }
+        return undefined;
+      };
+      let top = surfaceRect.bottom + 6;
+      let hit = conflict(top);
+      if (hit && hit !== true) {
+        let row: Element = hit;
+        for (let element: Element | null = hit; element && element !== document.body; element = element.parentElement) {
+          const rect = element.getBoundingClientRect();
+          if (rect.top >= surfaceRect.bottom - 2 && rect.height <= 64 && !element.contains(surface)) row = element; else break;
+        }
+        top = row.getBoundingClientRect().bottom + 6;
+        hit = conflict(top);
+      }
+      if (hit) { top = surfaceRect.top - pillHeight - 6; hit = conflict(top); }
+      if (hit) { statusHost.style.display = 'none'; statusHost.style.visibility = ''; return; }
+      statusHost.style.top = `${top}px`;
+      statusHost.style.visibility = '';
     };
     const scheduleStatus = () => { if (!statusFrame) statusFrame = requestAnimationFrame(updateStatus); };
     ctx.addEventListener(document, 'input', scheduleStatus, { capture: true });
