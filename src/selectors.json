@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "updatedAt": "2026-10-22",
   "providers": {
     "chatgpt": {
@@ -13,6 +13,8 @@
       ],
       "editor": [
         "#prompt-textarea",
+        "#mobile-composer-prompt",
+        "textarea[name='prompt']",
         "[contenteditable='true'][aria-label]",
         "[contenteditable='true']"
       ],

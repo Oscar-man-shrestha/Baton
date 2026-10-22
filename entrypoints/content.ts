@@ -263,13 +263,25 @@ export default defineContentScript({
     // Free spot check shared by the usage pill and the Baton button: no visible text, controls or the composer itself.
     const interactiveSelector = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
     const ownText = (element: Element) => Array.from(element.childNodes).some(node => node.nodeType === 3 && !!node.textContent?.trim());
+    // A pop-up, sign-in sheet or dialog floating over the page counts as taken, even in its empty corners.
+    const floatingLayer = (element: Element, surface: Element) => {
+      if (element.closest('dialog, [role="dialog"], [role="alertdialog"], [aria-modal="true"]')) return true;
+      for (let node: Element | null = element; node && node !== document.body; node = node.parentElement) {
+        if (node.contains(surface)) return false;
+        if (getComputedStyle(node).position === 'fixed') return true;
+      }
+      return false;
+    };
     const spotTaken = (left: number, top: number, width: number, height: number, surface: Element, step = 12): Element | true | undefined => {
       if (top < 0 || left < 0 || top + height > innerHeight - 2 || left + width > innerWidth - 2) return true;
-      for (let x = left + 6; x < left + width - 4; x += step) {
+      // Sample across the width and always at the right edge, so a grown pill can't end inside a neighbour.
+      const xs: number[] = []; for (let x = left + 6; x < left + width - 4; x += step) xs.push(x); xs.push(left + width - 4);
+      for (const x of xs) {
         for (const y of [top + 4, top + height / 2, top + height - 4]) {
-          const element = document.elementFromPoint(x, y);
+          // Look through Baton's own button, bar and cards: only the site's content decides whether a spot is free.
+          const element = document.elementsFromPoint(x, y).find(hit => !hit.id.startsWith('handoff-'));
           if (!element || element === document.body || element === document.documentElement) continue;
-          if (surface.contains(element) || element.closest(interactiveSelector) || ownText(element)) return element;
+          if (surface.contains(element) || element.closest(interactiveSelector) || ownText(element) || floatingLayer(element, surface)) return element;
         }
       }
       return undefined;
@@ -458,6 +470,7 @@ export default defineContentScript({
       const left = rect && rect.width ? rect.left + (rect.width - width) / 2 : (innerWidth - width) / 2;
       continueHost.style.left = `${Math.max(16, Math.min(left, innerWidth - width - 16))}px`;
       const bottom = rect && rect.height ? innerHeight - rect.top + 12 : 96;
+      continueHost.style.top = 'auto';
       continueHost.style.bottom = `${bottom > innerHeight - 140 ? 96 : bottom}px`;
     };
     const showContinue = (pending: PendingProject) => {
@@ -516,7 +529,9 @@ export default defineContentScript({
         continueCard.append(mark, title, tip);
       }
       continueHost.style.left = `${Math.max(16, Math.min(rect.left + rect.width / 2 - 210, innerWidth - 436))}px`;
-      continueHost.style.bottom = `${Math.max(16, innerHeight - rect.top + 18)}px`;
+      // Above the button when there's room, otherwise below it (ChatGPT's “Log in” sits at the very top).
+      if (rect.top > 130) { continueHost.style.top = 'auto'; continueHost.style.bottom = `${innerHeight - rect.top + 18}px`; }
+      else { continueHost.style.bottom = 'auto'; continueHost.style.top = `${rect.bottom + 18}px`; }
       continueHost.style.display = 'block';
     };
     const hideSignInTip = () => { ringHost.style.display = 'none'; if (continueCard.dataset.mode === 'signin') { continueCard.dataset.mode = ''; hideContinue(); } };

@@ -1,10 +1,11 @@
 {
   "name": "handoff-extension",
-  "version": "0.3.45",
+  "version": "0.3.46",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wxt",
+    "smoke": "node scripts/smoke-extension.mjs",
     "render:store": "node scripts/render-store.mjs",
     "build:site": "node scripts/build-site.mjs",
     "train:topics": "node --experimental-strip-types --no-warnings scripts/train-topic-head.ts",
