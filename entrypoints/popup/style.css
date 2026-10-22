@@ -58,3 +58,4 @@ details{border-top:1px solid var(--line);padding-top:9px;margin-top:12px}summary
 .capsule-open:before{display:none}
 .capsule-open small{margin-left:0}
 @media(max-width:350px){.quick-actions{flex-wrap:wrap}.quick-actions .pass-primary{flex-basis:100%}.lane{grid-template-columns:64px 1fr auto}.stats strong{font-size:11px;margin:0}}
+.lanes-more{display:block;width:100%;text-align:left;padding:7px 0;font-size:10.5px;min-height:28px}

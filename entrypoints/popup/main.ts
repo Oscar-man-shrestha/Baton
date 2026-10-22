@@ -9,7 +9,7 @@ import type { TurnArchive } from '../../src/core/capture';
 import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { displayLabel, displayWindows, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
 import { messageSummary, type LimitHit } from '../../src/core/message-counts';
-import { laneFor } from '../../src/core/usage-lanes';
+import { laneFor, laneInUse } from '../../src/core/usage-lanes';
 import { providerEnabled } from '../../src/core/rescue';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
@@ -134,13 +134,21 @@ const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 
 const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], Date.now(), saved[`statedLimit:${id}`]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Baton` : ''; };
 // Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
 const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
-// “Your lanes”: one track per enabled service, the active one first and marked.
+// “Your lanes”: services in use this week (plus the active one) first; the rest behind “＋ N more”.
+let showAllLanes = false;
 function renderLanes(saved: Record<string, any>) {
   const lanes = document.querySelector('#lanes') as HTMLElement | null;
   if (!lanes) return;
   const enabled = (saved.enabledProviders || {}) as Record<string, boolean>;
   const order = providerIds.filter(id => providerEnabled(id, enabled)).sort((a, b) => Number(b === activeProvider) - Number(a === activeProvider));
-  lanes.replaceChildren(...order.map(id => {
+  const used = order.filter(id => id === activeProvider || laneInUse(saved, id));
+  const rest = order.filter(id => !used.includes(id));
+  const shown = showAllLanes || !used.length ? order : used;
+  const more = document.createElement('button'); more.type = 'button'; more.className = 'link-button lanes-more';
+  more.textContent = showAllLanes ? 'Show only services I use' : `＋ ${rest.length} more service${rest.length === 1 ? '' : 's'}`;
+  more.setAttribute('aria-expanded', String(showAllLanes));
+  more.addEventListener('click', () => { showAllLanes = !showAllLanes; renderLanes(saved); });
+  lanes.replaceChildren(...shown.map(id => {
     const lane = laneFor(saved, id);
     const row = document.createElement('div'); row.className = 'lane'; row.setAttribute('role', 'listitem'); row.style.setProperty('--lane', laneColors[id]);
     const name = document.createElement('b'); name.textContent = providerNames[id];
@@ -152,7 +160,7 @@ function renderLanes(saved: Record<string, any>) {
     row.setAttribute('aria-label', `${providerNames[id]}: ${lane.value}${lane.detail ? `, ${lane.detail}` : ''}`);
     row.append(name, track, value, detail);
     return row;
-  }));
+  }), ...(rest.length && used.length ? [more] : []));
 }
 async function showUsage() {
   const saved = await chrome.storage.local.get([...providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`]), 'enabledProviders']);

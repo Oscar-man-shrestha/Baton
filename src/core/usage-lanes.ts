@@ -22,6 +22,17 @@ export function laneFor(saved: Record<string, unknown>, provider: ProviderId, no
     return { provider, left, value: `${estimated ? '≈' : ''}${Number(left.toFixed(1))}% left`, detail: withExtras(`${tight.feature}${reset ? ` · resets in ${reset}` : ''}`), source: estimated ? 'estimate' : 'service' };
   }
   if (counted.learnedLimit && counted.left !== undefined) return { provider, left: counted.left / counted.learnedLimit * 100, value: `≈${counted.left} left`, detail: withExtras(counted.text), source: 'counted' };
-  if (counted.count) return { provider, value: `${counted.count} sent`, detail: withExtras(`${counted.text} · counted by Baton`), source: 'counted' };
-  return { provider, value: '—', detail: withExtras(extras.length ? '' : 'No usage shown yet'), source: 'none' };
+  const sends = (saved[`usageSends:${provider}`] || []) as number[];
+  if (counted.count || sends.some(at => now - at < WEEK)) return { provider, value: `${counted.count} sent`, detail: withExtras(`${counted.text} · counted by Baton`), source: 'counted' };
+  // The service shows extras (ChatGPT Work, credits) but no chat limit: say so rather than a bare dash.
+  if (extras.length) return { provider, value: 'No limit shown', detail: withExtras('Chat: no limit shown'), source: 'none' };
+  return { provider, value: '—', detail: 'No usage shown yet', source: 'none' };
+}
+
+const WEEK = 7 * 86400000;
+/** A service the user is actually using: a reading or a sent message within the last 7 days. */
+export function laneInUse(saved: Record<string, unknown>, provider: ProviderId, now = Date.now()): boolean {
+  const readings = (saved[`usageWindows:${provider}`] || []) as UsageWindow[];
+  const sends = (saved[`usageSends:${provider}`] || []) as number[];
+  return readings.some(win => typeof win.at === 'number' && now - win.at < WEEK) || sends.some(at => now - at < WEEK);
 }
