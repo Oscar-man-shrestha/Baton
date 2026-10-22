@@ -45,6 +45,21 @@ export default defineBackground(() => {
     void updateRankings().then(ok => sendResponse({ ok }), () => sendResponse({ ok: false }));
     return true;
   });
+  // On-device task model: runs in a hidden offscreen page (WebAssembly can't load in the service worker).
+  let offscreenReady: Promise<void> | undefined;
+  const ensureOffscreen = () => offscreenReady ||= (async () => {
+    const url = chrome.runtime.getURL('offscreen.html');
+    const open = await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT], documentUrls: [url] });
+    if (!open.length) await chrome.offscreen.createDocument({ url, reasons: [chrome.offscreen.Reason.WORKERS], justification: 'Runs Baton\'s on-device task model to suggest which AI fits a prompt. Text stays on this device.' });
+  })().finally(() => { offscreenReady = undefined; });
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'CLASSIFY' || typeof message.text !== 'string') return;
+    void (async () => {
+      await ensureOffscreen();
+      sendResponse(await chrome.runtime.sendMessage({ type: 'CLASSIFY_OFFSCREEN', text: message.text.slice(-1500) }));
+    })().catch(error => sendResponse({ ok: false, error: String(error) }));
+    return true;
+  });
   // Existing chat tabs connect after installation/update without reloading them.
   chrome.runtime.onInstalled.addListener(() => { void (async () => {
     const script = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];

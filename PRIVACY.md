@@ -20,7 +20,7 @@ The source includes an opt-in, hash-verified remote selector updater, but the cu
 
 ## Suggestion rankings
 
-Once a day Baton downloads one public file, `rankings.json`, from its GitHub repository (`raw.githubusercontent.com/Oscar-man-shrestha/handoff/main/rankings.json`). The file holds the order in which Baton suggests AIs for each kind of task. The request carries no cookies and no information about the user, their chats or their prompts. The file is checked before use, and Baton keeps its built-in list if the file is missing, invalid or older. The task type of a prompt is guessed on the device from keywords; prompts are never sent for this. The order a user sets in Settings, and the AIs they pick, are stored only in this browser.
+Once a day Baton downloads one public file, `rankings.json`, from its GitHub repository (`raw.githubusercontent.com/Oscar-man-shrestha/handoff/main/rankings.json`). The file holds the order in which Baton suggests AIs for each kind of task. The request carries no cookies and no information about the user, their chats or their prompts. The file is checked before use, and Baton keeps its built-in list if the file is missing, invalid or older. The task type of a prompt is guessed on the device: first from keywords, and when they can't tell, by a small open-source language model (all-MiniLM-L6-v2) that ships inside Baton and runs in a hidden extension page. Prompts are never sent anywhere for this, and the model works offline. The order a user sets in Settings, and the AIs they pick, are stored only in this browser.
 
 ## Optional Google sign-in and Supabase backup
 

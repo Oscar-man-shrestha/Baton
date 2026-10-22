@@ -36,3 +36,23 @@ Rankings are for what each service gives **free** users, because that is what Ba
 - **Maths:** DeepSeek V4.1 Flash scores GPQA Diamond 90.9 and MathArena Apex 65.6 (DeepSeek change log, 10 Sep 2026). V4 Flash scored 96.7% on AIME 2026 (independent). Sources: [DeepSeek change log](https://api-docs.deepseek.com/updates/), [Layerlens](https://layerlens.ai/blog/deepseek-v4-flash-aime2026).
 - **Images:** Gemini (Nano Banana 2) is the most generous free option, at roughly 20 a day, unpublished. ChatGPT is about 2–3 a day. Grok's free images are uncertain and may be paywalled. Claude, DeepSeek and Perplexity Free don't generate images. Sources: [whizi Gemini limits](https://whizi.io/resources/gemini-image-generation-limit/), [pixmind](https://www.pixmind.io/posts/best-free-ai-image-generator-2026), [atlascloud Grok](https://www.atlascloud.ai/blog/tips/free-alternatives-to-grok-image-generation-2026).
 - **Writing and general:** reviewers give Claude the nod for writing. ChatGPT is first for everyday use because free text chat has no cap. Source: [felloai best models](https://felloai.com/best-ai-models/).
+
+## The task check (which kind of task a prompt is)
+
+1. **Keywords** (`src/core/task-fit.ts`) decide when they're sure. They rarely pick a wrong topic.
+2. **When keywords can't tell, an on-device model decides.** It is all-MiniLM-L6-v2 (Apache-2.0, bundled in `public/models/minilm/`) plus Baton's topic layer (`src/model/topic-head.json`). It runs in the offscreen page with ONNX Runtime Web: it takes about 1.6 s to load, then about 40 ms per prompt, and it works offline.
+3. Anything the model is less than 40% sure of gets the everyday order.
+
+To improve it:
+1. Add labelled prompts to `tests/fixtures/topic-train-extra.json`.
+2. Run `npm run train:topics`. It prints cross-validation and held-out accuracy, and rewrites the topic layer and `tests/fixtures/topic-model-predictions.json`.
+3. Run the tests.
+
+Never train on, or tune keywords on, `tests/fixtures/topic-heldout-2.json`: it is the honest measure. `topic-heldout.json` was seen while the training data was written, so it is reference only.
+
+Result when written (0.3.38), on 50 untouched prompts:
+- keywords alone: 39/50;
+- model alone: 46/50, with 4 wrong topics;
+- combined: **46/50 (92%), with 1 wrong topic**.
+
+`npm run check:embed` checks Baton's tokenizer and embeddings against transformers.js (development only).

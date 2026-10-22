@@ -82,6 +82,17 @@ export function promptTopic(text: string, rankings: Rankings = bundledRankings):
   return scores[best] >= 1.5 ? best : 'general';
 }
 
+export type ModelGuess = { label: string; confidence: number };
+/**
+ * Keywords decide when they are sure (they rarely pick a wrong topic). Otherwise the on-device model decides when it
+ * is at least 40% sure, and anything less is “general”. Fixed before measuring; see tests/task-fit.test.ts.
+ */
+export function combineTopic(cue: Topic, model?: ModelGuess): Topic {
+  if (cue !== 'general') return cue;
+  if (model && model.confidence >= 0.4 && (topics as readonly string[]).includes(model.label)) return model.label as Topic;
+  return 'general';
+}
+
 // The rankings file: the copy bundled with this version, replaced by a newer one from GitHub when available.
 const providerList = z.array(z.string().max(32)).max(24);
 export const rankingsSchema = z.object({
@@ -155,9 +166,9 @@ export function rankForTopic(options: RescueOption[], order: ProviderId[]): Resc
 export const suggestionKeys = () => [...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders', 'rankingsRemote', 'rankingsUser', 'taskPicks'];
 
 /** One call for the Baton menu and the popup: topic, ranked options, and a short reason per service. */
-export function suggest(text: string, source: ProviderId, saved: Record<string, unknown>, now = Date.now(), chosen?: Topic) {
+export function suggest(text: string, source: ProviderId, saved: Record<string, unknown>, now = Date.now(), chosen?: Topic, model?: ModelGuess) {
   const { rankings } = activeRankings(saved.rankingsRemote);
-  const topic = chosen || promptTopic(text, rankings);
+  const topic = chosen || combineTopic(promptTopic(text, rankings), model);
   const order = topicOrder(topic, rankings, saved.rankingsUser as UserOrder | undefined, saved.taskPicks as TaskPicks | undefined);
   const options = rankForTopic(rescueOptions(source, saved, (saved.enabledProviders || {}) as Record<string, boolean>, now), order);
   return { topic, options, reason: (provider: ProviderId) => rankings.reasons[topic]?.[provider] };

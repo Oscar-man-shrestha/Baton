@@ -4,7 +4,7 @@ import { collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule } from '../src/core/capsules';
 import { accountSwitch, newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
-import { addPick, suggest, suggestionKeys, topicNames, topics, type TaskPicks, type Topic } from '../src/core/task-fit';
+import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../src/core/task-fit';
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
@@ -90,6 +90,12 @@ export default defineContentScript({
       rescueHost.style.left = `${Math.max(16, Math.min(left, innerWidth - width - 16))}px`;
       rescueHost.style.bottom = `${bottom > innerHeight - 160 ? 24 : bottom}px`;
     };
+    // Asks the on-device task model (via the background) when keywords alone can't tell; gives up after 4 s.
+    const modelGuess = (text: string) => Promise.race([
+      chrome.runtime.sendMessage({ type: 'CLASSIFY', text }).then(reply => reply?.ok ? reply.guess as ModelGuess : undefined, () => undefined),
+      new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 4000))
+    ]);
+    const lastAsked = (count = 3) => extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-count).map(turn => turn.text).join('\n');
     const rescueDraft = async () => {
       const data = extract(document, id, bundledSelectors);
       const { archiveKey } = storageKeys();
@@ -117,8 +123,9 @@ export default defineContentScript({
       rescueSignature = signature;
       const name = providerNames[id];
       // Ranked for what this chat is about, the same as the Baton menu.
-      const asked = extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-3).map(turn => turn.text).join('\n');
-      const card = buildRescueCard(document, limit, suggest(asked, id, saved).options, {
+      const asked = lastAsked();
+      const model = promptTopic(asked) === 'general' ? await modelGuess(asked) : undefined;
+      const card = buildRescueCard(document, limit, suggest(asked, id, saved, Date.now(), undefined, model).options, {
         continueIn: passTo,
         switchAccount: async () => {
           const draft = await rescueDraft();
@@ -164,13 +171,13 @@ export default defineContentScript({
     let passEnabled = true;
     const laneColor: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
     const closePassMenu = () => { passMenu.hidden = true; passButton.setAttribute('aria-expanded', 'false'); };
-    const openPassMenu = async (chosen?: Topic) => {
+    const openPassMenu = async (chosen?: Topic, model?: ModelGuess) => {
       const saved = await chrome.storage.local.get(suggestionKeys());
       // Suggest by what the prompt is about: the text being typed, else the last few things the user asked.
       const editor = findEditor(document, bundledSelectors.providers[id].editor);
       const typed = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '';
-      const asked = typed.trim() || extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-3).map(turn => turn.text).join('\n');
-      const { topic, options, reason } = suggest(asked, id, saved, Date.now(), chosen);
+      const asked = typed.trim() || lastAsked();
+      const { topic, options, reason } = suggest(asked, id, saved, Date.now(), chosen, model);
       const suggested = options.find(option => option.status !== 'limited');
       passMenu.replaceChildren();
       const title = document.createElement('h2'); title.textContent = 'Pass the baton to…';
@@ -215,6 +222,12 @@ export default defineContentScript({
       const top = button.top - menu.height - 8 >= 8 ? button.top - menu.height - 8 : Math.min(button.bottom + 8, innerHeight - menu.height - 8);
       passMenu.style.left = `${left}px`; passMenu.style.top = `${top}px`;
       (passMenu.querySelector('.opt:not([aria-disabled=true])') as HTMLElement | null)?.focus();
+      // Keywords couldn't tell: ask the on-device model, then re-rank if the menu is still open and untouched.
+      if (!chosen && !model && topic === 'general' && asked.trim()) {
+        const opened = passMenu.innerHTML;
+        const guess = await modelGuess(typed.trim() || lastAsked(1));
+        if (guess && !passMenu.hidden && passMenu.innerHTML === opened && suggest(asked, id, saved, Date.now(), undefined, guess).topic !== 'general') await openPassMenu(undefined, guess);
+      }
     };
     passButton.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); if (!passMenu.hidden) closePassMenu(); else void openPassMenu().catch(() => {}); });
     ctx.addEventListener(document, 'click', event => { if (!passMenu.hidden && !event.composedPath().includes(passHost)) closePassMenu(); }, { capture: true });

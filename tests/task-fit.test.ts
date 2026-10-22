@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { activeRankings, addPick, bundledRankings, fetchRankings, parseRankings, promptTopic, rankForTopic, topicOrder } from '../src/core/task-fit';
+import { activeRankings, addPick, bundledRankings, combineTopic, fetchRankings, parseRankings, promptTopic, rankForTopic, topicOrder } from '../src/core/task-fit';
 
 const opt = (provider: string, status: 'room' | 'unknown' | 'limited', remainingPercent?: number) => ({ provider, status, detail: '', ...(remainingPercent !== undefined ? { remainingPercent } : {}) }) as any;
 const file = (extra: Record<string, unknown> = {}) => ({ version: 2, updated: '2026-11-01', bestFor: { code: ['gemini', 'claude'] }, reasons: { code: { gemini: 'new model is best at code' } }, ...extra });
@@ -81,5 +81,24 @@ describe('topic check on prompts it was never tuned on', () => {
     const wrongTopic = results.filter(r => r.got !== r.topic && r.got !== 'general').length;
     expect(right / results.length).toBeGreaterThanOrEqual(0.7);
     expect(wrongTopic).toBeLessThanOrEqual(1);
+  });
+});
+
+import heldout2 from './fixtures/topic-heldout-2.json';
+import predictions from './fixtures/topic-model-predictions.json';
+describe('keywords plus the on-device model, on prompts neither was tuned or trained on', () => {
+  // topic-heldout-2.json was written before training and never trained on. Model answers come from
+  // scripts/train-topic-head.ts. When written: keywords 39/50, model 46/50 (4 wrong topics), combined 46/50 (1 wrong topic).
+  it('gets at least 90% right and rarely picks a wrong topic', () => {
+    const guesses = predictions as unknown as Record<string, [string, number]>;
+    const results = (heldout2 as [string, string][]).map(([text, topic]) => ({ topic, got: combineTopic(promptTopic(text), { label: guesses[text][0], confidence: guesses[text][1] }) }));
+    expect(results.filter(r => r.got === r.topic).length / results.length).toBeGreaterThanOrEqual(0.9);
+    expect(results.filter(r => r.got !== r.topic && r.got !== 'general').length).toBeLessThanOrEqual(2);
+  });
+  it('falls back to keywords when the model is unavailable or unsure', () => {
+    expect(combineTopic('code')).toBe('code');
+    expect(combineTopic('general', { label: 'image', confidence: 0.3 })).toBe('general');
+    expect(combineTopic('general', { label: 'image', confidence: 0.8 })).toBe('image');
+    expect(combineTopic('general', { label: 'nonsense', confidence: 0.9 })).toBe('general');
   });
 });

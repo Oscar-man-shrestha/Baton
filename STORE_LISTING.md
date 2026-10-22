@@ -13,6 +13,7 @@
 - `activeTab`: checks the chat tab the user is working in.
 - `scripting`: connects the packaged Baton content script to the active supported chat after the user opens Baton, if that tab predates installation or update. Explicit host access to the same six supported chat sites allows the persistent sidebar to reconnect on tab changes. No page reload is required.
 - `sidePanel`: opens the library/capture interface in the browser sidebar at the user’s request.
+- `offscreen`: runs Baton's on-device task model (a small open-source language model, bundled in the extension) in a hidden extension page, to suggest which AI fits a prompt. The text is processed on the device and never sent anywhere. The extension's content security policy allows WebAssembly (`wasm-unsafe-eval`) only for this model engine; no remote code is loaded.
 - Optional `notifications`: requested only when the user enables desktop usage alerts; shows alerts for service-reported usage thresholds and limit notices.
 - Access to the six named AI chat hosts: reads rendered conversation text, observes visible limit notices, and inserts a reviewed draft in the destination editor. No access to unrelated websites is requested.
 
