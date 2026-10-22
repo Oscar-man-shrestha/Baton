@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wxt",
+    "build:site": "node scripts/build-site.mjs",
     "train:topics": "node --experimental-strip-types --no-warnings scripts/train-topic-head.ts",
     "check:embed": "node --experimental-strip-types --no-warnings scripts/check-embed.ts",
     "build": "wxt build",
