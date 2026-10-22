@@ -4,6 +4,7 @@ import { collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule } from '../src/core/capsules';
 import { newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
+import { withNextStep } from '../src/core/next-step';
 import { pendingFor, pendingKey, shouldOffer, signInLabel, switchHelp, type PendingProject } from '../src/core/account-continue';
 import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../src/core/task-fit';
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
@@ -121,8 +122,8 @@ export default defineContentScript({
       return redact(wrapHandoff(renderBrief(brief, 1400).text)).text;
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
-    const passTo = async (target: ProviderId) => {
-      const draft = await rescueDraft();
+    const passTo = async (target: ProviderId, next?: string) => {
+      const draft = withNextStep(await rescueDraft(), next);
       if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
       const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
@@ -130,8 +131,8 @@ export default defineContentScript({
     };
     // Same AI, another account: save the project, show where to switch (Google's chooser for Gemini), and offer it
     // as a draft on the next fresh chat here. The user signs in and out in the service's own screens.
-    const sameAiOtherAccount = async () => {
-      const draft = await rescueDraft();
+    const sameAiOtherAccount = async (next?: string) => {
+      const draft = withNextStep(await rescueDraft(), next);
       const pending: PendingProject = { provider: id, draft, at: Date.now(), from: pageUrl(), title: document.title.slice(0, 120) };
       await chrome.storage.local.set({ [pendingKey(id)]: pending });
       const help = switchHelp(id);
@@ -154,7 +155,7 @@ export default defineContentScript({
       // Ranked for what this chat is about, the same as the Baton menu.
       const card = buildRescueCard(document, limit, (await suggestNow()).options, {
         continueIn: passTo,
-        switchAccount: sameAiOtherAccount,
+        switchAccount: () => sameAiOtherAccount(),
         remind: async () => {
           const reply = await chrome.runtime.sendMessage({ type: 'REMIND_AT_RESET', provider: id, resetAt: limit.resetAt });
           if (!reply?.ok) throw new Error('Could not set the reminder.');
@@ -181,7 +182,7 @@ export default defineContentScript({
     passHost.style.cssText = 'position:fixed;z-index:2147483002;display:none;width:40px;height:40px';
     const passShadow = passHost.attachShadow({ mode: 'closed' });
     const passStyle = document.createElement('style');
-    passStyle.textContent = ':host{all:initial}.pass{all:unset;box-sizing:border-box;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:radial-gradient(circle at 32% 26%,#c9b8ff 0,#8b6cff 46%,#5b3fd8 100%);border:1px solid rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(139,108,255,.32),0 8px 20px rgba(91,63,216,.5),0 0 26px rgba(167,139,250,.6);transition:transform .18s,box-shadow .18s;animation:batonGlow 2.8s ease-in-out 4}.pass:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 0 0 6px rgba(139,108,255,.24),0 10px 24px rgba(91,63,216,.55),0 0 44px rgba(167,139,250,.85)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:3px}@keyframes batonGlow{50%{box-shadow:0 0 0 7px rgba(139,108,255,.18),0 8px 22px rgba(91,63,216,.55),0 0 40px rgba(167,139,250,.8)}}.brand{width:19px;height:6px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#fff 0 3px,rgba(255,255,255,.55) 3px 4px);box-shadow:0 0 6px rgba(255,255,255,.55)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}.opt.account{margin-top:4px;border-top:1px solid rgba(255,255,255,.08);border-radius:0 0 9px 9px;padding-top:10px}.swap{font-style:normal;font-size:13px;color:#b8a5ff;width:10px;text-align:center}.basis{font-style:italic;margin-top:-4px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tasks{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 8px}.chip{all:unset;cursor:pointer;font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#cfcde0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.chip:hover,.chip:focus-visible{background:rgba(255,255,255,.12)}.chip[aria-pressed=true]{background:#b8a5ff;color:#1b1430;border-color:transparent}@media(prefers-color-scheme:light){.pass{border-color:rgba(255,255,255,.6);box-shadow:0 0 0 2px rgba(102,80,222,.28),0 8px 18px rgba(102,80,222,.38),0 0 24px rgba(139,108,255,.5)}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}.chip{color:#3d3b52;background:rgba(30,25,70,.05);border-color:rgba(30,25,70,.1)}.chip[aria-pressed=true]{background:#6650de;color:#fff}}@media(prefers-reduced-motion:reduce){.pass{transition:none;animation:none}}';
+    passStyle.textContent = ':host{all:initial}.pass{all:unset;box-sizing:border-box;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:radial-gradient(circle at 32% 26%,#c9b8ff 0,#8b6cff 46%,#5b3fd8 100%);border:1px solid rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(139,108,255,.32),0 8px 20px rgba(91,63,216,.5),0 0 26px rgba(167,139,250,.6);transition:transform .18s,box-shadow .18s;animation:batonGlow 2.8s ease-in-out 4}.pass:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 0 0 6px rgba(139,108,255,.24),0 10px 24px rgba(91,63,216,.55),0 0 44px rgba(167,139,250,.85)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:3px}@keyframes batonGlow{50%{box-shadow:0 0 0 7px rgba(139,108,255,.18),0 8px 22px rgba(91,63,216,.55),0 0 40px rgba(167,139,250,.8)}}.brand{width:19px;height:6px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#fff 0 3px,rgba(255,255,255,.55) 3px 4px);box-shadow:0 0 6px rgba(255,255,255,.55)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}.next{display:grid;gap:4px;margin:2px 2px 10px}.next span{font-size:11px;font-weight:700;color:#cfcde0}.next input{all:unset;box-sizing:border-box;width:100%;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}.next input:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.next input::placeholder{color:#8e8ba6}.next small{color:#a3a1ba;font-size:10px}.opt.account{margin-top:4px;border-top:1px solid rgba(255,255,255,.08);border-radius:0 0 9px 9px;padding-top:10px}.swap{font-style:normal;font-size:13px;color:#b8a5ff;width:10px;text-align:center}.basis{font-style:italic;margin-top:-4px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tasks{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 8px}.chip{all:unset;cursor:pointer;font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#cfcde0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.chip:hover,.chip:focus-visible{background:rgba(255,255,255,.12)}.chip[aria-pressed=true]{background:#b8a5ff;color:#1b1430;border-color:transparent}@media(prefers-color-scheme:light){.pass{border-color:rgba(255,255,255,.6);box-shadow:0 0 0 2px rgba(102,80,222,.28),0 8px 18px rgba(102,80,222,.38),0 0 24px rgba(139,108,255,.5)}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}.chip{color:#3d3b52;background:rgba(30,25,70,.05);border-color:rgba(30,25,70,.1)}.next span{color:#3d3b52}.next input{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.next small{color:#6d6a86}.chip[aria-pressed=true]{background:#6650de;color:#fff}}@media(prefers-reduced-motion:reduce){.pass{transition:none;animation:none}}';
     const passButton = document.createElement('button');
     passButton.type = 'button'; passButton.className = 'pass';
     passButton.title = 'Baton: continue this chat in another AI'; passButton.setAttribute('aria-label', 'Pass the baton to another AI'); passButton.setAttribute('aria-haspopup', 'menu');
@@ -192,7 +193,15 @@ export default defineContentScript({
     let passEnabled = true;
     const laneColor: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
     const closePassMenu = () => { passMenu.hidden = true; passButton.setAttribute('aria-expanded', 'false'); };
+    // “What's next?”: kept while the menu re-ranks; on a fresh open it starts with any unsent text in the chat box.
+    let menuNext = '';
+    let menuTyping = false;
     const openPassMenu = async (chosen?: Topic, model?: ModelGuess) => {
+      if (!chosen && !model && passMenu.hidden) {
+        const editor = findEditor(document, bundledSelectors.providers[id].editor);
+        menuTyping = false;
+        menuNext = (editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      }
       // Opens at once on the keyword guess; the model, when needed, answers below and re-ranks.
       const saved = await chrome.storage.local.get(suggestionKeys());
       const asked = askedNow();
@@ -211,7 +220,20 @@ export default defineContentScript({
         chip.addEventListener('click', event => { event.stopPropagation(); void openPassMenu(option).catch(() => {}); });
         tasks.append(chip);
       }
-      passMenu.append(title, hint, basis, tasks);
+      const nextField = document.createElement('label'); nextField.className = 'next';
+      const nextLabel = document.createElement('span'); nextLabel.textContent = 'What’s next? (optional)';
+      const nextInput = document.createElement('input'); nextInput.type = 'text'; nextInput.maxLength = 300; nextInput.value = menuNext;
+      nextInput.placeholder = 'e.g. now add the login form'; nextInput.setAttribute('aria-describedby', 'baton-next-hint');
+      const nextHint = document.createElement('small'); nextHint.id = 'baton-next-hint'; nextHint.textContent = 'Added to the end of the draft. Enter passes to the suggested AI.';
+      nextInput.addEventListener('input', () => { menuNext = nextInput.value; menuTyping = true; });
+      // Keys stay in Baton's box: the chat site must not react to typing here.
+      for (const type of ['keydown', 'keyup', 'keypress'] as const) nextInput.addEventListener(type, event => {
+        event.stopPropagation();
+        if (type === 'keydown' && (event as KeyboardEvent).key === 'Enter' && suggested) { event.preventDefault(); void run(() => passTo(suggested.provider, menuNext)); }
+        if (type === 'keydown' && (event as KeyboardEvent).key === 'Escape') { closePassMenu(); passButton.focus(); }
+      });
+      nextField.append(nextLabel, nextInput, nextHint);
+      passMenu.append(title, hint, basis, tasks, nextField);
       const run = async (action: () => Promise<string>) => { status.textContent = 'Working…'; try { status.textContent = await action(); } catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Open Baton to try again.'; } };
       for (const option of options) {
         const item = document.createElement('button'); item.type = 'button'; item.className = 'opt'; item.setAttribute('role', 'menuitem');
@@ -223,7 +245,7 @@ export default defineContentScript({
         else item.addEventListener('click', () => {
           // Each pass teaches the order for this kind of task (kept on this device).
           void chrome.storage.local.get('taskPicks').then(stored => chrome.storage.local.set({ taskPicks: addPick(stored.taskPicks as TaskPicks | undefined, topic, option.provider) })).catch(() => {});
-          void run(() => passTo(option.provider));
+          void run(() => passTo(option.provider, menuNext));
         });
         passMenu.append(item);
       }
@@ -232,11 +254,11 @@ export default defineContentScript({
       const otherText = document.createElement('span'); const otherName = document.createElement('b'); otherName.textContent = `${providerNames[id]}, another account`;
       const otherHint = document.createElement('small'); otherHint.textContent = 'Save, switch account, continue here'; otherText.append(otherName, otherHint);
       other.append(otherIcon, otherText);
-      other.addEventListener('click', () => { void run(sameAiOtherAccount); });
+      other.addEventListener('click', () => { void run(() => sameAiOtherAccount(menuNext)); });
       passMenu.append(other);
       const row = document.createElement('div'); row.className = 'row';
       const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy project';
-      copy.addEventListener('click', () => { void run(async () => { const draft = await rescueDraft(); await navigator.clipboard.writeText(draft); return 'Project copied and saved as a baton. Paste it into any AI.'; }); });
+      copy.addEventListener('click', () => { void run(async () => { const draft = withNextStep(await rescueDraft(), menuNext); await navigator.clipboard.writeText(draft); return 'Project copied and saved as a baton. Paste it into any AI.'; }); });
       const hideButton = document.createElement('button'); hideButton.type = 'button'; hideButton.textContent = 'Hide this button';
       hideButton.title = 'Turn it back on in Baton → Show on AI chat pages';
       hideButton.addEventListener('click', () => { passEnabled = false; closePassMenu(); passHost.style.display = 'none'; void chrome.storage.local.set({ passButtonEnabled: false }); });
@@ -253,7 +275,7 @@ export default defineContentScript({
       if (!chosen && !model && topic === 'general' && asked.trim()) {
         const opened = passMenu.innerHTML;
         const guess = await modelGuess(asked);
-        if (guess && !passMenu.hidden && passMenu.innerHTML === opened && suggest(asked, id, saved, Date.now(), undefined, guess).topic !== 'general') await openPassMenu(undefined, guess);
+        if (guess && !passMenu.hidden && !menuTyping && passMenu.innerHTML === opened && suggest(asked, id, saved, Date.now(), undefined, guess).topic !== 'general') await openPassMenu(undefined, guess);
       }
     };
     passButton.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); if (!passMenu.hidden) closePassMenu(); else void openPassMenu().catch(() => {}); });
@@ -743,12 +765,12 @@ export default defineContentScript({
         return true;
       }
       if (message?.type === 'SAME_AI_OTHER_ACCOUNT') {
-        void sameAiOtherAccount().then(text => sendResponse({ ok: true, provider: id, text }), error => sendResponse({ ok: false, text: error instanceof Error ? error.message : 'That did not work.' }));
+        void sameAiOtherAccount(typeof message.next === 'string' ? message.next : undefined).then(text => sendResponse({ ok: true, provider: id, text }), error => sendResponse({ ok: false, text: error instanceof Error ? error.message : 'That did not work.' }));
         return true;
       }
       if (message?.type === 'PASS_TO' && providerIds.includes(message.provider)) {
         void chrome.storage.local.get('taskPicks').then(stored => typeof message.topic === 'string' && topics.includes(message.topic) ? chrome.storage.local.set({ taskPicks: addPick(stored.taskPicks as TaskPicks | undefined, message.topic, message.provider) }) : undefined).catch(() => {});
-        void passTo(message.provider).then(text => sendResponse({ ok: true, text }), error => sendResponse({ ok: false, text: error instanceof Error ? error.message : 'That did not work.' }));
+        void passTo(message.provider, typeof message.next === 'string' ? message.next : undefined).then(text => sendResponse({ ok: true, text }), error => sendResponse({ ok: false, text: error instanceof Error ? error.message : 'That did not work.' }));
         return true;
       }
       if (message?.type === 'REFRESH_USAGE') {

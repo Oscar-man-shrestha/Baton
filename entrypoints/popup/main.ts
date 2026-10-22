@@ -136,7 +136,7 @@ const showNext = async () => {
         go.setAttribute('aria-label', `Pass the baton to ${providerNames[option.provider]}`);
         go.addEventListener('click', async () => {
           go.disabled = true; nextStatus.textContent = 'Saving your baton and opening a draft…';
-          const result = await sendToChat<{ ok: boolean; text: string }>(tab!, { type: 'PASS_TO', provider: option.provider, topic: reply.topic }).catch(() => undefined);
+          const result = await sendToChat<{ ok: boolean; text: string }>(tab!, { type: 'PASS_TO', provider: option.provider, topic: reply.topic, next: (document.querySelector('#next-step') as HTMLInputElement).value }).catch(() => undefined);
           nextStatus.textContent = result?.text || 'That did not work. Use Capture this chat instead.'; go.disabled = false;
         });
         item.append(go);
@@ -151,7 +151,7 @@ const sameAiOther = async (status: HTMLElement) => {
   const tab = await activeChatTab();
   if (!tab?.id) { status.textContent = 'Open the AI chat you want to continue first.'; return; }
   status.textContent = 'Saving your project…';
-  const reply = await sendToChat<{ ok: boolean; text: string }>(tab, { type: 'SAME_AI_OTHER_ACCOUNT' }).catch(() => undefined);
+  const reply = await sendToChat<{ ok: boolean; text: string }>(tab, { type: 'SAME_AI_OTHER_ACCOUNT', next: (document.querySelector('#next-step') as HTMLInputElement | null)?.value }).catch(() => undefined);
   status.textContent = reply?.text || 'That did not work. Refresh the chat tab and try again.';
 };
 document.querySelector('#next-same-ai')?.addEventListener('click', () => { void sameAiOther(nextStatus); });
