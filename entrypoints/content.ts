@@ -179,10 +179,14 @@ export default defineContentScript({
       const current = latestMeter;
       if (isCurrentReading(current) && !windows.some(win => win.feature === current.feature)) windows.push({ ...current, key: `${id}:notice`, source: 'provider-page' });
       windows.sort((a, b) => (b.percent || 0) - (a.percent || 0));
+      // The line sits under the chat box, so it shows chat usage only. ChatGPT's Codex/Work and credits,
+      // banked resets and feature caps stay in the sidebar card and the tooltip.
+      const chat = windows.filter(win => !/image|file|upload|voice|deep research|work|codex|credit|limit resets|^model$/i.test(win.feature));
+      const extras = windows.filter(win => !chat.includes(win));
       statusText.replaceChildren();
-      if (windows.length) {
+      if (chat.length) {
         if (lastPromptTokens) statusText.append(`≈${lastPromptTokens} prompt tokens · `);
-        windows.slice(0, 2).forEach((win, index) => {
+        chat.slice(0, 2).forEach((win, index) => {
           if (index) statusText.append(' · ');
           statusText.append(displayLabel(win) || windowLabel(win));
           if (win.percent !== undefined) { const bar = document.createElement('progress'); bar.max = 100; bar.value = win.percent; bar.setAttribute('aria-label', `${win.feature}: ${win.percent}% used`); statusText.append(bar); }
@@ -191,7 +195,9 @@ export default defineContentScript({
         const text = composerStatusText(lastPromptTokens, fresh ? latestMeter : undefined);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
         // Services that show no numbers: say what Handoff counted instead of only “unknown”.
-        statusText.textContent = text.endsWith('Usage left: unknown') && (counted.count || counted.learnedLimit !== undefined) ? text.replace('Usage left: unknown', `${counted.text} (counted by Baton)`) : text;
+        statusText.textContent = !text.endsWith('Usage left: unknown') ? text
+          : counted.count || counted.learnedLimit !== undefined ? text.replace('Usage left: unknown', `${counted.text} (counted by Baton)`)
+          : extras.length ? text.replace('Usage left: unknown', 'Chat: no limit shown') : text;
       }
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
       statusHost.setAttribute('aria-label', `Baton: ${statusText.textContent}`);
