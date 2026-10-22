@@ -70,6 +70,8 @@ function messageContent(node: Element, id: ProviderId): Element {
     return node;
   }
   if (id === 'claude') return node.querySelector('.standard-markdown, .progressive-markdown') || node;
+  // ChatGPT units start with a hidden “You said:” / “ChatGPT said:” heading; read the bubble or answer body.
+  if (id === 'chatgpt') return node.querySelector('[data-user-message-bubble], [data-markdown-text-style="assistant-message"]') || node;
   return node;
 }
 
@@ -137,12 +139,15 @@ function turnRole(node: Element, id: ProviderId): Turn['role'] {
   }
   if (id === 'claude') return node.matches('.font-user-message, [data-testid="user-message"], [data-testid="human-message"], [data-testid="message-human"]') ? 'user' : 'assistant';
   // Perplexity puts the user's question in a right-aligned bubble.
-  return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"], [data-message-bubble="right"]') ? 'user' : 'assistant';
+  // ChatGPT (Oct 2026) marks each message unit “…:user” or “…:assistant”.
+  return node.matches('[data-testid="user-message"], [data-testid*="-user"], user-query, [class*="user"], [data-message-bubble="right"], [data-chatgpt-search-unit-key$=":user"]') ? 'user' : 'assistant';
 }
 
 function messageIdentity(node: Element, role: Turn['role']): string | undefined {
   const own = node.getAttribute('data-message-id') || node.getAttribute('data-turn-id') || node.getAttribute('data-message-uuid');
   if (own) return `${role}:${own}`;
+  const chatgpt = node.getAttribute('data-chatgpt-search-message-ids')?.trim().split(/\s+/)[0];
+  if (chatgpt) return `${role}:${chatgpt}`;
   const turn = node.closest('[data-turn-id], [data-turn-id-container]');
   const turnId = turn?.getAttribute('data-turn-id') || turn?.getAttribute('data-turn-id-container');
   if (turnId) return `${role}:${turnId}`;

@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "updatedAt": "2026-10-22",
   "providers": {
     "chatgpt": {
@@ -7,10 +7,13 @@
         "chatgpt.com"
       ],
       "turns": [
+        "[data-chatgpt-search-unit-key$=\":user\"]",
+        "[data-chatgpt-search-unit-key$=\":assistant\"]",
         "[data-message-author-role]"
       ],
       "editor": [
         "#prompt-textarea",
+        "[contenteditable='true'][aria-label]",
         "[contenteditable='true']"
       ],
       "artifacts": [
