@@ -9,29 +9,77 @@ export type Topic = typeof topics[number];
 
 export const topicNames: Record<Topic, string> = { code: 'Code', research: 'Research', news: 'Current events', writing: 'Writing', math: 'Maths & reasoning', image: 'Images', general: 'General' };
 
-const signals: Record<Exclude<Topic, 'general'>, RegExp[]> = {
-  code: [/```/, /\b(code|coding|bug|debug|error|stack ?trace|exception|function|class|method|compile|refactor|typescript|javascript|python|java|rust|golang|c\+\+|sql|regex|api|endpoint|react|vue|node|npm|git|docker|kubernetes|deploy|script|unit test|lint)\b/i, /\b(const|let|def|import|return)\s+\w/, /[{};]\s*$/m, /\w+\(\)/],
-  research: [/\b(research|sources?|cite|citations?|references?|papers?|stud(y|ies)|literature|evidence|compare|comparison|pros and cons|review of|in[- ]depth|deep dive|analy[sz]e|survey|statistics|data on)\b/i],
-  news: [/\b(latest|today|this week|yesterday|news|current(ly)?|recent(ly)?|right now|price of|stock|weather|score|election|released?|launch(ed)?|trending|20(2[5-9]|3\d))\b/i],
-  writing: [/\b(write|rewrite|draft|essay|email|letter|cover letter|blog|article|story|poem|tone|proofread|edit my|summari[sz]e|paraphrase|caption|script for|speech|resume|cv)\b/i],
-  math: [/\b(math|maths|calculate|equation|solve|proof|prove|integral|derivative|probability|algebra|geometry|logic puzzle|optimi[sz]e)\b/i, /\d+\s*[-+*/^=]\s*\d+/],
-  image: [/\b(image|picture|photo|draw|drawing|illustration|logo|icon|render|generate an? (image|picture)|wallpaper|art of|sketch)\b/i]
+// Weighted cues per topic. Strong cues (a code block, a stack trace, “generate an image of…”) outweigh words that
+// several topics share (“write”, “latest”, “compare”). Measured against tests/fixtures/topic-prompts.json.
+type Cue = [pattern: RegExp, weight: number];
+const cues: Record<Exclude<Topic, 'general'>, Cue[]> = {
+  code: [
+    [/```/, 5],
+    [/\b\w*(Error|Exception)\b(?=[:\s]|$)/, 3],
+    [/\.(js|jsx|ts|tsx|py|java|rb|go|rs|cpp|cs|php|html|css|json|ya?ml|sh|sql)\b/, 3],
+    [/\b(def|const|let|var|import|return|async|await|class|function)\s+\w+/, 3],
+    [/\bO\([^)]*n[^)]*\)/, 3],
+    [/\b(write|generate|create|build)\s+(?:(?:a|an|some|the|me)\s+)*(?:\w+\s+)?(code|script|function|program|class|regex|query|tests?|command|component|api|app|extension|website)\b/i, 3],
+    [/\b(make|build|create|code|develop)\s+(?:(?:a|an|my|the)\s+)?(?:\w+\s+)?(bot|app|website|game|extension|plugin|api|login page|signup page|dashboard|backend|server|database)\b/i, 3],
+    [/\b(unauthorized|not found|internal server error|bad request|cors)\b|\b[45]\d\d\b[^.\n]{0,20}\b(error|status)\b/i, 2],
+    [/\b(python|javascript|typescript|java|kotlin|swift|rust|golang|c\+\+|c#|php|ruby|sql|html|css|tailwind|react|next\.js|vue|svelte|angular|node(\.js)?|npm|vite|django|flask|spring|docker|kubernetes|git|github|bash|shell|regex|api|json|eslint|prettier|vercel|aws|linux|chrome extension|webpack|postgres|mongodb|pip|npm|yarn|terminal|command line|linked list|binary tree|hash ?map|recursion|data structures?|stack overflow|localhost|useState|useEffect|js|ts|py|closures?|promises?|callbacks?|props|segmentation fault|compiler|runtime|null pointer|undefined is not|big o|firebase|supabase|login|signup|auth(entication)?|bot|android|ios|flutter|nosql|backend)\b/i, 2],
+    [/\b(code|coding|program(ming)?|script|function|class|method|variable|bug|debug|compile|refactor|deploy|unit tests?|loop|array|algorithm|database|query|endpoint|frontend|backend|component|repo|commit|branch|landing page|website|app|framework|library|div|controller|server|optimi[sz]e|install(ing|ed)?|package|dependenc(y|ies)|merge|branch(es)?|pull request|permission denied|build fails?|crash(es|ing)?)\b/i, 1.5],
+    [/=>|\w+\(\)|[{};]\s*$|\b[a-z]+_[a-z_]+\b|\b[a-z]+[A-Z]\w+/m, 1]
+  ],
+  math: [
+    [/\b(solve|equation|derivative|integral|integrate|differentiate|prove|proof|theorem|probability|algebra|geometry|calculus|matrix|eigenvalues?|logarithm|factorial|permutations?|combinations?|percent(age)?|compound interest|area|volume|perimeter|radius|average|mean|median|how many ways|logic puzzle|calculate|compute|standard deviation|variance|simplify|fraction|ratio|discount|original price|tip on)\b/i, 2],
+    [/\d+(\.\d+)?\s*%/, 1.5],
+    [/\d+\s*(times|plus|minus|divided by|multiplied by)\s*\d+|\b(find|solve for)\s+[a-z]\b|\b\d+[a-z]\s*[-+=]/i, 2],
+    [/\b(power of|squared|cubed|square root|cube root|times table)\b|\bhow many \w+ (are )?in an?\b/i, 2],
+    [/\bconvert\s+\d+|\b(fahrenheit|celsius|kilometers?|miles|pounds|kilograms?|inches|centimeters?)\b/i, 1.5],
+    [/\d+\s*[-+*/^=×÷]\s*\d+|\b[a-z]\^\d|\d+\s*%\s*of\b|\bdx\b|sqrt|√/i, 2],
+    [/\b(how (much|many|long|far)|when does)\b[^?]*\d/i, 1.5],
+    [/\bkm\/h|\bmph\b/i, 1]
+  ],
+  image: [
+    [/\b(generate|create|make|draw|design|render|paint|sketch)\b[^.?!\n]{0,40}\b(image|picture|photo|logo|icon|wallpaper|illustration|portrait|cartoon|sticker|poster|art|drawing|diagram|banner|avatar|anime|watercolou?r|painting|pixel art|3d render|scene)\b/i, 4],
+    [/\b(draw|sketch|illustration|logo|wallpaper|portrait|cartoon|sticker|photo ?realistic|4k|anime style|in the style of|watercolou?r|pixel art|oil painting|poster|banner|avatar|thumbnail)\b/i, 1.5],
+    // Asking about a picture you already have is not making one.
+    [/\b(this|the|my|attached|uploaded)\s+(image|photo|picture|screenshot)\b/i, -2]
+  ],
+  research: [
+    [/\b(research|sources?|cite|citations?|references?|peer[- ]reviewed|papers?|studies|a study|study (shows|found)|literature( review)?|evidence|scientific|consensus|market size|in[- ]depth|deep dive|statistics|data on|according to)\b/i, 2],
+    [/\b(compare[ds]?|comparing|comparison|vs\.?|versus|pros and cons|which is better|best \w+ for|reviews?|analy[sz]e|analysis|causes?|effects? of|impact of|history of|benefits of|backed by|science|origins? of)\b/i, 1.5]
+  ],
+  news: [
+    [/\b(this (week|morning|month)|right now|current(ly)?|latest|recent(ly)?|breaking|news|updates?|trending|live)\b/i, 1.5],
+    // Time words alone are weak: “dinner tonight” is not news.
+    [/\b(today|tonight|yesterday|tomorrow)\b/i, 1],
+    [/\b(stock market|prices?|bitcoin|weather|forecast|score|match|won|leading|standings|results|election|launch(ed)?|released?|announce(d|ment)?|strike|protest|earnings|interest rates|the fed|index|stocks?|shares|nasdaq|sensex|dow jones|happening (now|in)|what is happening|what happened|game|fixture|exchange rate|dollar to|usd to|currency)\b/i, 1.5],
+    [/\b(new|current)\s+(prime minister|president|ceo|pm|minister|leader|coach)\b|\bwho is the (prime minister|president|ceo)\b/i, 2],
+    [/\b(saying on|posts? on|tweets?)\b.*\b(x|twitter)\b|\bon (x|twitter)\b/i, 2]
+  ],
+  writing: [
+    [/\b(rewrite|re-write|proofread|paraphrase|reword|polish|edit (my|this)|grammar|tone|draft|essay|email|letter|cover letter|story|poem|lyrics|speech|caption|blog( post)?|article|post|bio|resume|cv|product description|slogan|translate|summari[sz]e|bullet points|paragraph|sentence|more professional|note|toast|shorten|condense|expand|message|reply|invitation|introduction|flow|wording|spelling|rephrase|rap|song|application|sound (smarter|better|cool|natural|professional)|(correct|fix|check) my (english|grammar|spelling|writing))\b/i, 2],
+    [/\bwrite\b/i, 1],
+    [/\bwrite\s+(a|an|me a|my)\b/i, 1]
+  ]
 };
+// On a tie, the more specific topic wins.
+const priority: Exclude<Topic, 'general'>[] = ['code', 'image', 'math', 'research', 'news', 'writing'];
 
 const escape = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const count = (text: string, pattern: RegExp) => (text.match(new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`)) || []).length;
+const hits = (text: string, pattern: RegExp) => Math.min(4, (text.match(new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`)) || []).length);
 
-/** Extra keywords from the rankings file (new frameworks, model features) add to the built-in signals. */
-export function promptTopic(text: string, rankings: Rankings = bundledRankings): Topic {
+/** Score per topic; extra keywords from the rankings file (new frameworks, model features) count as strong words. */
+export function topicScores(text: string, rankings: Rankings = bundledRankings): Record<Exclude<Topic, 'general'>, number> {
   const sample = text.slice(-4000);
-  let best: Topic = 'general'; let bestScore = 0;
-  for (const topic of topics) {
-    if (topic === 'general') continue;
-    const extra = (rankings.keywords[topic] || []).map(word => new RegExp(`\\b${escape(word)}\\b`, 'i'));
-    const score = [...signals[topic], ...extra].reduce((sum, pattern) => sum + count(sample, pattern), 0);
-    if (score > bestScore) { best = topic; bestScore = score; }
-  }
-  return best;
+  return Object.fromEntries(priority.map(topic => {
+    const extra: Cue[] = (rankings.keywords[topic] || []).map(word => [new RegExp(`\\b${escape(word)}\\b`, 'i'), 2]);
+    return [topic, [...cues[topic], ...extra].reduce((sum, [pattern, weight]) => sum + hits(sample, pattern) * weight, 0)];
+  })) as Record<Exclude<Topic, 'general'>, number>;
+}
+
+/** The best-scoring topic, or “general” when nothing scores at least one clear cue's worth. */
+export function promptTopic(text: string, rankings: Rankings = bundledRankings): Topic {
+  const scores = topicScores(text, rankings);
+  const best = priority.reduce((top, topic) => scores[topic] > scores[top] ? topic : top, priority[0]);
+  return scores[best] >= 1.5 ? best : 'general';
 }
 
 // The rankings file: the copy bundled with this version, replaced by a newer one from GitHub when available.
@@ -107,9 +155,9 @@ export function rankForTopic(options: RescueOption[], order: ProviderId[]): Resc
 export const suggestionKeys = () => [...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders', 'rankingsRemote', 'rankingsUser', 'taskPicks'];
 
 /** One call for the Baton menu and the popup: topic, ranked options, and a short reason per service. */
-export function suggest(text: string, source: ProviderId, saved: Record<string, unknown>, now = Date.now()) {
+export function suggest(text: string, source: ProviderId, saved: Record<string, unknown>, now = Date.now(), chosen?: Topic) {
   const { rankings } = activeRankings(saved.rankingsRemote);
-  const topic = promptTopic(text, rankings);
+  const topic = chosen || promptTopic(text, rankings);
   const order = topicOrder(topic, rankings, saved.rankingsUser as UserOrder | undefined, saved.taskPicks as TaskPicks | undefined);
   const options = rankForTopic(rescueOptions(source, saved, (saved.enabledProviders || {}) as Record<string, boolean>, now), order);
   return { topic, options, reason: (provider: ProviderId) => rankings.reasons[topic]?.[provider] };

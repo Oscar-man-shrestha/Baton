@@ -15,9 +15,9 @@ describe('suggestions by prompt topic', () => {
     expect(promptTopic('hello there')).toBe('general');
   });
   it('learns new keywords from the rankings file', () => {
-    expect(promptTopic('tune my svelte stores')).toBe('general');
-    const rankings = parseRankings(file({ keywords: { code: ['svelte'] } }), bundledRankings)!;
-    expect(promptTopic('tune my svelte stores', rankings)).toBe('code');
+    expect(promptTopic('tune my htmx swaps')).toBe('general');
+    const rankings = parseRankings(file({ keywords: { code: ['htmx'] } }), bundledRankings)!;
+    expect(promptTopic('tune my htmx swaps', rankings)).toBe('code');
   });
   it('ranks by fit, but limited and nearly-out services go last', () => {
     const options = [opt('chatgpt', 'room', 80), opt('perplexity', 'unknown'), opt('gemini', 'limited'), opt('claude', 'room', 10)];
@@ -54,10 +54,32 @@ describe('your order and picks', () => {
     expect(topicOrder('code', bundledRankings, { code: ['grok', 'perplexity'] })).toEqual(['grok', 'perplexity', 'claude', 'deepseek', 'chatgpt', 'gemini']);
   });
   it('moves a service you keep picking up, a little at a time', () => {
-    let picks = addPick(undefined, 'research', 'claude');
-    expect(topicOrder('research', bundledRankings, undefined, picks).indexOf('claude')).toBe(3);
-    for (let i = 0; i < 3; i++) picks = addPick(picks, 'research', 'claude');
-    expect(topicOrder('research', bundledRankings, undefined, picks).slice(0, 2)).toEqual(['perplexity', 'claude']);
+    let picks = addPick(undefined, 'research', 'gemini');
+    expect(topicOrder('research', bundledRankings, undefined, picks).indexOf('gemini')).toBe(3);
+    for (let i = 0; i < 3; i++) picks = addPick(picks, 'research', 'gemini');
+    expect(topicOrder('research', bundledRankings, undefined, picks).slice(0, 2)).toEqual(['perplexity', 'gemini']);
     expect(addPick({ code: { grok: 10 } }, 'code', 'grok').code?.grok).toBe(10);
+  });
+});
+
+import prompts from './fixtures/topic-prompts.json';
+describe('topic accuracy on labelled prompts', () => {
+  it('gets at least 95% of the labelled prompts right', () => {
+    const wrong = (prompts as [string, string][]).filter(([text, topic]) => promptTopic(text) !== topic).map(([text, topic]) => `${topic} ← ${promptTopic(text)}: ${text.slice(0, 60)}`);
+    if (wrong.length) console.log(wrong.join('\n'));
+    expect(1 - wrong.length / prompts.length).toBeGreaterThanOrEqual(0.95);
+  });
+});
+
+import heldout from './fixtures/topic-heldout.json';
+describe('topic check on prompts it was never tuned on', () => {
+  // Never tune the cues on this file: it measures how the check does on new phrasing (70% when written).
+  // When unsure it must fall back to “general” (the everyday order), not pick a wrong topic.
+  it('finds most topics and does not mislabel the rest', () => {
+    const results = (heldout as [string, string][]).map(([text, topic]) => ({ topic, got: promptTopic(text) }));
+    const right = results.filter(r => r.got === r.topic).length;
+    const wrongTopic = results.filter(r => r.got !== r.topic && r.got !== 'general').length;
+    expect(right / results.length).toBeGreaterThanOrEqual(0.7);
+    expect(wrongTopic).toBeLessThanOrEqual(1);
   });
 });

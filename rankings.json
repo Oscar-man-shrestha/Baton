@@ -1,23 +1,24 @@
 {
-  "version": 1,
+  "version": 2,
   "updated": "2026-10-22",
-  "note": "Which AI Baton suggests for each kind of task, best first. Baton reads this file from GitHub once a day; edit it to change suggestions without a new release. See RANKINGS.md.",
+  "note": "Which AI Baton suggests for each kind of task, best first, for what each service gives FREE users. Baton reads this file from GitHub once a day; edit it to change suggestions without a new release. See RANKINGS.md for the evidence and how to update.",
   "bestFor": {
     "code": ["claude", "deepseek", "chatgpt", "gemini", "grok", "perplexity"],
-    "research": ["perplexity", "gemini", "chatgpt", "claude", "grok", "deepseek"],
-    "news": ["perplexity", "grok", "gemini", "chatgpt", "claude", "deepseek"],
-    "writing": ["claude", "chatgpt", "gemini", "grok", "deepseek", "perplexity"],
-    "math": ["deepseek", "chatgpt", "gemini", "claude", "grok", "perplexity"],
-    "image": ["chatgpt", "gemini", "grok", "perplexity", "claude", "deepseek"],
-    "general": ["chatgpt", "claude", "gemini", "deepseek", "grok", "perplexity"]
+    "research": ["perplexity", "chatgpt", "claude", "gemini", "grok", "deepseek"],
+    "news": ["perplexity", "grok", "chatgpt", "gemini", "claude", "deepseek"],
+    "writing": ["claude", "chatgpt", "gemini", "deepseek", "grok", "perplexity"],
+    "math": ["deepseek", "chatgpt", "claude", "gemini", "grok", "perplexity"],
+    "image": ["gemini", "chatgpt", "grok", "perplexity", "claude", "deepseek"],
+    "general": ["chatgpt", "claude", "deepseek", "gemini", "grok", "perplexity"]
   },
   "reasons": {
-    "code": { "claude": "strong at code", "deepseek": "strong at code", "chatgpt": "good at code" },
-    "research": { "perplexity": "searches the web with sources", "gemini": "searches with Google", "chatgpt": "can search the web" },
-    "news": { "perplexity": "live web search", "grok": "live web and X posts", "gemini": "searches with Google" },
-    "writing": { "claude": "natural writing", "chatgpt": "versatile writer" },
-    "math": { "deepseek": "step-by-step reasoning", "chatgpt": "strong reasoning" },
-    "image": { "chatgpt": "makes images", "gemini": "makes images", "grok": "makes images" }
+    "code": { "claude": "top-rated for code", "deepseek": "strong at code, no hard cap", "chatgpt": "good at code, no text cap" },
+    "research": { "perplexity": "every answer cites sources", "chatgpt": "top-rated web search", "claude": "strong web search", "gemini": "searches with Google" },
+    "news": { "perplexity": "live web search with sources", "grok": "live web and X posts", "chatgpt": "web search, no text cap", "gemini": "searches with Google" },
+    "writing": { "claude": "natural, careful writing", "chatgpt": "versatile, no text cap" },
+    "math": { "deepseek": "strong step-by-step reasoning", "chatgpt": "strong reasoning", "claude": "careful reasoning" },
+    "image": { "gemini": "most free images", "chatgpt": "high quality, few free images", "grok": "some free images" },
+    "general": { "chatgpt": "no cap on text chat", "claude": "thoughtful answers", "deepseek": "no hard cap" }
   },
   "keywords": {}
 }

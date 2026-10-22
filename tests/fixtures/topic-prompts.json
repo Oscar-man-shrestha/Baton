@@ -1,0 +1,870 @@
+[
+[
+"Why does this TypeScript function throw an error?\n```ts\nconst x = f();\n```",
+"code"
+],
+[
+"TypeError: Cannot read properties of undefined (reading 'map') at App.jsx:42",
+"code"
+],
+[
+"write a python script that renames all files in a folder",
+"code"
+],
+[
+"how do I center a div in css",
+"code"
+],
+[
+"my react component re-renders infinitely when I set state in useEffect",
+"code"
+],
+[
+"convert this SQL query to use a LEFT JOIN instead",
+"code"
+],
+[
+"what's the difference between let and const in javascript",
+"code"
+],
+[
+"git says detached HEAD, how do I get back to main",
+"code"
+],
+[
+"build me a landing page in html and tailwind",
+"code"
+],
+[
+"fix the bug: def add(a, b): return a - b",
+"code"
+],
+[
+"docker compose up fails with port already allocated",
+"code"
+],
+[
+"write unit tests for this function",
+"code"
+],
+[
+"optimize this loop, it is O(n^2)",
+"code"
+],
+[
+"explain what this regex does: ^\\d{3}-\\d{4}$",
+"code"
+],
+[
+"make a chrome extension that blocks youtube shorts",
+"code"
+],
+[
+"how to deploy a next.js app to vercel",
+"code"
+],
+[
+"refactor this class to use dependency injection",
+"code"
+],
+[
+"NullPointerException in my Java Spring controller",
+"code"
+],
+[
+"set up eslint and prettier in my vite project",
+"code"
+],
+[
+"write a bash command to find large files",
+"code"
+],
+[
+"what are the pros and cons of nuclear energy according to recent studies",
+"research"
+],
+[
+"find peer-reviewed sources on intermittent fasting and longevity",
+"research"
+],
+[
+"compare the healthcare systems of Canada and Germany with references",
+"research"
+],
+[
+"give me a literature review on remote work productivity",
+"research"
+],
+[
+"what does the evidence say about screen time and children's sleep",
+"research"
+],
+[
+"research the market size of electric bikes in Europe",
+"research"
+],
+[
+"compare iPhone 17 vs Pixel 11 cameras in depth",
+"research"
+],
+[
+"what are the main causes of the 2008 financial crisis, cite sources",
+"research"
+],
+[
+"deep dive into how lithium mining affects water supplies",
+"research"
+],
+[
+"statistics on global literacy rates by country",
+"research"
+],
+[
+"which is better for a small business, Shopify or WooCommerce? compare",
+"research"
+],
+[
+"summarize the scientific consensus on microplastics in blood",
+"research"
+],
+[
+"what is the latest news about the election today",
+"news"
+],
+[
+"what happened in the stock market today",
+"news"
+],
+[
+"who won the champions league match yesterday",
+"news"
+],
+[
+"current price of bitcoin",
+"news"
+],
+[
+"what are people saying on X about the new iPhone launch",
+"news"
+],
+[
+"any updates this week on the hurricane in Florida",
+"news"
+],
+[
+"what's trending right now",
+"news"
+],
+[
+"weather in Kathmandu tomorrow",
+"news"
+],
+[
+"did Apple release a new MacBook recently",
+"news"
+],
+[
+"latest score of the India vs Australia cricket match",
+"news"
+],
+[
+"rewrite this cover letter in a warmer tone",
+"writing"
+],
+[
+"draft an email to my landlord asking to fix the heater",
+"writing"
+],
+[
+"write a short story about a lighthouse keeper",
+"writing"
+],
+[
+"proofread my essay and fix the grammar",
+"writing"
+],
+[
+"write a poem for my mom's birthday",
+"writing"
+],
+[
+"make this paragraph sound more professional",
+"writing"
+],
+[
+"write a LinkedIn post announcing my new job",
+"writing"
+],
+[
+"summarize this article in three bullet points",
+"writing"
+],
+[
+"help me write a wedding speech for my brother",
+"writing"
+],
+[
+"paraphrase this sentence so it is clearer",
+"writing"
+],
+[
+"write a product description for handmade candles",
+"writing"
+],
+[
+"write an instagram caption for a beach photo",
+"writing"
+],
+[
+"translate this into formal French: thank you for your help",
+"writing"
+],
+[
+"make my resume bullet points stronger",
+"writing"
+],
+[
+"solve 3x + 5 = 20",
+"math"
+],
+[
+"what is the derivative of x^2 * sin(x)",
+"math"
+],
+[
+"prove that the square root of 2 is irrational",
+"math"
+],
+[
+"if I invest 1000 at 5% compound interest for 10 years how much will I have",
+"math"
+],
+[
+"what is 15% of 240",
+"math"
+],
+[
+"probability of getting two sixes when rolling two dice",
+"math"
+],
+[
+"integrate 1/(1+x^2) dx",
+"math"
+],
+[
+"a train leaves at 3pm going 60 km/h, another at 4pm going 80 km/h, when does it catch up",
+"math"
+],
+[
+"solve this logic puzzle: three boxes are all mislabeled",
+"math"
+],
+[
+"calculate the area of a circle with radius 7",
+"math"
+],
+[
+"how many ways can 5 people sit around a round table",
+"math"
+],
+[
+"find the eigenvalues of [[2,1],[1,2]]",
+"math"
+],
+[
+"generate an image of a fox in a snowy forest",
+"image"
+],
+[
+"draw a logo for my coffee shop called Bean There",
+"image"
+],
+[
+"create a picture of a cyberpunk city at night",
+"image"
+],
+[
+"make a wallpaper of mountains at sunset in 4k",
+"image"
+],
+[
+"design an illustration of a cat astronaut",
+"image"
+],
+[
+"make an anime style portrait of a girl with blue hair",
+"image"
+],
+[
+"create a cartoon of a dog riding a skateboard",
+"image"
+],
+[
+"generate a photo realistic image of a red sports car",
+"image"
+],
+[
+"make a sticker of a smiling avocado",
+"image"
+],
+[
+"hi",
+"general"
+],
+[
+"how are you",
+"general"
+],
+[
+"what should I cook for dinner tonight with chicken and rice",
+"general"
+],
+[
+"give me tips to sleep better",
+"general"
+],
+[
+"what is the capital of Australia",
+"general"
+],
+[
+"recommend some good fantasy books",
+"general"
+],
+[
+"how do I tie a tie",
+"general"
+],
+[
+"plan a 3 day trip to Pokhara",
+"general"
+],
+[
+"explain photosynthesis simply",
+"general"
+],
+[
+"what's a good name for a golden retriever puppy",
+"general"
+],
+[
+"help me make a weekly workout plan",
+"general"
+],
+[
+"describe what is in this image I uploaded",
+"general"
+],
+[
+"write a function in python that checks if a number is prime",
+"code"
+],
+[
+"write code to calculate the average of a list",
+"code"
+],
+[
+"what is the latest version of react and what changed",
+"code"
+],
+[
+"research the best python web frameworks and compare them",
+"code"
+],
+[
+"write an email to my team about the server outage",
+"writing"
+],
+[
+"summarize the latest research on intermittent fasting",
+"research"
+],
+[
+"calculate my BMI if I am 170 cm and 65 kg",
+"math"
+],
+[
+"draw a diagram of how photosynthesis works",
+"image"
+],
+[
+"my flask app returns 500 on POST",
+"code"
+],
+[
+"how do I reverse a linked list",
+"code"
+],
+[
+"add dark mode to my website using CSS variables",
+"code"
+],
+[
+"why is my useState not updating immediately",
+"code"
+],
+[
+"write a SQL query to get the top 5 customers by revenue",
+"code"
+],
+[
+"pip install fails with permission denied",
+"code"
+],
+[
+"convert this json to a typescript interface",
+"code"
+],
+[
+"how do I merge two branches without conflicts",
+"code"
+],
+[
+"is coffee bad for your heart? what do studies show",
+"research"
+],
+[
+"compare renting vs buying a house in the long run",
+"research"
+],
+[
+"history of the Roman empire collapse, with sources",
+"research"
+],
+[
+"best laptops for students compared",
+"research"
+],
+[
+"what are the health effects of vaping according to research",
+"research"
+],
+[
+"who is leading the US open right now",
+"news"
+],
+[
+"what did the fed announce today about interest rates",
+"news"
+],
+[
+"is there a train strike this week in London",
+"news"
+],
+[
+"what is the current gold price",
+"news"
+],
+[
+"news about OpenAI this week",
+"news"
+],
+[
+"write a thank you note to my teacher",
+"writing"
+],
+[
+"turn these notes into a blog post",
+"writing"
+],
+[
+"shorten this text to 100 words",
+"writing"
+],
+[
+"write a toast for my best friend's wedding",
+"writing"
+],
+[
+"improve the flow of my introduction paragraph",
+"writing"
+],
+[
+"write a complaint letter to my airline",
+"writing"
+],
+[
+"what is 18% tip on 64 dollars",
+"math"
+],
+[
+"solve for y: 2y - 7 = 11",
+"math"
+],
+[
+"what is the standard deviation of 2, 4, 4, 4, 5, 5, 7, 9",
+"math"
+],
+[
+"if a shirt is 30% off and costs 42 now, what was the original price",
+"math"
+],
+[
+"simplify (x^2 - 9)/(x - 3)",
+"math"
+],
+[
+"make me a logo for a gaming channel",
+"image"
+],
+[
+"generate a banner for my youtube channel",
+"image"
+],
+[
+"create an avatar of me as a pixar character",
+"image"
+],
+[
+"paint a watercolor of a lake at dawn",
+"image"
+],
+[
+"what is the meaning of life",
+"general"
+],
+[
+"give me a pep talk",
+"general"
+],
+[
+"how do I get rid of fruit flies",
+"general"
+],
+[
+"suggest a name for my bakery",
+"general"
+],
+[
+"what is the difference between a crocodile and an alligator",
+"general"
+],
+[
+"help me plan my study schedule for exams",
+"general"
+],
+[
+"tell me a joke",
+"general"
+],
+[
+"can u fix my code its not working",
+"code"
+],
+[
+"my website looks broken on mobile",
+"code"
+],
+[
+"how to connect mongodb with express",
+"code"
+],
+[
+"explain closures in js",
+"code"
+],
+[
+"what does async await do",
+"code"
+],
+[
+"help me make a todo app in flutter",
+"code"
+],
+[
+"my laptop says segmentation fault when I run the program",
+"code"
+],
+[
+"ai models comparison for students",
+"research"
+],
+[
+"tell me everything about black holes with references",
+"research"
+],
+[
+"is intermittent fasting healthy? give evidence",
+"research"
+],
+[
+"which phone has best battery life 2026 compared",
+"research"
+],
+[
+"analyze the causes of inflation in nepal",
+"research"
+],
+[
+"who won the election in japan",
+"news"
+],
+[
+"what is happening in gaza now",
+"news"
+],
+[
+"iphone 18 release date",
+"news"
+],
+[
+"nepse index today",
+"news"
+],
+[
+"latest ai news",
+"news"
+],
+[
+"write a sorry message to my friend",
+"writing"
+],
+[
+"make this email shorter and polite",
+"writing"
+],
+[
+"write a caption for my instagram reel",
+"writing"
+],
+[
+"correct my english: i am go to school yesterday",
+"writing"
+],
+[
+"write my college application essay about leadership",
+"writing"
+],
+[
+"give me a catchy slogan for my gym",
+"writing"
+],
+[
+"what is 25 times 48",
+"math"
+],
+[
+"find x if 5x = 3x + 12",
+"math"
+],
+[
+"convert 72 fahrenheit to celsius",
+"math"
+],
+[
+"what is the probability of drawing an ace",
+"math"
+],
+[
+"how much is 12 percent interest on 50000 for 3 years",
+"math"
+],
+[
+"make an image of a dragon",
+"image"
+],
+[
+"i want a poster for my event",
+"image"
+],
+[
+"create a 3d render of a house",
+"image"
+],
+[
+"draw me a cute cat",
+"image"
+],
+[
+"hello",
+"general"
+],
+[
+"what can you do",
+"general"
+],
+[
+"how to lose weight fast",
+"general"
+],
+[
+"why is the sky blue",
+"general"
+],
+[
+"good movies to watch on netflix",
+"general"
+],
+[
+"how do i say no to people politely",
+"general"
+],
+[
+"what is love",
+"general"
+],
+[
+"ideas for my girlfriend birthday gift",
+"general"
+],
+[
+"why my python code giving indentation error",
+"code"
+],
+[
+"how to make a discord bot",
+"code"
+],
+[
+"api returns 401 unauthorized",
+"code"
+],
+[
+"difference between SQL and NoSQL",
+"code"
+],
+[
+"my android app crashes on startup",
+"code"
+],
+[
+"create a login page with firebase",
+"code"
+],
+[
+"what is a docker container",
+"code"
+],
+[
+"explain big O notation",
+"code"
+],
+[
+"benefits of meditation backed by science",
+"research"
+],
+[
+"history of world war 2 causes",
+"research"
+],
+[
+"Tesla vs BYD which is better",
+"research"
+],
+[
+"is nuclear power safe? sources please",
+"research"
+],
+[
+"research about climate change effects on himalayas",
+"research"
+],
+[
+"what time is the barcelona game tonight",
+"news"
+],
+[
+"who is the new prime minister of nepal",
+"news"
+],
+[
+"dollar to npr rate today",
+"news"
+],
+[
+"any earthquake news",
+"news"
+],
+[
+"what happened at apple event",
+"news"
+],
+[
+"write a leave application to my boss",
+"writing"
+],
+[
+"make my bio sound cool for instagram",
+"writing"
+],
+[
+"write a rap about coding",
+"writing"
+],
+[
+"rephrase this to sound smarter",
+"writing"
+],
+[
+"write a speech for my school assembly",
+"writing"
+],
+[
+"fix grammar in this text",
+"writing"
+],
+[
+"what is 7 to the power of 5",
+"math"
+],
+[
+"solve x^2 - 5x + 6 = 0",
+"math"
+],
+[
+"how many seconds in a week",
+"math"
+],
+[
+"split 1200 between 3 people in ratio 1:2:3",
+"math"
+],
+[
+"what is the square root of 625",
+"math"
+],
+[
+"generate image of nepal mountains",
+"image"
+],
+[
+"make a thumbnail for my youtube video",
+"image"
+],
+[
+"create an icon for my app",
+"image"
+],
+[
+"draw a map of a fantasy kingdom",
+"image"
+],
+[
+"thank you",
+"general"
+],
+[
+"what should i name my cat",
+"general"
+],
+[
+"how to be more confident",
+"general"
+],
+[
+"best places to visit in nepal",
+"general"
+],
+[
+"how to make momo",
+"general"
+],
+[
+"can dogs eat grapes",
+"general"
+],
+[
+"give me a motivational quote",
+"general"
+]
+]
