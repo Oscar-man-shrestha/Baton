@@ -70,6 +70,12 @@ const setView = (view: 'capture' | 'saved') => {
 };
 document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false;  setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
 document.querySelector('#tab-saved')?.addEventListener('click', () => setView('saved'));
+// The Baton logo and All Batons' Back button both lead home, like the ⌂ button.
+const goHome = () => (document.querySelector('#tab-capture') as HTMLButtonElement).click();
+document.querySelector('#library-back')?.addEventListener('click', goHome);
+const brandHome = document.querySelector('#brand-home') as HTMLElement;
+brandHome.addEventListener('click', goHome);
+brandHome.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goHome(); } });
 const activeChatTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 const sendToChat = async <T>(tab: { id?: number; url?: string }, message: unknown): Promise<T> => sendWithBootstrap(
   tab, message,
