@@ -202,7 +202,8 @@ function renderLanes(saved: Record<string, any>) {
   if (box) {
     (document.querySelector('#other-lanes-title') as HTMLElement).textContent = activeProvider ? 'Other AIs' : 'All AIs';
     (document.querySelector('#other-lanes-summary') as HTMLElement).textContent = (used.length ? used : order).slice(0, 2).map(id => `${providerNames[id]} ${laneFor(saved, id).value}`).join(' · ');
-    if (!otherLanesTouched) box.open = !activeProvider;
+    // Starts closed; the summary line shows the top two, and the list stays however the user leaves it.
+    if (!otherLanesTouched) box.open = false;
     if (!box.dataset.wired) { box.dataset.wired = 'true'; box.addEventListener('toggle', () => { otherLanesTouched = true; }); }
   }
   const rest = order.filter(id => !used.includes(id));

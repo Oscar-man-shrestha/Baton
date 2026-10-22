@@ -79,6 +79,7 @@ describe('Baton naming', () => {
     // The current AI's card comes first; every other AI is inside the closed “Other AIs” drop-down.
     expect(order.querySelector('#active-usage')!.compareDocumentPosition(order.querySelector('#other-lanes')!) & 4).toBeTruthy();
     expect(order.querySelector('#other-lanes')?.contains(order.querySelector('#lanes'))).toBe(true);
+    expect(order.querySelector('#other-lanes')?.hasAttribute('open')).toBe(false);
     // The bar under chat boxes can be hidden with its ×; this link (hidden by default) brings it back.
     // This chat's suggestions sit above Usage; hidden until a chat answers.
     expect(order.querySelector('#next-section + .lanes-section')).not.toBeNull();
