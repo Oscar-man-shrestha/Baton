@@ -68,8 +68,9 @@ section { position: relative; }
 @media (max-width: 860px) { .top nav { display: none; } .top .btn { margin-left: auto; } }
 
 /* Hero */
-.hero { padding-block: clamp(40px, 7vw, 88px) clamp(56px, 8vw, 96px); overflow: hidden; }
-.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.hero { position: relative; padding-block: clamp(40px, 7vw, 96px) clamp(56px, 8vw, 110px); overflow: hidden; isolation: isolate; }
+.hero .wrap { position: relative; display: grid; grid-template-columns: minmax(0, 560px); }
+.hero-copy { position: relative; z-index: 2; }
 .hero h1 { font-size: clamp(2.7rem, 11vw, 7.6rem); font-weight: 900; line-height: .86; }
 .hero h1 .line { display: block; overflow: hidden; padding-bottom: .04em; }
 .hero h1 .line > span { display: inline-block; max-width: 100%; }
@@ -78,14 +79,20 @@ section { position: relative; }
 .hero .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .hero .facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 28px; font: .85rem/1.4 var(--mono); color: var(--mute); }
 .hero .facts span::before { content: "✓ "; color: var(--ok); }
-.stage { position: relative; aspect-ratio: 1 / .92; max-width: 100%; min-height: 320px; }
+.stage { position: absolute; z-index: 1; top: 0; bottom: 0; right: 0; width: min(63vw, 1040px); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 26%); mask-image: linear-gradient(90deg, transparent 0, #000 26%); }
+.stage::after { content: ""; position: absolute; inset: auto 0 0; height: 30%; background: linear-gradient(transparent, var(--ink)); pointer-events: none; }
 .stage canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
 .stage .fallback { position: absolute; inset: 8% 4%; border-radius: 50%; border: 2px dashed var(--line); }
-.scoreboard { position: absolute; left: 0; bottom: 4%; background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font: .8rem/1.5 var(--mono); min-width: 220px; box-shadow: 0 18px 40px rgba(0,0,0,.4); }
+.scoreboard { position: absolute; z-index: 2; right: max(16px, calc((100vw - var(--wrap)) / 2 + 16px)); bottom: clamp(24px, 6vw, 72px); background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font: .8rem/1.5 var(--mono); min-width: 220px; box-shadow: 0 18px 40px rgba(0,0,0,.4); }
 .scoreboard b { display: block; font: 800 1rem/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--tartan); margin-bottom: 4px; }
 .scoreboard .row { display: flex; justify-content: space-between; gap: 16px; }
 .scoreboard .now { color: var(--chalk); }
-@media (max-width: 900px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); } .stage { order: -1; aspect-ratio: 1 / .7; } .scoreboard { bottom: 0; } }
+@media (max-width: 900px) {
+  .hero { padding-top: 0; }
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+  .stage { position: relative; width: auto; height: min(78vw, 420px); margin: 0 calc(-1 * var(--gutter-r)) 8px calc(-1 * var(--gutter-l)); -webkit-mask-image: none; mask-image: none; }
+  .scoreboard { right: var(--gutter-r); bottom: 4px; min-width: 0; }
+}
 
 /* The problem */
 .problem .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 6vw, 80px); align-items: start; }
@@ -194,6 +201,27 @@ section { position: relative; }
 .copy { margin-left: 6px; font: 600 .74rem var(--body); color: var(--chalk); background: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
 @media (max-width: 860px) { .install .wrap { grid-template-columns: 1fr; } }
 
+/* Permissions */
+.perms { margin: 44px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+.perms div { padding: 18px 22px; background: var(--ink-2); display: grid; gap: 4px; }
+.perms div:nth-child(odd) { border-right: 1px solid var(--line); }
+.perms div:nth-child(n+3) { border-top: 1px solid var(--line); }
+.perms dt { font-weight: 700; }
+.perms dd { margin: 0; color: var(--mute); font-size: .96rem; }
+.access .wrap > .head { display: grid; gap: 18px; max-width: 760px; }
+@media (max-width: 760px) { .perms { grid-template-columns: 1fr; } .perms div { border-right: 0 !important; } .perms div + div { border-top: 1px solid var(--line); } }
+.store-note { font: .82rem var(--mono); color: var(--mute); }
+
+/* Sticky install bar on phones, shown after the hero */
+.sticky-cta { display: none; }
+@media (max-width: 700px) {
+  .sticky-cta { position: fixed; z-index: 55; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--gutter-r) calc(10px + env(safe-area-inset-bottom, 0px)) var(--gutter-l); background: color-mix(in srgb, var(--ink) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--line); transform: translateY(110%); transition: transform .3s; }
+  .sticky-cta.show { transform: none; }
+  .sticky-cta > span { font: 800 1.05rem var(--display); letter-spacing: .05em; text-transform: uppercase; }
+  .sticky-cta .btn { padding: .75em 1.1em; }
+  footer { padding-bottom: 96px; }
+}
+
 /* FAQ */
 .faq { display: grid; gap: 10px; margin-top: 36px; max-width: 860px; }
 .faq details { background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 4px 18px; }
@@ -232,14 +260,23 @@ footer .grow { flex: 1; }
       <a href="#safe">Privacy</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary" href="#install">Get Baton — free</a>
+    <a class="btn btn-primary store-cta" href="#install"><span class="store-label">Add to Chrome</span></a>
   </div>
 </header>
 
 <main id="top">
   <section class="hero" aria-labelledby="hero-title">
+    <div class="stage" id="stage" aria-label="Illustration: a glowing baton runs around a six-lane track, one lane for each AI, and is passed to the next lane.">
+      <div class="fallback" aria-hidden="true"></div>
+      <div class="scoreboard" aria-hidden="true">
+        <b>Relay · leg <span id="leg">1</span> of 6</b>
+        <div class="row"><span>Running</span><span class="now" id="runner">ChatGPT</span></div>
+        <div class="row"><span>Next lane</span><span id="next">Claude</span></div>
+        <div class="row"><span>Context</span><span class="now">carried ✓</span></div>
+      </div>
+    </div>
     <div class="wrap">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow">For ChatGPT · Claude · Gemini · DeepSeek · Grok · Perplexity</p>
         <h1 id="hero-title" style="margin-top:18px">
           <span class="line"><span>Your AI ran out.</span></span>
@@ -248,19 +285,10 @@ footer .grow { flex: 1; }
         </h1>
         <p class="lede">Baton is a free browser extension. It saves your chat and opens it in another AI as a ready-to-send draft, so you keep working without explaining everything again. You always press Send yourself.</p>
         <div class="cta">
-          <a class="btn btn-primary" href="#install">Add Baton to Brave or Chrome</a>
+          <a class="btn btn-primary store-cta" href="#install"><span class="store-label">Add to Chrome</span> — it's free</a>
           <a class="btn btn-ghost" href="#how">See how it works</a>
         </div>
         <p class="facts"><span>Free</span><span>No account needed</span><span>Never sends for you</span><span>Works offline</span></p>
-      </div>
-      <div class="stage" id="stage" aria-label="Illustration: a glowing baton passes between six lanes, one for each AI.">
-        <div class="fallback" aria-hidden="true"></div>
-        <div class="scoreboard" aria-hidden="true">
-          <b>Relay · leg <span id="leg">1</span> of 6</b>
-          <div class="row"><span>Running</span><span class="now" id="runner">ChatGPT</span></div>
-          <div class="row"><span>Next lane</span><span id="next">Claude</span></div>
-          <div class="row"><span>Context</span><span class="now">carried ✓</span></div>
-        </div>
       </div>
     </div>
   </section>
@@ -416,18 +444,38 @@ footer .grow { flex: 1; }
 
   <section class="band install" id="install" aria-labelledby="install-title">
     <div class="wrap">
-      <div style="display:grid;gap:18px">
+      <div style="display:grid;gap:18px;align-content:start">
         <p class="eyebrow">Get Baton</p>
-        <h2 id="install-title">On your browser in two minutes.</h2>
-        <p class="lede">Baton isn't in the Chrome Web Store yet. Until it is, install it from GitHub like this. It works in Brave, Chrome and Edge.</p>
-        <p><a class="btn btn-primary" href="https://github.com/Oscar-man-shrestha/handoff" target="_blank" rel="noopener">Open Baton on GitHub</a></p>
+        <h2 id="install-title">Ready in under a minute.</h2>
+        <p class="lede">Baton installs from the Chrome Web Store and works in Chrome, Brave, Edge and other Chromium browsers. It's free, with no account needed.</p>
+        <p><a class="btn btn-primary store-cta" href="#install"><span class="store-label">Add to Chrome</span> — it's free</a></p>
+        <p class="store-note" id="store-note">Free · No sign-up · You can remove it any time</p>
       </div>
       <ol>
-        <li><div><b>Download the code</b><p>On GitHub, press <b>Code → Download ZIP</b>, then unzip it.</p></div></li>
-        <li><div><b>Build the extension</b><p>In the unzipped folder, run <code id="cmd">npm install &amp;&amp; npm run build</code><button class="copy" type="button" data-copy="cmd">Copy</button></p></div></li>
-        <li><div><b>Open your extensions page</b><p>Go to <code id="url">brave://extensions</code><button class="copy" type="button" data-copy="url">Copy</button> (or <code>chrome://extensions</code>) and turn on <b>Developer mode</b>.</p></div></li>
-        <li><div><b>Load Baton</b><p>Press <b>Load unpacked</b> and choose the <code>.output/chrome-mv3</code> folder. Open any AI chat and look for the glowing button.</p></div></li>
+        <li><div><b>Add Baton</b><p>Press <b class="store-label">Add to Chrome</b>, then <b>Add extension</b> in the store.</p></div></li>
+        <li><div><b>Pin it</b><p>Press the puzzle icon in your toolbar, then the pin next to Baton Pass, so it's one click away.</p></div></li>
+        <li><div><b>Open any AI chat</b><p>Go to ChatGPT, Claude, Gemini, DeepSeek, Grok or Perplexity. Look for the glowing button by Send, and the usage bar under the chat box.</p></div></li>
       </ol>
+    </div>
+  </section>
+
+  <section class="band access" id="access" aria-labelledby="access-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">What Baton can access</p>
+        <h2 id="access-title">Every permission, in plain words.</h2>
+        <p class="lede">Your browser lists these when you add Baton. Here's what each one is for.</p>
+      </div>
+      <dl class="perms">
+        <div><dt>The six AI chat sites</dt><dd>Reads the chat on screen, the usage each site shows, and types the draft into the next AI. No other websites.</dd></div>
+        <div><dt>Storage</dt><dd>Keeps your batons, folders and settings in your browser.</dd></div>
+        <div><dt>Tabs and active tab</dt><dd>Opens the AI you pick in a new tab and knows which chat you're on.</dd></div>
+        <div><dt>Scripting</dt><dd>Connects Baton to chat tabs that were already open when you installed it.</dd></div>
+        <div><dt>Side panel</dt><dd>Shows Baton beside your chat when you open it.</dd></div>
+        <div><dt>Alarms</dt><dd>Refreshes usage after you send, and reminds you when a limit resets, if you ask.</dd></div>
+        <div><dt>Offscreen</dt><dd>Runs the small task-guessing model inside your browser. Nothing is sent anywhere.</dd></div>
+        <div><dt>Google sign-in (optional)</dt><dd>Only if you choose to back up. Uploads happen only when you press Back up.</dd></div>
+      </dl>
     </div>
   </section>
 
@@ -436,7 +484,8 @@ footer .grow { flex: 1; }
       <p class="eyebrow">Questions</p>
       <h2 id="faq-title" style="margin-top:16px">Straight answers.</h2>
       <div class="faq">
-        <details open><summary>Does Baton give me unlimited AI?</summary><p>No. It makes moving to another AI take seconds instead of minutes, so a limit stops being a dead end. It doesn't get around any service's limits.</p></details>
+        <details open><summary>What can I do when ChatGPT or Claude says I've hit my limit?</summary><p>Press Baton's glowing button. It saves your chat and opens another AI (one that still has room) with your project typed in as a draft, so you can keep going right away instead of waiting hours for the reset.</p></details>
+        <details><summary>Does Baton give me unlimited AI?</summary><p>No. It makes moving to another AI take seconds instead of minutes, so a limit stops being a dead end. It doesn't get around any service's limits.</p></details>
         <details><summary>What's a “baton”?</summary><p>A short summary of your chat: the goal, what's done, what's next, and key details. Baton writes it from your conversation, and you can read and edit it before sending.</p></details>
         <details><summary>What are folders for?</summary><p>Folders group your saved batons, for example School, Work or one project. Pick a folder when you save, and find everything together later.</p></details>
         <details><summary>Can I hide the button or the usage bar?</summary><p>Yes. Tap × on the usage bar, or “Hide this button” in the menu. Turn them back on any time in Baton under “Show on AI chat pages”.</p></details>
@@ -450,11 +499,13 @@ footer .grow { flex: 1; }
     <div class="wrap">
       <p class="eyebrow">Finish line</p>
       <h2 id="finish-title">Never lose the thread.</h2>
-      <a class="btn btn-primary" href="#install">Get Baton — free</a>
+      <a class="btn btn-primary store-cta" href="#install"><span class="store-label">Add to Chrome</span> — it's free</a>
       <div class="finish-line" aria-hidden="true"></div>
     </div>
   </section>
 </main>
+
+<div class="sticky-cta" id="sticky-cta"><span>Baton · free</span><a class="btn btn-primary store-cta" href="#install"><span class="store-label">Add to Chrome</span></a></div>
 
 <footer>
   <div class="wrap">
@@ -481,7 +532,25 @@ footer .grow { flex: 1; }
     { id: 'grok', name: 'Grok', color: '#b8c0c9' },
     { id: 'perplexity', name: 'Perplexity', color: '#20b8cd' }
   ];
-  const byId = Object.fromEntries(AIS.map(ai => [ai.id, ai]));
+  /* Chrome Web Store link: paste the listing URL here once Baton is published. Until then the buttons point to GitHub. */
+  const STORE_URL = '';
+  const GITHUB_URL = 'https://github.com/Oscar-man-shrestha/handoff';
+  const ua = navigator.userAgent;
+  const browser = navigator.brave ? 'Brave' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) && !/Chrome\//.test(ua) ? 'Safari' : 'Chrome';
+  const unsupported = browser === 'Firefox' || browser === 'Safari';
+  document.querySelectorAll('.store-cta').forEach(link => {
+    if (STORE_URL) { link.href = STORE_URL; link.target = '_blank'; link.rel = 'noopener'; }
+    else if (link.closest('#install')) { link.href = GITHUB_URL; link.target = '_blank'; link.rel = 'noopener'; }
+  });
+  document.querySelectorAll('.store-label').forEach(label => {
+    label.textContent = !STORE_URL && label.closest('#install .btn') ? 'Coming soon to the Chrome Web Store' : unsupported ? 'Get Baton for Chrome' : `Add to ${browser}`;
+  });
+  const note = document.getElementById('store-note');
+  if (!STORE_URL) note.textContent = 'Baton is in review for the Chrome Web Store. Until it is listed, the button opens the code on GitHub.';
+  else if (unsupported) note.textContent = `Baton runs in Chrome, Brave and Edge. ${browser} isn't supported yet.`;
+  const sticky = document.getElementById('sticky-cta');
+  const heroEl = document.querySelector('.hero');
+  addEventListener('scroll', () => sticky.classList.toggle('show', heroEl.getBoundingClientRect().bottom < 0 && document.getElementById('install').getBoundingClientRect().top > innerHeight * .5), { passive: true });
 
   /* Smooth scrolling + scroll progress */
   let lenis;
@@ -606,19 +675,21 @@ footer .grow { flex: 1; }
   const stripes = document.createElement('canvas'); stripes.width = 128; stripes.height = 8; const sg = stripes.getContext('2d');
   for (let x = 0; x < 128; x += 16) { sg.fillStyle = '#c4b5ff'; sg.fillRect(x, 0, 12, 8); sg.fillStyle = '#ffffff'; sg.fillRect(x + 12, 0, 4, 8); }
   const stripeTex = new THREE.CanvasTexture(stripes); stripeTex.wrapS = THREE.RepeatWrapping;
-  const baton = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .62, 24), new THREE.MeshBasicMaterial({ map: stripeTex }));
+  const baton = new THREE.Mesh(new THREE.CylinderGeometry(.11, .11, .9, 32), new THREE.MeshBasicMaterial({ map: stripeTex }));
   baton.rotation.z = Math.PI / 2; const batonHolder = new THREE.Group(); batonHolder.add(baton); scene.add(batonHolder);
   const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 128; const gg = glowCanvas.getContext('2d');
   const grad = gg.createRadialGradient(64, 64, 0, 64, 64, 64); grad.addColorStop(0, 'rgba(196,181,255,.95)'); grad.addColorStop(.35, 'rgba(139,108,255,.45)'); grad.addColorStop(1, 'rgba(139,108,255,0)'); gg.fillStyle = grad; gg.fillRect(0, 0, 128, 128);
   const glowTex = new THREE.CanvasTexture(glowCanvas);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.set(1.5, 1.5, 1); batonHolder.add(glow);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.set(2.4, 2.4, 1); batonHolder.add(glow);
   // Trail of fading sparks.
   const TRAIL = 70; const trailGeo = new THREE.BufferGeometry(); const trailPos = new Float32Array(TRAIL * 3); trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
-  const trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({ size: .07, map: glowTex, color: 0xb9a7ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); scene.add(trail);
+  const trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({ size: .16, map: glowTex, color: 0xb9a7ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); scene.add(trail);
 
   const resize = () => { const r = stage.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); };
   resize(); addEventListener('resize', resize);
   let tilt = 0; addEventListener('scroll', () => { tilt = Math.min(1, scrollY / 700); }, { passive: true });
+  const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (!reduce) addEventListener('pointermove', event => { pointer.tx = event.clientX / innerWidth * 2 - 1; pointer.ty = event.clientY / innerHeight * 2 - 1; }, { passive: true });
 
   const legEl = document.getElementById('leg'), runEl = document.getElementById('runner'), nextEl = document.getElementById('next');
   const LEG = 4.2; // seconds per leg
@@ -629,6 +700,7 @@ footer .grow { flex: 1; }
     const drift = f > .75 ? (f - .75) / .25 : 0; const ease = drift * drift * (3 - 2 * drift);
     return { p: lanePoint(leg + .5 + ease * (leg === 5 ? -5 : 1), t), leg };
   };
+  { const p0 = pos(0).p; for (let k = 0; k < TRAIL; k++) { trailPos[k * 3] = p0.x; trailPos[k * 3 + 1] = .16; trailPos[k * 3 + 2] = p0.z; } }
   let lastLeg = -1; const start = performance.now();
   const frame = now => {
     const time = reduce ? 1.2 : (now - start) / 1000;
@@ -638,17 +710,20 @@ footer .grow { flex: 1; }
     stripeTex.offset.x = -time * .6;
     for (let k = TRAIL - 1; k > 0; k--) { trailPos[k * 3] = trailPos[(k - 1) * 3]; trailPos[k * 3 + 1] = trailPos[(k - 1) * 3 + 1]; trailPos[k * 3 + 2] = trailPos[(k - 1) * 3 + 2]; }
     trailPos[0] = p.x; trailPos[1] = .16; trailPos[2] = p.z; trailGeo.attributes.position.needsUpdate = true;
-    if (leg !== lastLeg) { lastLeg = leg; legEl.textContent = leg + 1; runEl.textContent = AIS[leg].name; runEl.style.color = AIS[leg].color; nextEl.textContent = AIS[(leg + 1) % 6].name; }
-    const orbit = reduce ? .4 : time * .05;
-    const narrow = Math.max(0, 1.75 - camera.aspect) * 4.2; // pull back on narrow screens so all six lanes fit
-    const height = 5.4 + narrow * .55 - tilt * 1.6, dist = 7.2 + narrow + tilt * .6;
-    camera.position.set(Math.sin(orbit) * dist * .35, height, Math.cos(orbit) * dist); camera.lookAt(0, -.2, 0);
+    if (leg !== lastLeg) { lastLeg = leg; trail.material.color.set(AIS[leg].color).lerp(new THREE.Color('#ffffff'), .25); legEl.textContent = leg + 1; runEl.textContent = AIS[leg].name; runEl.style.color = AIS[leg].color; nextEl.textContent = AIS[(leg + 1) % 6].name; }
+    // Fit the whole track (labels included) to the canvas at any size, then add a gentle swing and pointer parallax.
+    pointer.x += (pointer.tx - pointer.x) * .05; pointer.y += (pointer.ty - pointer.y) * .05;
+    const swing = reduce ? 0 : Math.sin(time * .12) * .2 + pointer.x * .16;
+    const el = .66 - tilt * .18 + pointer.y * .06;
+    const vfov = camera.fov * Math.PI / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+    const dist = Math.max(6.7 / Math.tan(hfov / 2), (4.4 * Math.sin(el) + .9) / Math.tan(vfov / 2)) * 1.04;
+    camera.position.set(Math.sin(swing) * dist * Math.cos(el), Math.sin(el) * dist, Math.cos(swing) * dist * Math.cos(el)); camera.lookAt(0, -.1, .2);
     renderer.render(scene, camera);
     if (!reduce) requestAnimationFrame(frame);
   };
   // Draw lane labels after the display font is ready, then run.
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
-    AIS.forEach((ai, i) => { const s = label(ai.name, ai.color); const t = -Math.PI / 2 + i * Math.PI / 3 + .35; const p = lanePoint(LANES + 1.6, t); s.scale.set(1.9, .475, 1); s.position.set(p.x, .25, p.z); track.add(s); });
+    AIS.forEach((ai, i) => { const s = label(ai.name, ai.color); const t = -Math.PI / 2 + i * Math.PI / 3 + .35; const p = lanePoint(LANES + 1.6, t); s.scale.set(2.3, .575, 1); s.position.set(p.x, .25, p.z); track.add(s); });
     requestAnimationFrame(frame);
   });
 })();

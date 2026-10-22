@@ -1,9 +1,11 @@
-// Wraps site/page.html (the published page body) into site/index.html, a full document for GitHub Pages.
-import { readFileSync, writeFileSync } from 'node:fs';
+// Wraps site/page.html (the page source) into docs/index.html, the full document GitHub Pages serves from main /docs.
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const page = readFileSync(new URL('../site/page.html', import.meta.url), 'utf8');
 const head = page.slice(0, page.indexOf('<style>'));
 const rest = page.slice(page.indexOf('<style>'));
-writeFileSync(new URL('../site/index.html', import.meta.url), `<!doctype html>
+mkdirSync(new URL('../docs/', import.meta.url), { recursive: true });
+writeFileSync(new URL('../docs/.nojekyll', import.meta.url), '');
+writeFileSync(new URL('../docs/index.html', import.meta.url), `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -16,4 +18,4 @@ ${rest.slice(rest.indexOf('</style>') + 8).trim()}
 </body>
 </html>
 `);
-console.log('site/index.html written');
+console.log('docs/index.html written');
