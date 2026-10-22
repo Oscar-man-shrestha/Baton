@@ -699,6 +699,11 @@ if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefres
 const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
 composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
 composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });
+// “Take the quick tour again”: it runs on the AI chat page, so queue it and tell the user where to look.
+document.querySelector('#replay-tour')?.addEventListener('click', async event => {
+  await chrome.storage.local.set({ tourReplay: true });
+  (event.currentTarget as HTMLButtonElement).textContent = activeProvider ? `Starting on ${providerNames[activeProvider]}…` : 'Open any AI chat and the tour starts there.';
+});
 // Always-visible switches for what Baton adds to chat pages; the × on the bar and “Hide” in the Baton menu turn them off.
 const chatSwitches = { composerUsageEnabled: document.querySelector('#toggle-bar') as HTMLInputElement | null, passButtonEnabled: document.querySelector('#toggle-pass') as HTMLInputElement | null };
 const switchState = await chrome.storage.local.get(Object.keys(chatSwitches));

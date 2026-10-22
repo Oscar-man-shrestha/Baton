@@ -331,7 +331,8 @@ export default defineContentScript({
       const hideAll = () => { statusHost.style.display = 'none'; if (passMenu.hidden) passHost.style.display = 'none'; };
       if (!editor) { hideAll(); return; }
       const editorRect = editor.getBoundingClientRect();
-      const exposed = document.elementFromPoint(editorRect.left + Math.min(20, editorRect.width / 2), editorRect.top + Math.min(10, editorRect.height / 2));
+      // Look through Baton's own layers (tour card, rings, cards) so they never hide the bar themselves.
+      const exposed = document.elementsFromPoint(editorRect.left + Math.min(20, editorRect.width / 2), editorRect.top + Math.min(10, editorRect.height / 2)).find(hit => !hit.id.startsWith('handoff-'));
       // A settings dialog can cover the composer while it remains in the DOM.
       if (!exposed || !editor.contains(exposed)) { hideAll(); return; }
       let surface: Element = editor;
@@ -572,9 +573,106 @@ export default defineContentScript({
       if (offer) showContinue(pendingProject);
     };
     ctx.setInterval(checkContinue, 1500);
+    // First-use tour: once Baton shows on a chat page, ask (never start unasked) and walk through three highlights.
+    // Answered once, it never asks again; “Take the tour again” in Baton sets tourReplay.
+    const tourHost = document.createElement('div');
+    tourHost.id = 'handoff-tour';
+    tourHost.style.cssText = 'position:fixed;z-index:2147483004;display:none;width:min(320px,calc(100vw - 32px))';
+    const tourShadow = tourHost.attachShadow({ mode: 'closed' });
+    const tourStyle = document.createElement('style');
+    tourStyle.textContent = ':host{all:initial}.card{box-sizing:border-box;padding:14px 14px 12px;border-radius:16px;background:linear-gradient(180deg,rgba(40,39,55,.99),rgba(24,23,33,.99));border:1px solid rgba(139,108,255,.55);box-shadow:0 18px 44px rgba(0,0,0,.5),0 0 26px rgba(139,108,255,.3);color:#f4f3fb;font:500 13px/1.45 system-ui,-apple-system,sans-serif}.top{display:flex;align-items:center;gap:8px;margin-bottom:6px}.mark{width:22px;height:22px;flex:none;border-radius:7px;display:grid;place-items:center;background:radial-gradient(circle at 32% 26%,#c9b8ff,#8b6cff 46%,#5b3fd8)}.mark i{width:11px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#fff 0 2px,rgba(255,255,255,.55) 2px 3px)}b{font-size:14px;flex:1}.step{color:#a3a1ba;font-size:11px}.close{all:unset;cursor:pointer;color:#a3a1ba;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px}.close:hover{color:#fff;background:rgba(255,255,255,.08)}p{margin:0;color:#d6d4e6}.row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}button.go,button.alt{all:unset;cursor:pointer;padding:7px 13px;border-radius:9px;font-weight:700;font-size:12.5px}.go{background:#b8a5ff;color:#1b1430}.alt{color:#cfcde0;background:rgba(255,255,255,.07)}button:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}@media(prefers-color-scheme:light){.card{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.4);box-shadow:0 18px 40px rgba(30,25,70,.2)}p{color:#3d3b52}.step,.close{color:#6d6a86}.go{background:#6650de;color:#fff}.alt{color:#3d3b52;background:rgba(30,25,70,.06)}}';
+    const tourCard = document.createElement('div'); tourCard.className = 'card'; tourCard.setAttribute('role', 'dialog'); tourCard.setAttribute('aria-label', 'Baton quick tour');
+    tourShadow.append(tourStyle, tourCard);
+    const tourRing = document.createElement('div');
+    tourRing.id = 'handoff-tour-ring';
+    tourRing.style.cssText = 'position:fixed;z-index:2147483003;display:none;pointer-events:none;border-radius:999px;border:3px solid #8b6cff;box-shadow:0 0 0 6px rgba(139,108,255,.25),0 0 30px rgba(167,139,250,.8);transition:all .25s ease';
+    document.body.append(tourHost, tourRing);
+    ctx.onInvalidated(() => { tourHost.remove(); tourRing.remove(); });
+    const shownOnPage = (element: HTMLElement) => element.style.display === 'block' && element.getBoundingClientRect().width > 0;
+    type TourStep = { target: () => HTMLElement | undefined; title: string; text: string };
+    const tourSteps: TourStep[] = [
+      { target: () => passHost, title: 'The glowing button', text: 'Press it to continue this chat in another AI. Baton saves your project and opens the next AI with it ready as a draft.' },
+      { target: () => shownOnPage(statusHost) ? statusHost : undefined, title: 'How much you have left', text: 'This bar shows your usage on this AI, read from the service’s own pages. Press × on it to hide it.' },
+      { target: () => passHost, title: 'You stay in control', text: 'Baton never sends anything: you read the draft and press Send. Click the Baton icon in your toolbar for usage on every AI and your saved batons.' }
+    ];
+    let tourActive = false;
+    let tourAskedHere = false;
+    let tourState: string | undefined;
+    let tourReplay = false;
+    void chrome.storage.local.get(['tourState', 'tourReplay']).then(saved => { tourState = saved.tourState as string | undefined; tourReplay = saved.tourReplay === true; });
+    const placeTour = (target?: HTMLElement) => {
+      const width = Math.min(320, innerWidth - 32);
+      const rect = target?.getBoundingClientRect();
+      if (!rect) { tourRing.style.display = 'none'; tourHost.style.left = `${(innerWidth - width) / 2}px`; tourHost.style.top = 'auto'; tourHost.style.bottom = '96px'; return; }
+      tourRing.style.left = `${rect.left - 7}px`; tourRing.style.top = `${rect.top - 7}px`; tourRing.style.width = `${rect.width + 14}px`; tourRing.style.height = `${rect.height + 14}px`;
+      tourRing.style.borderRadius = rect.height > 34 && rect.width > rect.height * 1.5 ? '14px' : '999px';
+      tourRing.style.display = 'block';
+      tourHost.style.left = `${Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, innerWidth - width - 16))}px`;
+      const height = tourCard.getBoundingClientRect().height || 150;
+      if (rect.top - height - 20 > 8) { tourHost.style.top = 'auto'; tourHost.style.bottom = `${innerHeight - rect.top + 18}px`; }
+      else { tourHost.style.bottom = 'auto'; tourHost.style.top = `${Math.min(rect.bottom + 18, innerHeight - height - 8)}px`; }
+    };
+    const endTour = (state: 'done' | 'declined') => {
+      tourActive = false; tourHost.style.display = 'none'; tourRing.style.display = 'none';
+      tourState = state; tourReplay = false;
+      void chrome.storage.local.set({ tourState: state, tourReplay: false }).catch(() => {});
+    };
+    const tourButton = (label: string, kind: 'go' | 'alt', action: () => void) => { const button = document.createElement('button'); button.type = 'button'; button.className = kind; button.textContent = label; button.addEventListener('click', event => { event.stopPropagation(); action(); }); return button; };
+    const tourFrame = (title: string, step: string) => {
+      tourCard.replaceChildren();
+      const top = document.createElement('div'); top.className = 'top';
+      const mark = document.createElement('span'); mark.className = 'mark'; mark.setAttribute('aria-hidden', 'true'); mark.append(document.createElement('i'));
+      const heading = document.createElement('b'); heading.textContent = title;
+      const count = document.createElement('span'); count.className = 'step'; count.textContent = step;
+      const close = document.createElement('button'); close.type = 'button'; close.className = 'close'; close.textContent = '×'; close.setAttribute('aria-label', 'Close the tour');
+      close.addEventListener('click', event => { event.stopPropagation(); endTour(tourActive ? 'done' : 'declined'); });
+      top.append(mark, heading, count, close);
+      tourCard.append(top);
+    };
+    const askTour = () => {
+      tourAskedHere = true;
+      tourFrame('New to Baton?', '');
+      const text = document.createElement('p'); text.textContent = 'Take a 20-second tour of what Baton adds to this page?';
+      const row = document.createElement('div'); row.className = 'row';
+      const yes = tourButton('Show me', 'go', () => showTourStep(0));
+      row.append(tourButton('No thanks', 'alt', () => endTour('declined')), yes);
+      tourCard.append(text, row);
+      tourHost.style.display = 'block';
+      placeTour(passHost);
+    };
+    let tourList: TourStep[] = [];
+    const showTourStep = (index: number) => {
+      if (index === 0 || !tourList.length) tourList = tourSteps.filter(step => step.target());
+      const steps = tourList;
+      const step = steps[index];
+      if (!step) { endTour('done'); return; }
+      tourActive = true;
+      tourFrame(step.title, `${index + 1} of ${steps.length}`);
+      const text = document.createElement('p'); text.textContent = step.text;
+      const row = document.createElement('div'); row.className = 'row';
+      if (index > 0) row.append(tourButton('Back', 'alt', () => showTourStep(index - 1)));
+      const last = index === steps.length - 1;
+      if (last) row.append(tourButton('Done', 'alt', () => endTour('done')), tourButton('Try it now', 'go', () => { endTour('done'); void openPassMenu().catch(() => {}); }));
+      else row.append(tourButton('Next', 'go', () => showTourStep(index + 1)));
+      tourCard.append(text, row);
+      tourHost.style.display = 'block';
+      placeTour(step.target());
+      (row.lastElementChild as HTMLElement | null)?.focus({ preventScroll: true });
+    };
+    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Escape' && tourHost.style.display === 'block') endTour(tourActive ? 'done' : 'declined'); }, { capture: true });
+    const checkTour = () => {
+      if (tourHost.style.display === 'block' && !tourActive && tourState) { tourHost.style.display = 'none'; tourRing.style.display = 'none'; return; }
+      if (tourHost.style.display === 'block') { const index = tourCard.querySelector('.step')?.textContent?.split(' ')[0]; placeTour(tourActive && index ? tourList[Number(index) - 1]?.target() : passHost); return; }
+      if (!shownOnPage(passHost) || !passMenu.hidden || continueHost.style.display === 'block') return;
+      if (tourReplay) { tourReplay = false; void chrome.storage.local.set({ tourReplay: false }).catch(() => {}); showTourStep(0); return; }
+      if (!tourState && !tourAskedHere) askTour();
+    };
+    ctx.setInterval(checkTour, 1500);
     const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
       if (changes.passButtonEnabled) passEnabled = changes.passButtonEnabled.newValue !== false;
+      if (changes.tourState) tourState = changes.tourState.newValue as string | undefined;
+      if (changes.tourReplay) tourReplay = changes.tourReplay.newValue === true;
       if (changes[pendingKey(id)]) { pendingProject = pendingFor(changes[pendingKey(id)].newValue, id); if (!pendingProject && continueHost.style.display === 'block' && !continueShadow.querySelector('.msg')?.textContent) hideContinue(); }
       if (changes[`usageWindows:${id}`]) latestWindows = (changes[`usageWindows:${id}`].newValue || []) as UsageWindow[];
       if (changes[`meter:${id}`]) latestMeter = changes[`meter:${id}`].newValue as Meter | undefined;

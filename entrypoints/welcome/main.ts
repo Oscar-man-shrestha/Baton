@@ -27,3 +27,8 @@ setInterval(() => { if (!document.hidden) void checkPinned(); }, 1500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkPinned(); });
 
 document.querySelector('#open-settings')?.addEventListener('click', () => { void chrome.runtime.openOptionsPage(); });
+
+// The quick tour runs on a chat page, where the glowing button and usage bar are: queue it for the next one.
+document.querySelector('#start-tour')?.addEventListener('click', () => {
+  void chrome.storage.local.set({ tourReplay: true }).then(() => { (document.querySelector('#tour-status') as HTMLElement).textContent = 'Done. Open any AI chat above and the tour starts there.'; });
+});

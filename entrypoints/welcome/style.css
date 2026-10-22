@@ -49,3 +49,4 @@ footer button{font:600 .92rem system-ui,sans-serif;padding:9px 14px;border-radiu
 @media (max-width:520px){.step{grid-template-columns:1fr}.num{font-size:1.8rem}}
 @media (prefers-reduced-motion:reduce){.pass{animation:none}}
 .email{color:var(--violet-soft);user-select:all;font-weight:600}
+.tour-row{margin-top:14px!important;display:flex;flex-wrap:wrap;align-items:center;gap:10px}#start-tour{font:700 .92rem system-ui,sans-serif;padding:10px 16px;border-radius:999px;border:0;cursor:pointer;color:#fff;background:radial-gradient(circle at 30% 25%,#c9b8ff,#8b6cff 50%,#5b3fd8);box-shadow:0 8px 22px rgba(91,63,216,.4)}#tour-status{color:var(--muted);font-size:.9rem}

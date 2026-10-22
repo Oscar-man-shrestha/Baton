@@ -7,6 +7,12 @@
 - **No more "Read your browsing history" warning:** the `tabs` permission is gone. Baton only reads the addresses of the six AI sites, which its site access already allows. The browser test checks that Baton still sees its AI tabs and can't see other addresses. STORE_LISTING.md is updated.
 - **ChatGPT's usage bar is honest:** free ChatGPT text chat has no published cap, so the bar no longer shows "4 msgs in last 5 h" (a window that suggested a limit). It now says "**Chat · No cap · 4 sent today**". The usage card and the Other AIs row say "No chat cap · 4 sent today". If ChatGPT ever shows a limit message, Baton learns it and switches to "≈N left".
 - ChatGPT's banked limit resets are now read as "**Banked limit resets**", so "0 left" no longer looks like a broken chat limit.
+- **First-use tour:** the first time Baton appears on an AI chat, a small card by the glowing button asks "**New to Baton?** Take a 20-second tour?" (**Show me** / **No thanks**). Nothing starts unasked.
+  - Three steps, each ringing the real element: the glowing button (continue in another AI), the usage bar (what's left, × to hide), then "You stay in control" (you press Send; the toolbar icon has every AI's usage and your batons).
+  - Back, Next, Done and **Try it now** (opens the menu); Escape or × ends it.
+  - Once answered, it never asks again, including in other open tabs. **Take the quick tour again** in Baton's popup or side panel, or **Show me on a chat page** on the welcome page, queues it for the next chat page.
+  - Clicked through in a real browser on Gemini: question → three steps → menu opens → no question after reload.
+- Baton's own layers (tour card, rings, cards) no longer count as covering the chat box. Before this fix, the tour card hid the usage bar it was pointing at.
 - **Version 1.0.0**, with an upload zip from `npm run zip`.
 
 Verified: 246 tests in 35 files, typecheck, complete build, browser smoke test (see the commit), build-1 synced.
