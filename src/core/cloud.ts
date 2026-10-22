@@ -44,7 +44,7 @@ export async function signInGoogle(): Promise<string> {
   if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local batons are saved normally.');
   const supabase = client();
   const redirect = googleOAuthSetup().extensionCallback;
-  const result = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirect, skipBrowserRedirect: true } });
+  const result = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirect, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } } });
   if (result.error || !result.data.url) throw new Error(result.error?.message || 'Could not start Google sign-in.');
   const returned = await chrome.identity.launchWebAuthFlow({ url: result.data.url, interactive: true });
   if (!returned) throw new Error('Sign-in was cancelled.');
@@ -64,6 +64,17 @@ async function owner() {
 export async function accountLabel(): Promise<string | undefined> {
   if (!cloudConfigured) return undefined;
   try { return (await owner()).email || 'Connected'; } catch { return undefined; }
+}
+/** Name, email and Google profile photo for the account button; undefined when signed out. */
+export async function accountProfile(): Promise<{ email?: string; name?: string; avatar?: string } | undefined> {
+  if (!cloudConfigured) return undefined;
+  try {
+    const user = await owner();
+    const meta = (user.user_metadata || {}) as Record<string, unknown>;
+    const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : undefined;
+    const avatar = text(meta.avatar_url) || text(meta.picture);
+    return { email: user.email, name: text(meta.full_name) || text(meta.name), avatar: avatar && /^https:\/\//.test(avatar) ? avatar : undefined };
+  } catch { return undefined; }
 }
 export async function backupCloud(): Promise<void> {
   const user = await owner();

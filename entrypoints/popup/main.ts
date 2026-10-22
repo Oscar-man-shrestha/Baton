@@ -634,7 +634,7 @@ async function refreshGoogleSetup() {
     cloudStatus.textContent = available ? 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' : 'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local batons are already saved.';
   } catch { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. Try Check Google setup again. Local batons are safe.'; }
 }
-document.querySelector('#account')?.addEventListener('click', () => { accountDialog.showModal(); void refreshGoogleSetup(); });
+const openAccountDialog = () => { accountDialog.showModal(); void refreshGoogleSetup(); };
 document.querySelector('#retry-google-setup')?.addEventListener('click', () => { void refreshGoogleSetup(); });
 document.querySelector('#copy-extension-callback')?.addEventListener('click', async () => {
   try { const setup = (await import('../../src/core/cloud')).googleOAuthSetup(); await navigator.clipboard.writeText(setup.extensionCallback); cloudStatus.textContent = 'Extension callback copied. Add it to Supabase Authentication → URL Configuration → Redirect URLs.'; }
@@ -704,7 +704,7 @@ let cloudAccount: string | undefined;
 // Sign-in sits on the dashboard and at the top of the account dialog, not behind a collapsed section.
 async function showCloudAccount(label: string | undefined, message?: string) {
   cloudAccount = label;
-  (document.querySelector('#account') as HTMLElement).textContent = label ? 'Connected' : 'Local';
+  await showAccountButton(label);
   (document.querySelector('#google-sign-in') as HTMLElement).hidden = !!label;
   (document.querySelector('#cloud-connected-actions') as HTMLElement).hidden = !label;
   cloudCardAction.textContent = label ? 'Back up now' : 'Sign in with Google';
@@ -712,7 +712,50 @@ async function showCloudAccount(label: string | undefined, message?: string) {
   cloudCardStatus.textContent = message || (label ? `${label} · ${last ? `last backup ${new Date(last).toLocaleString()}` : 'not backed up yet'}` : 'Off · saved on this device only');
   if (label && !message) cloudStatus.textContent = `Connected as ${label}.`;
 }
+// Top-right account button: “Sign in” when signed out; your Google photo when signed in, with a menu to back up,
+// switch account or sign out. Without a configured cloud it opens Backups (files on this device).
+const accountButton = document.querySelector('#account') as HTMLButtonElement;
+const accountMenu = document.querySelector('#account-menu') as HTMLElement;
+const avatarInto = (element: HTMLElement, profile: { email?: string; name?: string; avatar?: string } | undefined) => {
+  element.replaceChildren();
+  if (profile?.avatar) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.referrerPolicy = 'no-referrer'; image.addEventListener('error', () => { element.textContent = (profile.name || profile.email || 'B').slice(0, 1).toUpperCase(); }); element.append(image); }
+  else element.textContent = profile ? (profile.name || profile.email || 'B').slice(0, 1).toUpperCase() : 'G';
+};
+async function showAccountButton(label: string | undefined) {
+  const profile = label ? await (await import('../../src/core/cloud')).accountProfile() : undefined;
+  accountButton.classList.toggle('signed-in', !!label);
+  avatarInto(document.querySelector('#account-avatar') as HTMLElement, label ? profile || { email: label } : undefined);
+  (document.querySelector('#account-label') as HTMLElement).textContent = cloudConfigured ? 'Sign in' : 'Backups';
+  accountButton.setAttribute('aria-label', label ? `Account: ${label}` : cloudConfigured ? 'Sign in with Google' : 'Backups');
+  accountButton.setAttribute('aria-haspopup', label ? 'menu' : 'false');
+  if (label) {
+    avatarInto(document.querySelector('#account-menu-avatar') as HTMLElement, profile || { email: label });
+    (document.querySelector('#account-menu-name') as HTMLElement).textContent = profile?.name || 'Signed in';
+    (document.querySelector('#account-menu-email') as HTMLElement).textContent = profile?.email || label;
+    const last = Number((await chrome.storage.local.get('lastCloudBackup')).lastCloudBackup) || 0;
+    (document.querySelector('#account-menu-backup') as HTMLElement).textContent = last ? `Last backup ${new Date(last).toLocaleString()}` : 'Not backed up yet';
+  } else closeAccountMenu();
+}
+const closeAccountMenu = () => { accountMenu.hidden = true; accountButton.setAttribute('aria-expanded', 'false'); };
+accountButton.addEventListener('click', event => {
+  event.stopPropagation();
+  if (!cloudConfigured) { openAccountDialog(); return; }
+  if (!cloudAccount) { (document.querySelector('#google-sign-in') as HTMLButtonElement).click(); return; }
+  accountMenu.hidden = !accountMenu.hidden; accountButton.setAttribute('aria-expanded', String(!accountMenu.hidden));
+  if (!accountMenu.hidden) (accountMenu.querySelector('button') as HTMLButtonElement | null)?.focus();
+});
+document.addEventListener('click', event => { if (!accountMenu.hidden && !accountMenu.contains(event.target as Node)) closeAccountMenu(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !accountMenu.hidden) { closeAccountMenu(); accountButton.focus(); } });
+for (const [id, target] of [['menu-backup', '#cloud-backup'], ['menu-signout', '#cloud-disconnect']] as const) document.querySelector(`#${id}`)?.addEventListener('click', () => { closeAccountMenu(); (document.querySelector(target) as HTMLButtonElement).click(); });
+document.querySelector('#menu-backups')?.addEventListener('click', () => { closeAccountMenu(); openAccountDialog(); });
+// Switch account: sign out here (local copies and the cloud backup stay), then Google's own account chooser.
+document.querySelector('#menu-switch')?.addEventListener('click', async () => {
+  closeAccountMenu();
+  try { await (await import('../../src/core/cloud')).disconnectCloud(); await showCloudAccount(undefined); } catch { /* Sign-in below still offers the chooser. */ }
+  (document.querySelector('#google-sign-in') as HTMLButtonElement).click();
+});
 cloudCard.hidden = !cloudConfigured;
+await showAccountButton(undefined);
 if (cloudConfigured) await showCloudAccount(await accountLabel());
 cloudCardAction.addEventListener('click', () => (document.querySelector(cloudAccount ? '#cloud-backup' : '#google-sign-in') as HTMLButtonElement).click());
 for (const [id, action] of [
