@@ -7,63 +7,107 @@
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+<header class="top">
+  <div class="wrap">
+    <span class="logo"><img src="/icon-48.png" alt="" width="28" height="28">Baton</span>
+    <nav aria-label="On this page"><a href="#setup">Set up</a><a href="#guide">How to use</a><a href="#good">Good to know</a></nav>
+  </div>
+</header>
+
 <main>
-  <header class="intro">
-    <span class="mark" aria-hidden="true"><i></i></span>
-    <p class="eyebrow">Baton Pass is installed</p>
-    <h1>You're all set.<br><span>Three steps to your first pass.</span></h1>
-    <p class="lede">When an AI runs out, Baton moves your chat to another one as a ready-to-send draft. It takes about a minute to try.</p>
-  </header>
-
-  <ol class="steps">
-    <li class="step" id="step-pin">
-      <span class="num" aria-hidden="true">1</span>
-      <div class="body">
-        <h2>Pin Baton to your toolbar</h2>
-        <p>Press the puzzle icon <span class="key" aria-label="puzzle icon">🧩</span> at the top right of your browser, then the pin <span class="key" aria-label="pin icon">📌</span> next to <b>Baton Pass</b>.</p>
-        <p class="status" id="pin-status" role="status">Checking…</p>
-      </div>
-    </li>
-    <li class="step">
-      <span class="num" aria-hidden="true">2</span>
-      <div class="body">
-        <h2>Open an AI chat</h2>
-        <p>Baton works on these six. Open the one you use most:</p>
-        <div class="ais" id="ais"></div>
-      </div>
-    </li>
-    <li class="step">
-      <span class="num" aria-hidden="true">3</span>
-      <div class="body">
-        <h2>Look for the glowing button by Send</h2>
-        <p>Under the chat box you'll see how much you have left. Press the glowing button any time, or when you hit a limit, to continue in another AI.</p>
-        <div class="mock" aria-label="Example: the chat box with Baton's usage bar and glowing button">
-          <div class="composer">Message ChatGPT<span class="send" aria-hidden="true">↑</span><span class="pass" aria-hidden="true"><i></i></span></div>
-          <div class="pill" aria-hidden="true"><span class="k">Chat</span><span class="ring"></span><b>63% left</b><span class="n">3h 9m</span><span class="x">×</span></div>
-          <p class="hint">Don't want them? Press × on the bar, or <b>Hide this button</b> in its menu. Turn them back on in Baton under <b>Show on AI chat pages</b>.</p>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow" id="eyebrow">Baton Pass is installed</p>
+        <h1 id="hero-title">You're all set.<br><em>Let's pass</em> your first baton.</h1>
+        <p class="lede">When an AI runs out or isn't the right fit, Baton moves your chat to another one as a ready-to-send draft. You never re-explain, and you always press Send yourself.</p>
+        <div class="cta">
+          <button id="start-tour" class="btn primary" type="button">Show me on a chat page</button>
+          <a class="btn ghost" href="#guide">Read how it works</a>
         </div>
-        <p class="tour-row"><button id="start-tour" type="button">Show me on a chat page</button> <span id="tour-status" role="status"></span></p>
+        <p id="tour-status" class="note" role="status"></p>
       </div>
-    </li>
-  </ol>
-
-  <section class="good" aria-labelledby="good-title">
-    <h2 id="good-title">Good to know</h2>
-    <ul>
-      <li><b>You always press Send.</b> Baton only types a draft. It never sends anything for you.</li>
-      <li><b>Saved on this device.</b> Your batons stay in your browser. Want a backup? Press <b>Sign in</b> at the top of Baton.</li>
-      <li><b>Real numbers only.</b> Usage comes from each AI's own pages. Where a service shows no limit, Baton counts your messages and says so.</li>
-      <li><b>Private suggestions.</b> Baton picks the best AI for your task with a small model that runs in your browser.</li>
-    </ul>
+      <div class="demo" aria-label="Example: Baton on a chat page">
+        <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>chatgpt.com</span></div>
+        <div class="bubble you">Fix the login bug in my Flask app.</div>
+        <div class="bubble ai">Your route reads <code>request.json</code>, but the form sends form data…</div>
+        <div class="composer">Message ChatGPT<span class="send" aria-hidden="true">↑</span><span class="pass" aria-hidden="true"><i></i></span></div>
+        <div class="pill" aria-hidden="true"><span class="k">Chat</span><b>No cap</b><span class="n">4 sent today</span><span class="x">×</span></div>
+        <div class="menu" aria-hidden="true">
+          <b>Pass the baton to…</b>
+          <span class="chips"><span class="chip on">Code</span><span class="chip">Research</span><span class="chip">Writing</span></span>
+          <span class="opt first"><i style="--c:#d97757"></i>Claude<small>top-rated for code</small><span class="tag">Suggested</span></span>
+          <span class="opt"><i style="--c:#4d6bfe"></i>DeepSeek<small>strong at code</small></span>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <footer>
+  <section id="setup" class="band" aria-labelledby="setup-title">
+    <div class="wrap">
+      <p class="eyebrow">Set up · about a minute</p>
+      <h2 id="setup-title">Three steps</h2>
+      <ol class="setup">
+        <li class="step" id="step-pin">
+          <span class="num" aria-hidden="true">1</span>
+          <h3>Pin Baton</h3>
+          <p>Press the puzzle icon <span class="key" aria-label="puzzle icon">🧩</span> at the top right of your browser, then the pin <span class="key" aria-label="pin icon">📌</span> next to <b>Baton Pass</b>.</p>
+          <p class="status" id="pin-status" role="status">Checking…</p>
+        </li>
+        <li class="step">
+          <span class="num" aria-hidden="true">2</span>
+          <h3>Open an AI chat</h3>
+          <p>Baton works on these six:</p>
+          <div class="ais" id="ais"></div>
+        </li>
+        <li class="step">
+          <span class="num" aria-hidden="true">3</span>
+          <h3>Find the glowing button</h3>
+          <p>It sits by <b>Send</b>, with a bar under the chat box showing how much you have left. A short tour points them out the first time.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="guide" class="band" aria-labelledby="guide-title">
+    <div class="wrap">
+      <p class="eyebrow">How to use Baton</p>
+      <h2 id="guide-title">Everything it does, in plain words</h2>
+      <div class="guide">
+        <article><h3><span aria-hidden="true">➜</span> Pass your chat to another AI</h3><p>Press the glowing button by Send and pick an AI. Baton saves your chat as a <b>baton</b> (a short summary: goal, what's done, what's next) and opens that AI in a new tab with it typed in. Read it, then press Send.</p></article>
+        <article><h3><span aria-hidden="true">✎</span> Say what's next</h3><p>In the menu, the <b>What's next?</b> line adds your next step to the end of the draft. If you'd already typed something in the chat box, it starts there. Press <b>Enter</b> to pass to the suggested AI.</p></article>
+        <article><h3><span aria-hidden="true">◎</span> The right AI for the task</h3><p>Baton guesses the task from your latest message (code, research, writing, maths, images, news) and suggests the AI that's best at it among those with room left. The guess runs on your device. Tap a task to re-rank.</p></article>
+        <article><h3><span aria-hidden="true">▮</span> See how much is left</h3><p>The bar under the chat box shows your usage on that AI, read from the service's own pages. Where a service shows no limit, Baton counts your messages and says so. Open Baton from the toolbar to see every AI.</p></article>
+        <article><h3><span aria-hidden="true">↻</span> Same AI, another account</h3><p>In the menu, choose <b>…, another account</b>. Baton saves your project, helps you switch account in that AI's own screens, then offers <b>Continue your project here?</b> on your next new chat.</p></article>
+        <article><h3><span aria-hidden="true">▤</span> Batons and folders</h3><p>Every pass saves a baton you can reopen, copy or delete in Baton. <b>New folder</b> groups them (School, Work). <b>Select</b> deletes several at once. Each delete tells you first what it removes.</p></article>
+        <article><h3><span aria-hidden="true">☁</span> Backups (optional)</h3><p>Everything stays in this browser. <b>Sign in</b> at the top of Baton to back up to your Google account, or download a backup file from <b>Backups and data</b>.</p></article>
+        <article><h3><span aria-hidden="true">×</span> Hide what you don't need</h3><p>Press <b>×</b> on the usage bar, or <b>Hide this button</b> in the menu. Turn them back on in Baton under <b>Show on AI chat pages</b>.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="good" class="band" aria-labelledby="good-title">
+    <div class="wrap">
+      <p class="eyebrow">Good to know</p>
+      <h2 id="good-title">Built to stay on your side</h2>
+      <ul class="rules">
+        <li><b>You press Send.</b> Baton types drafts. It never sends anything for you.</li>
+        <li><b>Saved on this device.</b> Your batons stay in your browser unless you back them up.</li>
+        <li><b>Real numbers only.</b> Usage comes from each AI's own pages. Baton never guesses a percentage.</li>
+        <li><b>No secret access.</b> No cookies read, no private APIs, no passwords typed.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
     <button id="open-settings" type="button">Baton settings</button>
-    <a href="https://oscar-man-shrestha.github.io/handoff/" target="_blank" rel="noopener">How Baton works</a>
+    <a href="https://oscar-man-shrestha.github.io/handoff/" target="_blank" rel="noopener">Baton website</a>
     <a href="https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy policy</a>
     <span>Questions or bugs? <b class="email">batonforai@gmail.com</b></span>
-  </footer>
-</main>
+  </div>
+</footer>
 <script type="module" src="./main.ts"></script>
 </body>
 </html>

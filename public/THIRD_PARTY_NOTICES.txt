@@ -262,3 +262,12 @@ Licensed under the Apache License, Version 2.0. You may obtain a copy of the Lic
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+
+## Big Shoulders Display and Atkinson Hyperlegible — fonts on Baton's welcome page
+
+Bundled as woff2 files in `fonts/` (Latin subset from Google Fonts), so the page makes no font requests.
+- Big Shoulders Display, Copyright 2019 The Big Shoulders Project Authors (https://github.com/xotypeco/big_shoulders).
+- Atkinson Hyperlegible, Copyright 2020 Braille Institute of America, Inc.
+
+Both are licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org). The fonts may be used, bundled and redistributed with software; they may not be sold on their own, and Reserved Font Names may not be used for modified versions.

@@ -1,7 +1,9 @@
 import { newChatUrls, providerNames } from '../../src/core/rescue';
 import { providerIds } from '../../src/core/selectors';
 
-// Shown once, right after install: pin Baton, open an AI chat, find the glowing button.
+// Opens once after install, and from the ? button in Baton (welcome.html#guide), where it reads as the guide.
+const guideMode = () => { const guide = location.hash === '#guide'; document.title = guide ? 'How to use Baton' : 'Welcome to Baton'; (document.querySelector('#eyebrow') as HTMLElement).textContent = guide ? 'Baton guide' : 'Baton Pass is installed'; };
+guideMode(); addEventListener('hashchange', guideMode);
 const colors: Record<string, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#b8c0c9', perplexity: '#20b8cd' };
 const ais = document.querySelector('#ais') as HTMLElement;
 for (const id of providerIds) {
@@ -30,5 +32,8 @@ document.querySelector('#open-settings')?.addEventListener('click', () => { void
 
 // The quick tour runs on a chat page, where the glowing button and usage bar are: queue it for the next one.
 document.querySelector('#start-tour')?.addEventListener('click', () => {
-  void chrome.storage.local.set({ tourReplay: true }).then(() => { (document.querySelector('#tour-status') as HTMLElement).textContent = 'Done. Open any AI chat above and the tour starts there.'; });
+  void chrome.storage.local.set({ tourReplay: true }).then(() => {
+    (document.querySelector('#tour-status') as HTMLElement).textContent = '✓ Ready. Open any AI chat below and the tour starts there.';
+    document.querySelector('#setup')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
 });

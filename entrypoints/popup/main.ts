@@ -396,6 +396,64 @@ contextMode.addEventListener('change', () => {
   showDraftBudget();
 });
 document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Compact handoff selected. The full baton is still saved.'; });
+// Batons can be deleted one at a time, a selection, or all at once. Every delete first shows what it removes.
+type LibraryItem = { id: string; url: string; variants?: string[]; name: string };
+let libraryItems: LibraryItem[] = [];
+let libraryDismissed: string[] = [];
+const selectedBatons = new Set<string>();
+let selectingBatons = false;
+const batonKey = (item: LibraryItem) => item.id || item.url;
+const deleteBatons = async (list: LibraryItem[]) => {
+  const dismiss: string[] = [];
+  for (const item of list) {
+    if (item.id) { await deleteProject(item.id); if (item.id.startsWith('capture:')) dismiss.push(item.url); }
+    else await chrome.storage.local.remove((item.variants || [item.url]).flatMap(url => [`brief:${url}`, `savedAt:brief:${url}`, `archive:brief:${url}`, `visibleTurnsHighWater:brief:${url}`]));
+  }
+  if (dismiss.length) await chrome.storage.local.set({ dismissedRecentUrls: [...new Set([...libraryDismissed, ...dismiss])].slice(-5000) });
+};
+const deleteDialog = document.querySelector('#delete-dialog') as HTMLDialogElement;
+let pendingDelete: LibraryItem[] = [];
+const askDelete = (list: LibraryItem[]) => {
+  if (!list.length) return;
+  pendingDelete = list;
+  (document.querySelector('#delete-title') as HTMLElement).textContent = list.length === 1 ? 'Delete this baton?' : list.length === libraryItems.length ? `Delete all ${list.length} batons?` : `Delete ${list.length} batons?`;
+  (document.querySelector('#delete-what') as HTMLElement).textContent = list.length === 1 ? `“${list[0].name}”` : list.slice(0, 3).map(item => `“${item.name.slice(0, 40)}”`).join(', ') + (list.length > 3 ? ` and ${list.length - 3} more` : '');
+  (document.querySelector('#delete-confirm') as HTMLElement).textContent = list.length === 1 ? 'Delete' : `Delete ${list.length}`;
+  deleteDialog.showModal();
+  (deleteDialog.querySelector('button[value="cancel"]') as HTMLButtonElement).focus();
+};
+deleteDialog.addEventListener('close', async () => {
+  if (deleteDialog.returnValue !== 'delete' || !pendingDelete.length) return;
+  const count = pendingDelete.length;
+  await deleteBatons(pendingDelete);
+  pendingDelete = []; selectedBatons.clear(); selectingBatons = false;
+  await showLibrary();
+  status.hidden = false; status.textContent = `${count} baton${count === 1 ? '' : 's'} deleted from this browser.`;
+});
+document.querySelector('#delete-backup-first')?.addEventListener('click', () => { (document.querySelector('#backup-all') as HTMLButtonElement | null)?.click(); });
+const updateBatonTools = () => {
+  for (const tools of Array.from(document.querySelectorAll<HTMLElement>('.baton-tools'))) {
+    tools.hidden = !libraryItems.length;
+    const show = (selector: string, visible: boolean) => { (tools.querySelector(selector) as HTMLElement).hidden = !visible; };
+    show('.sel-start', !selectingBatons); show('.del-all', !selectingBatons);
+    show('.sel-count', selectingBatons); show('.sel-all', selectingBatons); show('.sel-delete', selectingBatons); show('.sel-cancel', selectingBatons);
+    (tools.querySelector('.sel-count') as HTMLElement).textContent = `${selectedBatons.size} selected`;
+    const remove = tools.querySelector('.sel-delete') as HTMLButtonElement; remove.disabled = !selectedBatons.size; remove.textContent = selectedBatons.size ? `Delete ${selectedBatons.size}` : 'Delete selected';
+  }
+  for (const list of ['#recent-list', '#library-list']) document.querySelector(list)?.classList.toggle('selecting', selectingBatons);
+  for (const row of Array.from(document.querySelectorAll<HTMLElement>('.capsule-row[data-key]'))) {
+    const picked = selectedBatons.has(row.dataset.key!);
+    row.classList.toggle('picked', picked); (row.querySelector('.pick') as HTMLInputElement).checked = picked;
+  }
+};
+const toggleBaton = (key: string) => { if (selectedBatons.has(key)) selectedBatons.delete(key); else selectedBatons.add(key); updateBatonTools(); };
+for (const tools of Array.from(document.querySelectorAll<HTMLElement>('.baton-tools'))) {
+  tools.querySelector('.sel-start')?.addEventListener('click', () => { selectingBatons = true; updateBatonTools(); });
+  tools.querySelector('.sel-cancel')?.addEventListener('click', () => { selectingBatons = false; selectedBatons.clear(); updateBatonTools(); });
+  tools.querySelector('.sel-all')?.addEventListener('click', () => { for (const item of libraryItems) selectedBatons.add(batonKey(item)); updateBatonTools(); });
+  tools.querySelector('.sel-delete')?.addEventListener('click', () => { askDelete(libraryItems.filter(item => selectedBatons.has(batonKey(item)))); });
+  tools.querySelector('.del-all')?.addEventListener('click', () => { askDelete(libraryItems); });
+}
 const showLibrary = async () => {
   const projects = (await listProjects()).sort((a, b) => b.updatedAt - a.updatedAt);
   const recent = await listRecentCaptures(5000);
@@ -405,6 +463,8 @@ const showLibrary = async () => {
     ...projects.map(project => ({ id: project.id, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', variants: undefined as string[] | undefined, draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
     ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, variants: capture.variants, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
   ];
+  libraryItems = items; libraryDismissed = dismissedUrls;
+  for (const key of [...selectedBatons]) if (!items.some(item => batonKey(item) === key)) selectedBatons.delete(key);
   (document.querySelector('#saved-count') as HTMLElement).textContent = String(items.length);
   (document.querySelector('#chat-count') as HTMLElement).textContent = String(items.length);
   (document.querySelector('#thread-count') as HTMLElement).textContent = String(recent.length);
@@ -455,29 +515,24 @@ const showLibrary = async () => {
       status.textContent = `Loaded ${item.name}. Review before continuing.`;
     });
     const card = () => {
-      const row = document.createElement('div'); row.className = 'capsule-row';
+      const row = document.createElement('div'); row.className = 'capsule-row'; row.dataset.key = batonKey(item);
+      const pick = document.createElement('input'); pick.type = 'checkbox'; pick.className = 'pick'; pick.setAttribute('aria-label', `Select ${item.name}`);
+      pick.addEventListener('change', () => toggleBaton(batonKey(item)));
       const laneHost = (() => { try { return new URL(item.url).hostname; } catch { return ''; } })();
       const laneId = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(laneHost));
       if (laneId) row.style.setProperty('--lane', laneColors[laneId]);
-      const open = button.cloneNode(true) as HTMLButtonElement; open.className = 'capsule-open'; open.addEventListener('click', () => button.click());
+      const open = button.cloneNode(true) as HTMLButtonElement; open.className = 'capsule-open'; open.addEventListener('click', () => { if (selectingBatons) toggleBaton(batonKey(item)); else button.click(); });
       const actions = document.createElement('div'); actions.className = 'capsule-actions';
       const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'icon-button'; copy.textContent = '⧉'; copy.setAttribute('aria-label', `Copy ${item.name}`);
       copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Baton copied. Paste it into your next AI chat.'; });
       const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button danger'; remove.textContent = '×'; remove.setAttribute('aria-label', `Delete ${item.name}`);
-      remove.addEventListener('click', async () => {
-        if (!confirm(`Delete “${item.name}”? Other saved batons and conversations are kept.`)) return;
-        if (item.id) {
-          await deleteProject(item.id);
-          if (item.id.startsWith('capture:')) await chrome.storage.local.set({ dismissedRecentUrls: [...new Set([...dismissedUrls, item.url])].slice(-5000) });
-        }
-        else await chrome.storage.local.remove((item.variants || [item.url]).flatMap(url => [`brief:${url}`, `savedAt:brief:${url}`, `archive:brief:${url}`, `visibleTurnsHighWater:brief:${url}`]));
-        await showLibrary();
-      });
-      actions.append(copy, remove); row.append(open, actions); return row;
+      remove.addEventListener('click', () => askDelete([item]));
+      actions.append(copy, remove); row.append(pick, open, actions); return row;
     };
     libraryList.append(card());
     if (recentList.children.length < 6 && !needle) recentList.append(card());
   }
+  updateBatonTools();
 };
 librarySearch.addEventListener('input', () => { void showLibrary(); });
 
@@ -699,6 +754,8 @@ if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefres
 const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
 composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
 composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });
+// Help: the guide lives on the welcome page.
+document.querySelector('#help')?.addEventListener('click', () => { void chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html#guide') }); });
 // “Take the quick tour again”: it runs on the AI chat page, so queue it and tell the user where to look.
 document.querySelector('#replay-tour')?.addEventListener('click', async event => {
   await chrome.storage.local.set({ tourReplay: true });

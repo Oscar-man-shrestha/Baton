@@ -13,6 +13,21 @@
   - Once answered, it never asks again, including in other open tabs. **Take the quick tour again** in Baton's popup or side panel, or **Show me on a chat page** on the welcome page, queues it for the next chat page.
   - Clicked through in a real browser on Gemini: question → three steps → menu opens → no question after reload.
 - Baton's own layers (tour card, rings, cards) no longer count as covering the chat box. Before this fix, the tour card hid the usage bar it was pointing at.
+- **Delete several batons, or all of them:** the Batons list (dashboard and All Batons) has **Select**, then **Select all**, **Delete N** and **Cancel**, plus **Delete all**. Every delete, including a single ×, opens a card that says what happens first:
+  - removed from this browser (saved chat text, summaries, drafts);
+  - your conversations on the AIs aren't touched;
+  - your Google backup isn't changed until you back up again;
+  - it can't be undone, with **Download backup first** right there.
+
+  It confirms with "N batons deleted from this browser." This replaces the plain browser confirm box.
+- **Help:** a **?** button in Baton's header opens the guide.
+- **Redesigned welcome page, which is also the guide:** it uses Baton's relay look with bundled fonts, so it makes no outside requests.
+  - Hero with a live-looking example: chat box, usage bar, glowing button and menu. Buttons: **Show me on a chat page** (queues the tour) and **Read how it works**.
+  - Three set-up steps: pin (live check), open an AI (six buttons), and find the glowing button.
+  - **How to use Baton:** eight plain-words sections (pass, What's next?, the right AI, usage, another account, batons and folders, backups, hiding things).
+  - **Good to know**, and a footer with settings, website, privacy policy and contact.
+  - Opened from **?** as `welcome.html#guide`, it's titled "How to use Baton".
+- The popup header keeps its buttons on one line; the subtitle steps aside in the narrow popup.
 - **Version 1.0.0**, with an upload zip from `npm run zip`.
 
 Verified: 246 tests in 35 files, typecheck, complete build, browser smoke test (see the commit), build-1 synced.
