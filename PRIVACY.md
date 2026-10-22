@@ -20,7 +20,7 @@ The source includes an opt-in, hash-verified remote selector updater, but the cu
 
 ## Welcome and uninstall pages
 
-After a first install, Baton opens its own welcome page inside the extension. When Baton is removed, the browser opens a feedback page on Baton's site (`oscar-man-shrestha.github.io/handoff/uninstall.html`). Its address carries only Baton's version number. Answering is optional. Only the chosen reason, any text the user types, and the version are sent, to the project's own Google Form, and only when the user presses Send feedback.
+After a first install, Baton opens its own welcome page inside the extension. When Baton is removed, the browser opens a feedback page on Baton's site (`oscar-man-shrestha.github.io/handoff/uninstall.html`). Its address carries only Baton's version number. Answering is optional. Only the chosen reason, any text the user types, and the version are sent, to the project's own Google Form, and only when the user presses Send feedback. Until that form is connected, the page only offers to copy the answer or open it in the user's own email app, addressed to batonforai@gmail.com.
 
 ## Suggestion rankings
 
@@ -42,3 +42,7 @@ Usage readings come only from what each service displays on its own pages; Baton
 ### Usage observation reliability, version 0.2.1
 
 A short equality fingerprint of usage-widget text anchors unchanged relative resets; Baton does not store that surrounding widget text. Per-tab numeric badge readings are held in extension session storage, expire from display, and are cleared on loading a page/closing a tab. Checks run when a supported page updates and when the user returns to a tab; these are observed snapshots rather than continuous authenticated polling. No extra permission or remote provider request is added by this update.
+
+## Contact
+
+Questions about privacy or this policy: **batonforai@gmail.com**.

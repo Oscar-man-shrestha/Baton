@@ -37,6 +37,7 @@ button, .btn { font: 700 1rem/1 var(--body); padding: .9em 1.3em; border-radius:
 .thanks.show { display: block; }
 .thanks h2 { font: 900 2rem/1 var(--display); text-transform: uppercase; margin: 0 0 8px; }
 .thanks p { color: var(--mute); margin: 0 0 8px; }
+.email { color: var(--violet-soft); user-select: all; }
 footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; gap: 18px; flex-wrap: wrap; }
 </style>
 </head>
@@ -76,7 +77,7 @@ footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; 
     <p id="copy-wrap" hidden><button class="ghost" type="button" id="copy">Copy my feedback</button></p>
   </div>
 
-  <footer><a href="./">Baton Pass</a><a href="https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md">Privacy policy</a></footer>
+  <footer><a href="./">Baton Pass</a><span>Contact: <b class="email">batonforai@gmail.com</b></span><a href="https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md">Privacy policy</a></footer>
 </main>
 <script>
 (() => {
@@ -84,6 +85,7 @@ footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; 
      for "Version", then paste its formResponse URL and the three entry ids here. Until then, the page offers to copy. */
   const FORM = { action: '', reason: '', details: '', version: '' };
   const STORE_URL = '';
+  const CONTACT = 'batonforai@gmail.com';
   const version = new URLSearchParams(location.search).get('v') || '';
   if (STORE_URL) document.getElementById('reinstall').href = STORE_URL;
 
@@ -105,7 +107,7 @@ footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; 
     form.hidden = true;
     document.getElementById('thanks').classList.add('show');
     if (!sent) {
-      document.getElementById('thanks-text').textContent = 'Feedback sending isn\'t set up yet. You can copy your answer and share it with the Baton team.';
+      document.getElementById('thanks-text').innerHTML = `Please email your answer to <b class="email">${CONTACT}</b>. Copy it below, or <a href="mailto:${CONTACT}?subject=${encodeURIComponent('Baton feedback')}&body=${encodeURIComponent(text)}">open it in your email app</a>.`;
       document.getElementById('copy-wrap').hidden = false;
       document.getElementById('copy').addEventListener('click', async event => {
         try { await navigator.clipboard.writeText(text); event.target.textContent = 'Copied'; } catch { event.target.textContent = 'Could not copy'; }

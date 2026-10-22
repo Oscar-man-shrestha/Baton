@@ -198,6 +198,8 @@ section { position: relative; }
 .install li::before { content: counter(s); font: 900 2rem/1 var(--display); color: var(--tartan); }
 .install li p { color: var(--mute); }
 .install code { font: .86rem var(--mono); color: var(--violet-soft); background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+.email { font-family: var(--mono); color: var(--violet-soft); user-select: all; }
+footer .contact { display: inline-flex; align-items: center; gap: 4px; }
 .copy { margin-left: 6px; font: 600 .74rem var(--body); color: var(--chalk); background: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
 @media (max-width: 860px) { .install .wrap { grid-template-columns: 1fr; } }
 
@@ -490,6 +492,7 @@ footer .grow { flex: 1; }
         <details><summary>What are folders for?</summary><p>Folders group your saved batons, for example School, Work or one project. Pick a folder when you save, and find everything together later.</p></details>
         <details><summary>Can I hide the button or the usage bar?</summary><p>Yes. Tap × on the usage bar, or “Hide this button” in the menu. Turn them back on any time in Baton under “Show on AI chat pages”.</p></details>
         <details><summary>Why is a number missing for some AIs?</summary><p>Some services don't show a usage limit anywhere. Rather than invent one, Baton shows how many messages you've sent, and learns the limit if the service tells you when you hit it.</p></details>
+        <details><summary>How do I contact you?</summary><p>Email <b class="email">batonforai@gmail.com</b> for questions, bugs or ideas. Saying which AI site and what happened helps us fix things quickly.</p></details>
         <details><summary>Do I need to sign in?</summary><p>No. Everything works without an account. Sign in with Google only if you want a backup you can restore in another browser.</p></details>
       </div>
     </div>
@@ -513,6 +516,7 @@ footer .grow { flex: 1; }
     <span class="grow">Free and open source. Not affiliated with OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity.</span>
     <a href="https://github.com/Oscar-man-shrestha/handoff" target="_blank" rel="noopener">GitHub</a>
     <a href="https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy policy</a>
+    <span class="contact">Contact: <span class="email">batonforai@gmail.com</span> <button class="copy" type="button" data-copy-text="batonforai@gmail.com">Copy</button></span>
   </div>
 </footer>
 
@@ -627,7 +631,7 @@ footer .grow { flex: 1; }
 
   /* Copy buttons */
   document.querySelectorAll('.copy').forEach(button => button.addEventListener('click', async () => {
-    const source = document.getElementById(button.dataset.copy); const text = source.textContent;
+    const source = button.dataset.copy ? document.getElementById(button.dataset.copy) : button.previousElementSibling; const text = button.dataset.copyText || source.textContent;
     try { await navigator.clipboard.writeText(text); button.textContent = 'Copied'; }
     catch { const range = document.createRange(); range.selectNodeContents(source); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); button.textContent = 'Selected'; }
     setTimeout(() => { button.textContent = 'Copy'; }, 1600);

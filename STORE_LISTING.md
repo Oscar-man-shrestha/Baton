@@ -46,3 +46,9 @@ The screenshots show Baton's real interface with example chats and figures.
 **Suggested name and summary.** The name carries the use case, because people search for the problem:
 - Name: `Baton Pass: Continue AI chats when you hit the limit`
 - Summary (132 characters max): `Hit your ChatGPT, Claude or Gemini limit? Continue the same chat in another AI in one click, with your context. Free and private.`
+
+## Contact
+
+- Developer and support email (Chrome Web Store contact field, privacy policy, site footer): **batonforai@gmail.com**
+- Google account display name: **Baton**
+- Use this account for the developer registration (one-time $5 fee), the uninstall Google Form, and support mail. Turn on 2-Step Verification.
