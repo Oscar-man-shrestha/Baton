@@ -70,7 +70,7 @@ footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; 
       <button class="primary" type="submit">Send feedback</button>
       <a class="btn ghost" id="reinstall" href="./#install">Reinstall Baton</a>
     </div>
-    <p class="note">Only your answer and the Baton version are sent, nothing else. Please don't include personal details.</p>
+    <p class="note">Only your answer, the Baton version and your browser’s name are sent, nothing else. Please don't include personal details.</p>
   </form>
 
   <div class="thanks" id="thanks" role="status">
@@ -83,9 +83,10 @@ footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; 
 </main>
 <script>
 (() => {
-  /* Where feedback goes. Create a Google Form with two short-answer questions ("Reason" and "Details") plus one
-     for "Version", then paste its formResponse URL and the three entry ids here. Until then, the page offers to copy. */
-  const FORM = { action: '', reason: '', details: '', version: '' };
+  /* Feedback goes to the project's Supabase table baton_feedback (insert-only; supabase/feedback.sql). The key is the
+     public publishable key, which can only add rows, never read them. If the table isn't set up yet, the page offers copy or email. */
+  const SUPABASE = { url: 'https://qeoduozlznznptwsfzbt.supabase.co', key: 'sb_publishable_B-7Cc5QBH3tTwShXmzyRKQ_2GOtGl0i' };
+  const browser = navigator.brave ? 'Brave' : /Edg\//.test(navigator.userAgent) ? 'Edge' : /OPR\//.test(navigator.userAgent) ? 'Opera' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : 'Other';
   const STORE_URL = '';
   const CONTACT = 'batonforai@gmail.com';
   const version = new URLSearchParams(location.search).get('v') || '';
@@ -102,10 +103,12 @@ footer { margin-top: 40px; color: var(--mute); font-size: .9rem; display: flex; 
     const details = form.details.value.trim().slice(0, 1500);
     const text = `Reason: ${reason}\nVersion: ${version || 'unknown'}\n${details}`;
     let sent = false;
-    if (FORM.action) {
-      const body = new URLSearchParams({ [FORM.reason]: reason, [FORM.details]: details, [FORM.version]: version });
-      try { await fetch(FORM.action, { method: 'POST', mode: 'no-cors', body }); sent = true; } catch { sent = false; }
-    }
+    const button = form.querySelector('button[type="submit"]'); button.disabled = true; button.textContent = 'Sending…';
+    try {
+      const response = await fetch(`${SUPABASE.url}/rest/v1/baton_feedback`, { method: 'POST', headers: { apikey: SUPABASE.key, Authorization: `Bearer ${SUPABASE.key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ kind: 'uninstall', reason: reason.slice(0, 40), ...(details ? { message: details } : {}), ...(version ? { version: version.slice(0, 20) } : {}), browser }) });
+      sent = response.ok;
+    } catch { sent = false; }
     form.hidden = true;
     document.getElementById('thanks').classList.add('show');
     if (!sent) {

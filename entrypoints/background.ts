@@ -68,6 +68,16 @@ export default defineBackground(() => {
     })().catch(error => sendResponse({ ok: false, error: String(error) }));
     return true;
   });
+  // Google Drive backup runs here: the popup closes when Google's sign-in window opens. Extension pages only.
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    const actions: Record<string, (drive: typeof import('../src/core/drive')) => Promise<unknown>> = {
+      DRIVE_BACKUP: drive => drive.backupToDrive(), DRIVE_INSPECT: drive => drive.inspectDrive(), DRIVE_RESTORE: drive => drive.restoreFromDrive(), DRIVE_DISCONNECT: drive => drive.disconnectDrive()
+    };
+    const action = actions[message?.type];
+    if (!action || !sender.url?.startsWith(chrome.runtime.getURL(''))) return;
+    void import('../src/core/drive').then(action).then(result => sendResponse({ ok: true, result }), error => sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Google Drive did not respond.' }));
+    return true;
+  });
   // Existing chat tabs connect after installation/update without reloading them.
   chrome.runtime.onInstalled.addListener(() => { void (async () => {
     const script = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];

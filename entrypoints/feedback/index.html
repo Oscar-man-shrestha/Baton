@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><link rel="icon" href="/icon-32.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send feedback to Baton</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">Feedback</p>
+  <h1>Tell us what's working,<br><em>and what isn't.</em></h1>
+  <p class="lede">Bugs, ideas, confusing bits, or things you like. Every message is read, and it decides what gets fixed next.</p>
+  <form id="feedback" novalidate>
+    <fieldset>
+      <legend>What's this about?</legend>
+      <div class="kinds">
+        <label><input type="radio" name="kind" value="bug" checked><span>Something's broken</span></label>
+        <label><input type="radio" name="kind" value="confusing"><span>Something's confusing</span></label>
+        <label><input type="radio" name="kind" value="idea"><span>An idea</span></label>
+        <label><input type="radio" name="kind" value="praise"><span>I like it</span></label>
+      </div>
+    </fieldset>
+    <label for="site">Which AI site? <small>(optional)</small></label>
+    <select id="site"><option value="">Not about one site</option><option value="chatgpt">ChatGPT</option><option value="claude">Claude</option><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="grok">Grok</option><option value="perplexity">Perplexity</option></select>
+    <label for="message">Your message</label>
+    <textarea id="message" maxlength="1500" required placeholder="What happened, what you expected, or your idea…"></textarea>
+    <small id="count" class="count">0 / 1500</small>
+    <label class="check"><input id="include-version" type="checkbox" checked> Include Baton's version and browser name</label>
+    <p class="fine">Never your chats. Please don't include passwords or personal details.</p>
+    <div class="row"><button class="primary" type="submit">Send feedback</button><span id="status" role="status"></span></div>
+  </form>
+  <div id="done" class="done" hidden>
+    <h2>Thank you.</h2>
+    <p id="done-text">Your feedback was sent.</p>
+    <p id="fallback" hidden><button id="copy" type="button">Copy my message</button> <a id="email" href="#">Email it to us</a> · <b class="email">batonforai@gmail.com</b></p>
+  </div>
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

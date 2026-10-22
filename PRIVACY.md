@@ -22,6 +22,24 @@ The source includes an opt-in, hash-verified remote selector updater, but the cu
 
 "Same AI, another account" saves the project on this device and offers it on the next new chat with that AI, for six hours. Pressing Not now forgets the waiting project; the baton itself stays saved. For ChatGPT, Claude and Grok, Baton can open the service's own log-out page, but only after the user presses the button and confirms. For Gemini it opens Google's account chooser. Baton never enters passwords, never reads account details or cookies, and never signs anyone in.
 
+## Feedback
+
+Baton asks for feedback in three places:
+- the uninstall page;
+- the Feedback page inside Baton;
+- a one-time "How's Baton working for you?" card after five passes.
+
+Nothing is sent unless the person presses Send, or taps an answer on the check-in card. What is sent is only what they chose:
+- the kind of feedback and an optional reason;
+- their message and which AI site it's about;
+- Baton's version and the browser's name. On the Feedback page these two can be switched off.
+
+Chats are never sent. Answers go to the project's own Supabase database, where the public key can add answers but not read them. If sending isn't available, the page offers to copy the message or email it to batonforai@gmail.com instead.
+
+## Google Drive backup (optional)
+
+When the person chooses **Back up to Drive**, Baton signs in with Google and saves a file named "Baton backup.json" in their own Google Drive. It uses the `drive.file` permission, so Baton can only see files it created, never anything else in their Drive. The backup holds their saved batons, projects, folders and settings. **Restore from Drive** reads that file back, and newer copies on the device are kept. **Disconnect Google Drive** removes Baton's access on that device; the file stays in their Drive until they delete it.
+
 ## Welcome and uninstall pages
 
 After a first install, Baton opens its own welcome page inside the extension. When Baton is removed, the browser opens a feedback page on Baton's site (`oscar-man-shrestha.github.io/handoff/uninstall.html`). Its address carries only Baton's version number. Answering is optional. Only the chosen reason, any text the user types, and the version are sent, to the project's own Google Form, and only when the user presses Send feedback. Until that form is connected, the page only offers to copy the answer or open it in the user's own email app, addressed to batonforai@gmail.com.

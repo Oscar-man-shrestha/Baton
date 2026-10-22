@@ -87,3 +87,5 @@ details{border-top:1px solid var(--line);padding-top:9px;margin-top:12px}summary
 /* Header: buttons never wrap; the subtitle steps aside when the header is narrow (the 400px popup). */
 .header .account-button,.header .icon-button{white-space:nowrap;flex:none}
 @media(max-width:440px){.header .subtitle{display:none}}
+.footer-link{font-size:inherit;padding:0;min-height:0}
+.checkin{display:grid;gap:8px;margin:0 0 12px;padding:12px;border:1px solid color-mix(in srgb,var(--brand) 45%,var(--line));border-radius:13px;background:color-mix(in srgb,var(--brand) 8%,var(--surface))}.checkin[hidden]{display:none}.checkin b{display:block;font-size:13px}.checkin small{color:var(--muted);font-size:11px}.checkin-row{display:flex;gap:6px;align-items:center}.checkin-row button:not(.link-button){padding:6px 10px;border-radius:9px;font-size:12px}.checkin-row .link-button{margin-left:auto;font-size:11px}#checkin-thanks{margin:0;font-size:12px;color:var(--muted)}

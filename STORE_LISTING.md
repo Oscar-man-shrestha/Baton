@@ -52,3 +52,7 @@ The screenshots show Baton's real interface with example chats and figures.
 - Developer and support email (Chrome Web Store contact field, privacy policy, site footer): **batonforai@gmail.com**
 - Google account display name: **Baton**
 - Use this account for the developer registration (one-time $5 fee), the uninstall Google Form, and support mail. Turn on 2-Step Verification.
+
+## Optional sign-in permission
+
+`identity`: used only when the person chooses Google sign-in, for Baton backup or Google Drive backup. It opens Google's own sign-in window. Drive access uses the `drive.file` scope, so Baton sees only the files it creates.

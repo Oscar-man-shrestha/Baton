@@ -754,6 +754,55 @@ if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefres
 const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
 composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
 composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });
+document.querySelector('#send-feedback')?.addEventListener('click', () => { void chrome.tabs.create({ url: chrome.runtime.getURL('feedback.html') }); });
+// Check-in after the 5th successful pass (then never again; “Later” waits 10 more passes). The answer is sent only on a tap.
+const checkin = document.querySelector('#checkin') as HTMLElement;
+const checkinState = await chrome.storage.local.get(['passCount', 'checkinDone', 'checkinAt']);
+const passCount = Number(checkinState.passCount) || 0;
+if (!checkinState.checkinDone && passCount >= (Number(checkinState.checkinAt) || 5)) {
+  checkin.hidden = false;
+  (document.querySelector('#checkin-sub') as HTMLElement).textContent = `You've passed ${passCount} batons.`;
+}
+const answerCheckin = async (up: boolean) => {
+  await chrome.storage.local.set({ checkinDone: true });
+  const { sendFeedback, browserName } = await import('../../src/core/feedback');
+  void sendFeedback({ kind: 'checkin', reason: up ? 'up' : 'down', version: chrome.runtime.getManifest().version, browser: browserName(navigator.userAgent, 'brave' in navigator) });
+  (document.querySelector('.checkin-row') as HTMLElement).hidden = true;
+  const thanks = document.querySelector('#checkin-thanks') as HTMLElement; thanks.hidden = false;
+  thanks.textContent = up ? 'Thank you! That helps a lot.' : 'Sorry about that. Tell us what went wrong and we\'ll fix it.';
+  if (!up) void chrome.tabs.create({ url: chrome.runtime.getURL('feedback.html?kind=bug') });
+};
+document.querySelector('#checkin-up')?.addEventListener('click', () => { void answerCheckin(true); });
+document.querySelector('#checkin-down')?.addEventListener('click', () => { void answerCheckin(false); });
+document.querySelector('#checkin-later')?.addEventListener('click', () => { checkin.hidden = true; void chrome.storage.local.set({ checkinAt: passCount + 10 }); });
+// Google Drive backup (Backups and data): shown once a Drive OAuth client is configured.
+const { driveConfigured } = await import('../../src/core/drive');
+const driveSection = document.querySelector('#drive-backup') as HTMLElement;
+const driveStatus = document.querySelector('#drive-status') as HTMLElement;
+driveSection.hidden = !driveConfigured;
+const lastDrive = Number((await chrome.storage.local.get('lastDriveBackup')).lastDriveBackup) || 0;
+if (driveConfigured && lastDrive) driveStatus.textContent = `Last backup to Google Drive: ${new Date(lastDrive).toLocaleString()}.`;
+const driveCall = async (type: string) => {
+  const reply = await chrome.runtime.sendMessage({ type }).catch(() => undefined) as { ok: boolean; result?: any; error?: string } | undefined;
+  if (!reply?.ok) throw new Error(reply?.error || 'Google Drive did not respond. Try again.');
+  return reply.result;
+};
+for (const [id, run] of [
+  ['drive-backup-now', async () => driveCall('DRIVE_BACKUP') as Promise<string>],
+  ['drive-restore', async () => {
+    const preview = await driveCall('DRIVE_INSPECT') as { contexts: number; projects: number; updatedAt: string };
+    if (!confirm(`Restore ${preview.contexts} conversations and ${preview.projects} projects from your Google Drive backup (${new Date(preview.updatedAt).toLocaleString()})? Newer copies on this device are kept.`)) return 'Restore cancelled.';
+    const done = await driveCall('DRIVE_RESTORE') as string; await showLibrary(); return done;
+  }],
+  ['drive-disconnect', async () => { await driveCall('DRIVE_DISCONNECT'); return 'Google Drive disconnected on this device. Your backup file stays in Drive.'; }]
+] as const) {
+  const button = document.querySelector(`#${id}`) as HTMLButtonElement;
+  button.addEventListener('click', async () => {
+    button.disabled = true; driveStatus.textContent = 'Working…';
+    try { driveStatus.textContent = await run(); } catch (error) { driveStatus.textContent = error instanceof Error ? error.message : 'Something went wrong. Try again.'; }
+    finally { button.disabled = false; }
+  });
+}
 // Help: the guide lives on the welcome page.
 document.querySelector('#help')?.addEventListener('click', () => { void chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html#guide') }); });
 // “Take the quick tour again”: it runs on the AI chat page, so queue it and tell the user where to look.

@@ -127,6 +127,7 @@ export default defineContentScript({
       if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
       const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
+      void chrome.storage.local.get('passCount').then(saved => chrome.storage.local.set({ passCount: (Number(saved.passCount) || 0) + 1 })).catch(() => {});
       return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
     };
     // Same AI, another account: save the project, show where to switch (Google's chooser for Gemini), and offer it

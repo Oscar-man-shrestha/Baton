@@ -28,6 +28,16 @@
   - **Good to know**, and a footer with settings, website, privacy policy and contact.
   - Opened from **?** as `welcome.html#guide`, it's titled "How to use Baton".
 - The popup header keeps its buttons on one line; the subtitle steps aside in the narrow popup.
+- **Feedback, collected properly.** One insert-only Supabase table, `baton_feedback` (`supabase/feedback.sql`), receives answers from three places:
+  - **The uninstall page:** one-tap reason plus optional message, version and browser.
+  - **A new Feedback page in Baton:** Something's broken, Something's confusing, An idea or I like it; which AI site; a message; and a version/browser checkbox that's on by default. It opens from **Send feedback** in the popup footer and from the guide's menu and footer.
+  - **A one-time check-in after the 5th successful pass:** "How's Baton working for you? 👍 Great · 👎 Not great · Later". 👎 opens the Feedback page; Later asks again 10 passes on.
+
+  Until the SQL is run, every screen falls back to copy or email. The public key can add rows but never read them.
+- **Google Drive backup (optional):** **Back up to Drive**, **Restore from Drive** and **Disconnect Google Drive** in Backups and data.
+  - It saves "Baton backup.json" in the user's own Drive with the `drive.file` scope, so Baton only sees its own file.
+  - It runs in the background worker and switches on once `src/config/google.json` has an OAuth client ID.
+- `SETUP_FEEDBACK_AND_DRIVE.md` has the exact one-time steps for both; PRIVACY.md and STORE_LISTING.md are updated.
 - **Version 1.0.0**, with an upload zip from `npm run zip`.
 
 Verified: 246 tests in 35 files, typecheck, complete build, browser smoke test (see the commit), build-1 synced.
