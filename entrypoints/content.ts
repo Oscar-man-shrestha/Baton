@@ -50,8 +50,8 @@ export default defineContentScript({
     statusHost.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;display:none';
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
-    // A compact pill under the composer: baton mark, then “Session ▰▰▱ 63% left 3h 9m” segments.
-    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:8px;max-width:100%;box-sizing:border-box;padding:3px 10px 3px 8px;border-radius:999px;background:rgba(24,24,33,.9);border:1px solid rgba(255,255,255,.09);color:#f1f0f8;font:500 10.5px/16px system-ui,-apple-system,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden}.brand{flex:none;width:12px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b09aff 0 3px,rgba(255,255,255,.35) 3px 4px)}.seg{display:inline-flex;align-items:center;gap:5px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:10px;background:rgba(255,255,255,.16);margin-right:3px}.k{color:#a9a8bd}.v{font-weight:650}.n{color:#a9a8bd}.meter{flex:none;width:30px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden}.meter i{display:block;height:100%;border-radius:2px;background:#2bc4a6}.meter i.mid{background:#f2b544}.meter i.low{background:#ff6b6b}.quiet{color:#a9a8bd;font-weight:400}@media(prefers-color-scheme:light){.line{background:rgba(255,255,255,.95);border-color:rgba(20,20,40,.1);color:#20202d;box-shadow:0 2px 8px rgba(20,20,40,.12)}.k,.n,.quiet{color:#626275}.meter{background:rgba(20,20,40,.1)}.seg+.seg:before{background:rgba(20,20,40,.14)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.18) 3px 4px)}}@media(prefers-reduced-motion:no-preference){.meter i{transition:width .3s ease}}';
+    // A premium pill under the composer: baton mark, then ring-gauge segments “SESSION ◔ 54% left · 3h 1m”.
+    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:10px;max-width:100%;box-sizing:border-box;height:26px;padding:0 12px 0 9px;border-radius:999px;background:linear-gradient(180deg,rgba(44,43,60,.94),rgba(25,24,35,.94));border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 22px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);color:#f4f3fb;font:500 11px/1 system-ui,-apple-system,"SF Pro Text",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1px;white-space:nowrap;overflow:hidden}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.45)}.seg{display:inline-flex;align-items:center;gap:6px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:12px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.22),transparent);margin-right:4px}.k{font-size:8.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#a3a1ba}.v{font-weight:700;color:#fff}.u{color:#bdbbd1;font-weight:500;margin-left:-3px}.n{color:#8f8da6;font-weight:500}.ring{flex:none;width:13px;height:13px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 3.6px,#000 4.2px);mask:radial-gradient(circle,transparent 3.6px,#000 4.2px)}.ok{--c:#34d1b0}.mid{--c:#f5b94a}.low{--c:#ff6b6b}.quiet{color:#8f8da6;font-weight:500}@media(prefers-color-scheme:light){.line{background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(246,245,251,.97));border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 6px 18px rgba(30,25,70,.12),inset 0 1px 0 #fff}.v{color:#16151f}.k{color:#6d6a86}.u{color:#4b4963}.n,.quiet{color:#7d7a95}.ring{background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(30,25,70,.12) 0)}.seg+.seg:before{background:linear-gradient(180deg,transparent,rgba(30,25,70,.2),transparent)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.ok{--c:#14a387}.mid{--c:#d98a0b}.low{--c:#e04848}}';
     const statusText = document.createElement('span');
     shadow.append(statusStyle, statusText);
     document.body.append(statusHost);
@@ -145,11 +145,16 @@ export default defineContentScript({
       if (!exposed || !editor.contains(exposed)) { statusHost.style.display = 'none'; return; }
       let surface: Element = editor;
       let ancestor = editor.parentElement;
-      // Climb to the whole composer box (Gemini's single-row box is several levels up and barely taller than its editor),
-      // but not to a page-wide wrapper.
-      for (let depth = 0; ancestor && depth < 8 && !ancestor.matches('body,main'); depth++, ancestor = ancestor.parentElement) {
+      // The composer is the outermost rounded box with a visible background, border or shadow around the editor
+      // (Gemini's box is much wider than its editor; DeepSeek wraps its box in wider invisible containers).
+      const looksLikeBox = (element: Element) => {
+        const style = getComputedStyle(element);
+        const painted = style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent' || parseFloat(style.borderTopWidth) > 0 || style.boxShadow !== 'none';
+        return parseFloat(style.borderTopLeftRadius) >= 8 && painted;
+      };
+      for (let depth = 0; ancestor && depth < 10 && !ancestor.matches('body,main'); depth++, ancestor = ancestor.parentElement) {
         const rect = ancestor.getBoundingClientRect();
-        if (rect.width >= editorRect.width * 0.85 && rect.width <= Math.max(editorRect.width * 1.6, editorRect.width + 160) && rect.height <= 360 && rect.bottom >= editorRect.bottom) surface = ancestor;
+        if (rect.width >= editorRect.width * 0.85 && rect.width < innerWidth * 0.95 && rect.height <= 360 && rect.bottom >= editorRect.bottom && looksLikeBox(ancestor)) surface = ancestor;
       }
       const surfaceRect = surface.getBoundingClientRect();
       const interactive = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
@@ -193,8 +198,12 @@ export default defineContentScript({
       const addSegment = (segment: Segment) => {
         const node = document.createElement('span'); node.className = 'seg';
         if (segment.label) node.append(piece('k', segment.label));
-        if (segment.left !== undefined) { const meter = document.createElement('span'); meter.className = 'meter'; const fill = document.createElement('i'); fill.className = segment.level || 'ok'; fill.style.width = `${segment.left}%`; meter.append(fill); node.append(meter); }
-        node.append(piece('v', segment.value));
+        if (segment.left !== undefined) {
+          const ring = document.createElement('span'); ring.className = `ring ${segment.level || 'ok'}`; ring.style.setProperty('--p', String(segment.left)); ring.setAttribute('aria-hidden', 'true'); node.append(ring);
+          // “54%” bold, “left” lighter.
+          const [figure, ...rest] = segment.value.split(' ');
+          node.append(piece('v', figure)); if (rest.length) node.append(piece('u', rest.join(' ')));
+        } else node.append(piece('v', segment.value));
         if (segment.note) node.append(piece('n', segment.note));
         statusText.append(node);
       };
