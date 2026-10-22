@@ -28,18 +28,32 @@
         </div>
         <p id="tour-status" class="note" role="status"></p>
       </div>
-      <div class="demo" aria-label="Example: Baton on a chat page">
-        <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>chatgpt.com</span></div>
-        <div class="bubble you">Fix the login bug in my Flask app.</div>
-        <div class="bubble ai">Your route reads <code>request.json</code>, but the form sends form data…</div>
-        <div class="composer">Message ChatGPT<span class="send" aria-hidden="true">↑</span><span class="pass" aria-hidden="true"><i></i></span></div>
-        <div class="pill" aria-hidden="true"><span class="k">Chat</span><b>No cap</b><span class="n">4 sent today</span><span class="x">×</span></div>
-        <div class="menu" aria-hidden="true">
-          <b>Pass the baton to…</b>
-          <span class="chips"><span class="chip on">Code</span><span class="chip">Research</span><span class="chip">Writing</span></span>
-          <span class="opt first"><i style="--c:#d97757"></i>Claude<small>top-rated for code</small><span class="tag">Suggested</span></span>
-          <span class="opt"><i style="--c:#4d6bfe"></i>DeepSeek<small>strong at code</small></span>
+      <div class="demo" aria-label="Example: what Baton adds to an AI chat page">
+        <div class="chrome">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <div class="tabs" role="tablist" aria-label="See Baton on">
+            <button type="button" role="tab" data-site="claude" aria-selected="true" style="--c:#d97757">Claude</button>
+            <button type="button" role="tab" data-site="gemini" aria-selected="false" style="--c:#4c8df6">Gemini</button>
+            <button type="button" role="tab" data-site="chatgpt" aria-selected="false" style="--c:#10a37f">ChatGPT</button>
+          </div>
         </div>
+        <div class="url" aria-hidden="true">claude.ai</div>
+        <div class="convo">
+          <div class="bubble you">Fix the login bug in my Flask app.</div>
+          <div class="bubble ai">Your route reads <code>request.json</code>, but the form sends form data…</div>
+        </div>
+        <div class="bar">
+          <div class="menu" aria-hidden="true">
+            <b>Pass the baton to…</b>
+            <span class="chips"><span class="chip on">Code</span><span class="chip">Research</span><span class="chip">Writing</span></span>
+            <span class="opt first"><i style="--c:#4d6bfe"></i>DeepSeek<small>strong at code</small><span class="tag">Suggested</span></span>
+            <span class="opt"><i style="--c:#10a37f"></i>ChatGPT<small>good all-rounder</small></span>
+          </div>
+          <div class="pill"><span class="brand" aria-hidden="true"></span><span class="segs"><span class="seg"><span class="k">Weekly</span><span class="ring mid" style="--p:46"></span><b>46%</b><span class="u">left</span><span class="n">1d 22h</span></span><span class="seg"><span class="k">Session</span><span class="ring ok" style="--p:66"></span><b>66%</b><span class="u">left</span><span class="n">4h 19m</span></span></span><span class="x" aria-hidden="true">×</span></div>
+          <button type="button" class="pass" aria-label="Open the example Baton menu" aria-expanded="false"><i aria-hidden="true"></i></button>
+        </div>
+        <div class="composer"><span class="ph">Reply to Claude…</span><span class="send" aria-hidden="true">↑</span></div>
+        <p class="why" aria-live="polite">Claude shows its own session and weekly limits. Baton reads them from there.</p>
       </div>
     </div>
   </section>

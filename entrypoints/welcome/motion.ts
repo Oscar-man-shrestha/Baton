@@ -1,5 +1,6 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { fillRings, startDemo } from './demo';
 
 // Entrance and scroll motion for the welcome page. Content is fully visible without it: everything here animates *from*
 // a hidden state, and nothing runs when the reader asks for reduced motion.
@@ -7,6 +8,7 @@ export function startMotion() {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const canvas = document.querySelector<HTMLCanvasElement>('.hero-canvas');
   if (canvas) void startBackdrop(canvas, reduced);
+  startDemo(reduced);
   if (reduced) return;
   gsap.registerPlugin(ScrollTrigger);
 
@@ -20,8 +22,11 @@ export function startMotion() {
     .from('.demo .bubble, .demo .composer', { y: 10, opacity: 0, stagger: 0.18, duration: 0.5 }, 0.6)
     .from('.demo .pass', { scale: 0, opacity: 0, ease: 'back.out(2.2)', duration: 0.6 }, '-=0.1')
     .from('.demo .pill', { x: -12, opacity: 0, duration: 0.45 }, '<0.1')
-    .from('.demo .menu', { y: -8, scale: 0.94, opacity: 0, transformOrigin: '100% 0', ease: 'back.out(1.6)', duration: 0.55 }, '+=0.15')
-    .from('.demo .opt', { x: 10, opacity: 0, stagger: 0.1, duration: 0.4 }, '-=0.2');
+    .add(() => fillRings(document.querySelectorAll<HTMLElement>('.demo .ring')), '<0.1')
+    .to('.demo .pass', { scale: 0.88, duration: 0.12, yoyo: true, repeat: 1, ease: 'power1.inOut' }, '+=0.6')
+    .add(() => (document.querySelector('.demo .pass') as HTMLElement | null)?.click())
+    .from('.demo .opt', { x: 10, opacity: 0, stagger: 0.1, duration: 0.4 }, '-=0.2')
+    .from('.demo .why', { opacity: 0, duration: 0.5 }, '-=0.1');
 
   // Sections: heading first, then their cards in a quick cascade as each scrolls in.
   for (const band of gsap.utils.toArray<HTMLElement>('.band')) {

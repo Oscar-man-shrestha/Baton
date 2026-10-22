@@ -41,25 +41,48 @@ h3 { font-size: 1.05rem; }
 .btn.primary:hover { box-shadow: 0 0 0 4px rgba(139,108,255,.2), 0 14px 34px rgba(91,63,216,.55); }
 .btn.ghost { color: var(--chalk); background: var(--ink-2); border-color: var(--line); }
 .note { min-height: 1.4em; margin: 12px 0 0; color: var(--ok); font-weight: 700; }
-/* Demo card */
-.demo { position: relative; width: 100%; max-width: 640px; justify-self: end; background: color-mix(in srgb, var(--ink-2) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 20px; padding: 16px 16px 20px; box-shadow: 0 30px 70px rgba(0,0,0,.45); display: grid; gap: 10px; }
-.demo .chrome { display: flex; gap: 6px; align-items: center; font: .74rem ui-monospace, Menlo, monospace; color: var(--mute); margin-bottom: 4px; }
-.demo .chrome i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
-.demo .chrome span { margin-left: 8px; }
+/* Demo card: Baton's real bar and button, on a tab per AI. Pill and ring styles match the content script. */
+.demo { position: relative; width: 100%; max-width: 640px; justify-self: end; display: flex; flex-direction: column; gap: 12px; padding: 0 0 16px; overflow: hidden; background: color-mix(in srgb, var(--ink-2) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 30px 70px rgba(0,0,0,.45); }
+.demo .chrome { display: flex; align-items: flex-end; gap: 14px; padding: 10px 14px 0; background: var(--ink); border-bottom: 1px solid var(--line); }
+.demo .dots { display: flex; gap: 6px; padding-bottom: 12px; }
+.demo .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px 9px; border-radius: 10px 10px 0 0; color: var(--mute); font: 700 .8rem/1 var(--body); white-space: nowrap; }
+.tabs button::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); opacity: .6; }
+.tabs button:hover { color: var(--chalk); }
+.tabs button[aria-selected="true"] { color: var(--chalk); background: var(--ink-2); box-shadow: inset 0 2px 0 var(--c); }
+.tabs button[aria-selected="true"]::before { opacity: 1; }
+.tabs button:focus-visible { outline: 2px solid var(--violet-soft); outline-offset: -2px; }
+.demo .url { margin: 0 16px; padding: 6px 12px; border-radius: 999px; background: var(--ink); font: .74rem ui-monospace, Menlo, monospace; color: var(--mute); }
+.convo { display: grid; gap: 10px; align-content: start; min-height: 7.5rem; padding: 0 16px; }
 .bubble { padding: 9px 12px; border-radius: 14px; font-size: .9rem; max-width: 86%; }
 .bubble.you { justify-self: end; background: var(--ink-3); }
 .bubble.ai { color: #d9d5ee; }
 .bubble code { font: .8rem ui-monospace, Menlo, monospace; color: var(--violet-soft); }
-.composer { position: relative; margin-top: 4px; border: 1px solid var(--line); border-radius: 16px; padding: 12px 54px 12px 14px; color: var(--mute); background: var(--ink); font-size: .92rem; }
+/* Bar row: usage pill on the left, glowing button on the right, both just above the chat box, like on the sites. */
+.bar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 16px; min-height: 44px; }
+.composer { position: relative; margin: 0 16px; border: 1px solid var(--line); border-radius: 16px; padding: 13px 54px 13px 14px; color: var(--mute); background: var(--ink); font-size: .92rem; }
 .send { position: absolute; right: 10px; top: 50%; translate: 0 -50%; width: 28px; height: 28px; border-radius: 50%; background: var(--ink-3); display: grid; place-items: center; }
-.pass { position: absolute; right: -8px; bottom: -44px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 32% 26%, #c9b8ff, #8b6cff 46%, #5b3fd8); border: 1px solid rgba(255,255,255,.35); box-shadow: 0 0 0 2px rgba(139,108,255,.55), 0 0 10px 2px rgba(150,120,255,.5), 0 3px 8px rgba(40,20,110,.45); }
+.why { margin: 0 16px; font-size: .82rem; color: var(--mute); min-height: 2.6em; }
+.pass { all: unset; box-sizing: border-box; cursor: pointer; position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 32% 26%, #c9b8ff, #8b6cff 46%, #5b3fd8); border: 1px solid rgba(255,255,255,.35); box-shadow: 0 0 0 2px rgba(139,108,255,.55), 0 0 10px 2px rgba(150,120,255,.5), 0 3px 8px rgba(40,20,110,.45); }
 .pass::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid rgba(196,181,255,.85); box-shadow: 0 0 8px rgba(150,120,255,.6); animation: halo 2.6s ease-in-out infinite; }
-.pass i { width: 18px; height: 6px; border-radius: 3px; transform: rotate(-35deg); background: repeating-linear-gradient(90deg, #fff 0 3px, rgba(255,255,255,.55) 3px 4px); }
+.pass i { width: 19px; height: 6px; border-radius: 3px; transform: rotate(-35deg); background: repeating-linear-gradient(90deg, #fff 0 3px, rgba(255,255,255,.55) 3px 4px); box-shadow: 0 0 6px rgba(255,255,255,.55); }
+.pass:focus-visible { outline: 2px solid var(--violet-soft); outline-offset: 9px; }
 @keyframes halo { 50% { opacity: .35; transform: scale(1.12); } }
-.pill { justify-self: start; display: inline-flex; align-items: center; gap: 9px; height: 26px; padding: 0 10px 0 12px; border-radius: 999px; background: linear-gradient(180deg, #2c2b3c, #191823); border: 1px solid rgba(255,255,255,.1); font: 500 11px/1 var(--body); white-space: nowrap; }
-.pill .k { font-size: 8.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: #a3a1ba; }
-.pill .n, .pill .x { color: #a3a1ba; }
-.menu { margin: 6px 0 0 auto; width: min(280px, 100%); display: grid; gap: 4px; padding: 10px; border-radius: 14px; background: linear-gradient(180deg, #282737, #18171f); border: 1px solid rgba(255,255,255,.1); font-size: .85rem; }
+.pill { display: inline-flex; align-items: center; gap: 10px; min-width: 0; height: 26px; padding: 0 12px 0 9px; border-radius: 999px; background: linear-gradient(180deg, rgba(44,43,60,.94), rgba(25,24,35,.94)); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 8px 22px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.07); color: #f4f3fb; font: 500 11px/1 system-ui, -apple-system, "SF Pro Text", sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.pill .brand { flex: none; width: 13px; height: 4px; border-radius: 2px; transform: rotate(-35deg); background: repeating-linear-gradient(90deg, #b8a5ff 0 3px, rgba(255,255,255,.45) 3px 4px); box-shadow: 0 0 6px rgba(176,154,255,.45); }
+.segs { display: inline-flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; }
+.seg { display: inline-flex; align-items: center; gap: 6px; }
+.seg + .seg::before { content: ""; width: 1px; height: 12px; background: linear-gradient(180deg, transparent, rgba(255,255,255,.22), transparent); margin-right: 4px; }
+.seg .k { font-size: 8.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: #a3a1ba; }
+.seg b { color: #fff; }
+.seg .u { color: #bdbbd1; margin-left: -3px; }
+.seg .n, .pill .x { color: #8f8da6; }
+.ring { flex: none; width: 13px; height: 13px; border-radius: 50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), rgba(255,255,255,.14) 0); -webkit-mask: radial-gradient(circle, transparent 3.6px, #000 4.2px); mask: radial-gradient(circle, transparent 3.6px, #000 4.2px); }
+.ring.ok { --c: #34d1b0; } .ring.mid { --c: #f5b94a; } .ring.low { --c: #ff6b6b; }
+/* The menu opens above the button, over the chat, as it does on the sites. */
+.menu { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 2; opacity: 0; visibility: hidden; transform: translateY(8px) scale(.95); transform-origin: 100% 100%; transition: opacity .22s ease, transform .35s cubic-bezier(.2,1.5,.4,1), visibility .22s; width: min(280px, 100%); display: grid; gap: 4px; padding: 10px; border-radius: 14px; background: linear-gradient(180deg, rgba(40,39,55,.98), rgba(24,23,33,.98)); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 18px 44px rgba(0,0,0,.45); font-size: .85rem; }
+.demo.open .menu { opacity: 1; visibility: visible; transform: none; }
 .chips { display: flex; gap: 4px; margin: 2px 0 4px; }
 .chip { font-size: .7rem; font-weight: 700; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.06); color: #cfcde0; }
 .chip.on { background: var(--violet-soft); color: #1b1430; }
@@ -123,4 +146,6 @@ footer button { font: 700 .9rem var(--body); padding: 9px 14px; border-radius: 1
   .setup { gap: 20px; }
   .step { padding: 26px; }
 }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pass::before { animation: none; } .hero-canvas { transition: none; } }
+/* Phones: both rings fit when “left”, the reset times and × step aside; ChatGPT keeps its daily count. */
+@media (max-width: 480px) { .seg:has(.ring) .n, .seg .u, .pill .x { display: none; } .pill { gap: 8px; padding-right: 10px; } .segs { gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pass::before { animation: none; } .menu { transition: none; } .hero-canvas { transition: none; } }
