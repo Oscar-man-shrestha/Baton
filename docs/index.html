@@ -25,9 +25,10 @@
   --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
   --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
-  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
-  --wrap: 1160px;
+  /* Gutters grow with the screen: 16px on phones, about 4% of the width on large displays. */
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px), 4vw);
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px), 4vw);
+  --wrap: 1600px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -41,8 +42,8 @@ h2 { font-size: clamp(2.6rem, 6vw, 4.6rem); font-weight: 900; }
 h3 { font-size: 1.6rem; font-weight: 800; }
 p { margin: 0; }
 .wrap { max-width: var(--wrap); margin: 0 auto; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
-.eyebrow { font: 500 .78rem/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--tartan); display: inline-flex; gap: .6em; align-items: center; }
-.eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--tartan); }
+.eyebrow { font: 500 .78rem/1.6 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--tartan); display: inline-flex; gap: .6em; align-items: center; }
+.eyebrow::before { content: ""; flex: none; width: 22px; height: 2px; background: var(--tartan); align-self: center; }
 .lede { color: var(--mute); font-size: 1.15rem; max-width: 60ch; }
 section { position: relative; }
 .band { padding-block: clamp(72px, 10vw, 128px); }
@@ -69,9 +70,9 @@ section { position: relative; }
 
 /* Hero */
 .hero { position: relative; padding-block: clamp(40px, 7vw, 96px) clamp(56px, 8vw, 110px); overflow: hidden; isolation: isolate; }
-.hero .wrap { position: relative; display: grid; grid-template-columns: minmax(0, 560px); }
+.hero .wrap { position: relative; display: grid; grid-template-columns: minmax(0, clamp(520px, 40%, 700px)); }
 .hero-copy { position: relative; z-index: 2; }
-.hero h1 { font-size: clamp(2.7rem, 11vw, 7.6rem); font-weight: 900; line-height: .86; }
+.hero h1 { font-size: clamp(2.7rem, min(11vw, 7.2vw + 1rem), 9.2rem); font-weight: 900; line-height: .86; }
 .hero h1 .line { display: block; overflow: hidden; padding-bottom: .04em; }
 .hero h1 .line > span { display: inline-block; max-width: 100%; }
 .hero h1 em { font-style: normal; color: transparent; -webkit-text-stroke: 2px var(--violet-soft); }
@@ -79,11 +80,11 @@ section { position: relative; }
 .hero .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .hero .facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 28px; font: .85rem/1.4 var(--mono); color: var(--mute); }
 .hero .facts span::before { content: "✓ "; color: var(--ok); }
-.stage { position: absolute; z-index: 1; top: 0; bottom: 0; right: 0; width: min(63vw, 1040px); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 26%); mask-image: linear-gradient(90deg, transparent 0, #000 26%); }
+.stage { position: absolute; z-index: 1; top: 0; bottom: 0; right: 0; width: min(62vw, 1500px); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 26%); mask-image: linear-gradient(90deg, transparent 0, #000 26%); }
 .stage::after { content: ""; position: absolute; inset: auto 0 0; height: 30%; background: linear-gradient(transparent, var(--ink)); pointer-events: none; }
 .stage canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
 .stage .fallback { position: absolute; inset: 8% 4%; border-radius: 50%; border: 2px dashed var(--line); }
-.scoreboard { position: absolute; z-index: 2; right: max(16px, calc((100vw - var(--wrap)) / 2 + 16px)); bottom: clamp(24px, 6vw, 72px); background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font: .8rem/1.5 var(--mono); min-width: 220px; box-shadow: 0 18px 40px rgba(0,0,0,.4); }
+.scoreboard { position: absolute; z-index: 2; right: max(var(--gutter-r), calc((100vw - var(--wrap)) / 2 + var(--gutter-r))); bottom: clamp(24px, 6vw, 72px); background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font: .8rem/1.5 var(--mono); min-width: 220px; box-shadow: 0 18px 40px rgba(0,0,0,.4); }
 .scoreboard b { display: block; font: 800 1rem/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--tartan); margin-bottom: 4px; }
 .scoreboard .row { display: flex; justify-content: space-between; gap: 16px; }
 .scoreboard .now { color: var(--chalk); }
@@ -279,7 +280,7 @@ footer .grow { flex: 1; }
     </div>
     <div class="wrap">
       <div class="hero-copy">
-        <p class="eyebrow">For ChatGPT · Claude · Gemini · DeepSeek · Grok · Perplexity</p>
+        <p class="eyebrow">ChatGPT · Claude · Gemini · DeepSeek · Grok · Perplexity</p>
         <h1 id="hero-title" style="margin-top:18px">
           <span class="line"><span>Your AI ran out.</span></span>
           <span class="line"><span><em>Pass</em> the</span></span>
