@@ -13,6 +13,8 @@ describe('suggestions by prompt topic', () => {
     expect(promptTopic('Solve this equation: 3x + 5 = 20')).toBe('math');
     expect(promptTopic('Draw a logo of a fox')).toBe('image');
     expect(promptTopic('hello there')).toBe('general');
+    expect(promptTopic('make a meme of my cat')).toBe('image');
+    expect(promptTopic('write a meme of my cat')).toBe('writing');
   });
   it('learns new keywords from the rankings file', () => {
     expect(promptTopic('tune my htmx swaps')).toBe('general');

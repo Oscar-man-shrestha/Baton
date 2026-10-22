@@ -96,6 +96,19 @@ export default defineContentScript({
       new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 4000))
     ]);
     const lastAsked = (count = 3) => extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-count).map(turn => turn.text).join('\n');
+    // What decides the task: the text in the box, else your latest message. Replies and older messages don't.
+    const askedNow = () => {
+      const editor = findEditor(document, bundledSelectors.providers[id].editor);
+      const typed = (editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '').trim();
+      return typed || lastAsked(1).trim();
+    };
+    /** Keywords first, the on-device model when they can't tell; shared by the Baton menu and Baton's side panel. */
+    const suggestNow = async (chosen?: Topic, known?: ModelGuess) => {
+      const saved = await chrome.storage.local.get(suggestionKeys());
+      const asked = askedNow();
+      const model = known || (!chosen && asked && promptTopic(asked) === 'general' ? await modelGuess(asked) : undefined);
+      return { asked, model, ...suggest(asked, id, saved, Date.now(), chosen, model) };
+    };
     const rescueDraft = async () => {
       const data = extract(document, id, bundledSelectors);
       const { archiveKey } = storageKeys();
@@ -123,9 +136,7 @@ export default defineContentScript({
       rescueSignature = signature;
       const name = providerNames[id];
       // Ranked for what this chat is about, the same as the Baton menu.
-      const asked = lastAsked();
-      const model = promptTopic(asked) === 'general' ? await modelGuess(asked) : undefined;
-      const card = buildRescueCard(document, limit, suggest(asked, id, saved, Date.now(), undefined, model).options, {
+      const card = buildRescueCard(document, limit, (await suggestNow()).options, {
         continueIn: passTo,
         switchAccount: async () => {
           const draft = await rescueDraft();
@@ -160,7 +171,7 @@ export default defineContentScript({
     passHost.style.cssText = 'position:fixed;z-index:2147483002;display:none;width:28px;height:28px';
     const passShadow = passHost.attachShadow({ mode: 'closed' });
     const passStyle = document.createElement('style');
-    passStyle.textContent = ':host{all:initial}.pass{all:unset;box-sizing:border-box;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.96),rgba(25,24,35,.96));border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s}.pass:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.42),0 0 0 3px rgba(176,154,255,.22)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.brand{width:14px;height:5px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.5) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.5)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}.tasks{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 8px}.chip{all:unset;cursor:pointer;font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#cfcde0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.chip:hover,.chip:focus-visible{background:rgba(255,255,255,.12)}.chip[aria-pressed=true]{background:#b8a5ff;color:#1b1430;border-color:transparent}@media(prefers-color-scheme:light){.pass{background:linear-gradient(180deg,#fff,#f4f3fa);border-color:rgba(30,25,70,.12);box-shadow:0 6px 16px rgba(30,25,70,.15)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}.chip{color:#3d3b52;background:rgba(30,25,70,.05);border-color:rgba(30,25,70,.1)}.chip[aria-pressed=true]{background:#6650de;color:#fff}}@media(prefers-reduced-motion:reduce){.pass{transition:none}}';
+    passStyle.textContent = ':host{all:initial}.pass{all:unset;box-sizing:border-box;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.96),rgba(25,24,35,.96));border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s}.pass:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.42),0 0 0 3px rgba(176,154,255,.22)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.brand{width:14px;height:5px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.5) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.5)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}.basis{font-style:italic;margin-top:-4px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tasks{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 8px}.chip{all:unset;cursor:pointer;font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#cfcde0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.chip:hover,.chip:focus-visible{background:rgba(255,255,255,.12)}.chip[aria-pressed=true]{background:#b8a5ff;color:#1b1430;border-color:transparent}@media(prefers-color-scheme:light){.pass{background:linear-gradient(180deg,#fff,#f4f3fa);border-color:rgba(30,25,70,.12);box-shadow:0 6px 16px rgba(30,25,70,.15)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}.chip{color:#3d3b52;background:rgba(30,25,70,.05);border-color:rgba(30,25,70,.1)}.chip[aria-pressed=true]{background:#6650de;color:#fff}}@media(prefers-reduced-motion:reduce){.pass{transition:none}}';
     const passButton = document.createElement('button');
     passButton.type = 'button'; passButton.className = 'pass';
     passButton.title = 'Pass the baton to another AI'; passButton.setAttribute('aria-label', 'Pass the baton to another AI'); passButton.setAttribute('aria-haspopup', 'menu');
@@ -172,16 +183,15 @@ export default defineContentScript({
     const laneColor: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
     const closePassMenu = () => { passMenu.hidden = true; passButton.setAttribute('aria-expanded', 'false'); };
     const openPassMenu = async (chosen?: Topic, model?: ModelGuess) => {
+      // Opens at once on the keyword guess; the model, when needed, answers below and re-ranks.
       const saved = await chrome.storage.local.get(suggestionKeys());
-      // Suggest by what the prompt is about: the text being typed, else the last few things the user asked.
-      const editor = findEditor(document, bundledSelectors.providers[id].editor);
-      const typed = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent || '';
-      const asked = typed.trim() || lastAsked();
+      const asked = askedNow();
       const { topic, options, reason } = suggest(asked, id, saved, Date.now(), chosen, model);
       const suggested = options.find(option => option.status !== 'limited');
       passMenu.replaceChildren();
       const title = document.createElement('h2'); title.textContent = 'Pass the baton to…';
       const hint = document.createElement('p'); hint.textContent = `${chosen ? `Ranked for ${topicNames[topic].toLowerCase()}, then usage left.` : topic === 'general' ? 'Ranked for everyday use, then usage left. Pick a task to re-rank.' : `Looks like ${topicNames[topic].toLowerCase()}: ranked for that, then usage left.`} Opens a new chat with your project as a draft; you press Send.`;
+      const basis = document.createElement('p'); basis.className = 'basis'; basis.textContent = asked ? `Based on: “${asked.replace(/\s+/g, ' ').slice(0, 70)}${asked.length > 70 ? '…' : ''}”` : 'No message yet: ranked for everyday use.';
       const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
       // The guess can be wrong: one tap on the right task re-ranks the list (and later picks count for that task).
       const tasks = document.createElement('div'); tasks.className = 'tasks'; tasks.setAttribute('role', 'group'); tasks.setAttribute('aria-label', 'Task type');
@@ -191,7 +201,7 @@ export default defineContentScript({
         chip.addEventListener('click', event => { event.stopPropagation(); void openPassMenu(option).catch(() => {}); });
         tasks.append(chip);
       }
-      passMenu.append(title, hint, tasks);
+      passMenu.append(title, hint, basis, tasks);
       const run = async (action: () => Promise<string>) => { status.textContent = 'Working…'; try { status.textContent = await action(); } catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Open Baton to try again.'; } };
       for (const option of options) {
         const item = document.createElement('button'); item.type = 'button'; item.className = 'opt'; item.setAttribute('role', 'menuitem');
@@ -225,7 +235,7 @@ export default defineContentScript({
       // Keywords couldn't tell: ask the on-device model, then re-rank if the menu is still open and untouched.
       if (!chosen && !model && topic === 'general' && asked.trim()) {
         const opened = passMenu.innerHTML;
-        const guess = await modelGuess(typed.trim() || lastAsked(1));
+        const guess = await modelGuess(asked);
         if (guess && !passMenu.hidden && passMenu.innerHTML === opened && suggest(asked, id, saved, Date.now(), undefined, guess).topic !== 'general') await openPassMenu(undefined, guess);
       }
     };
@@ -597,6 +607,16 @@ export default defineContentScript({
     void persist().catch(() => {});
     const onMessage: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (message, _sender, sendResponse) => {
       if (message?.type === 'PING') { sendResponse({ ready: true, provider: id }); return; }
+      // Baton's side panel asks for this chat's suggestions, and can pass the baton from there.
+      if (message?.type === 'SUGGEST') {
+        void suggestNow(topics.includes(message.topic) ? message.topic : undefined).then(result => sendResponse({ ok: true, provider: id, asked: result.asked.slice(0, 200), topic: result.topic, options: result.options.map(option => ({ ...option, reason: result.reason(option.provider) })) })).catch(() => sendResponse({ ok: false }));
+        return true;
+      }
+      if (message?.type === 'PASS_TO' && providerIds.includes(message.provider)) {
+        void chrome.storage.local.get('taskPicks').then(stored => typeof message.topic === 'string' && topics.includes(message.topic) ? chrome.storage.local.set({ taskPicks: addPick(stored.taskPicks as TaskPicks | undefined, message.topic, message.provider) }) : undefined).catch(() => {});
+        void passTo(message.provider).then(text => sendResponse({ ok: true, text }), error => sendResponse({ ok: false, text: error instanceof Error ? error.message : 'That did not work.' }));
+        return true;
+      }
       if (message?.type === 'REFRESH_USAGE') {
         void observeUsage(true).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
         return true;

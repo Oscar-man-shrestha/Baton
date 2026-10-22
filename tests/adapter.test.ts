@@ -38,6 +38,10 @@ describe('adapter fixtures', () => {
     expect(result.incomplete).toBe(true);
     expect(result.warning).toContain('No user message');
   });
+  it('reads a DeepSeek reply with a code block as a reply, not as your message', () => {
+    const doc = new JSDOM('<main><div class="ds-message">write a meme of my cat</div><div class="ds-message"><p>Here is a cat meme for you:</p><pre><code>[IMAGE: Your cat]</code></pre></div></main>').window.document;
+    expect(extract(doc, 'deepseek', bundledSelectors).turns.map(turn => turn.role)).toEqual(['user', 'assistant']);
+  });
   it('ignores limit words inside the conversation', () => {
     const doc = new JSDOM('<div data-message-author-role="user">Explain usage limits and reset times</div>').window.document;
     expect(makeAdapter('chatgpt', bundledSelectors).detectLimit(doc).kind).toBe('unknown');

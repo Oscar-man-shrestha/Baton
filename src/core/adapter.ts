@@ -134,7 +134,8 @@ function turnRole(node: Element, id: ProviderId): Turn['role'] {
   if (explicit === 'user' || explicit === 'assistant') return explicit;
   if (id === 'deepseek') {
     if (node.matches('[class*="user" i], [class*="human" i]')) return 'user';
-    if (node.matches('[class*="assistant" i], [class*="agent" i]') || node.querySelector('.ds-markdown')) return 'assistant';
+    // Your own messages are plain text; rendered markdown, code blocks or tables mean a reply.
+    if (node.matches('[class*="assistant" i], [class*="agent" i]') || node.querySelector('.ds-markdown, [class*="markdown" i], pre, table, [class*="code-block" i], [class*="think" i]')) return 'assistant';
     return 'user';
   }
   if (id === 'claude') return node.matches('.font-user-message, [data-testid="user-message"], [data-testid="human-message"], [data-testid="message-human"]') ? 'user' : 'assistant';

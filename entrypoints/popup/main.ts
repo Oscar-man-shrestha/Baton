@@ -1,7 +1,7 @@
 import { renderBrief, wrapHandoff, draftBudget, redact } from '../../src/core/brief';
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
-import { addPick, promptTopic, suggest, suggestionKeys, topicNames, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
+import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
 import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
@@ -85,7 +85,9 @@ let activeWindowId: number | undefined;
 const refreshActiveChat = createActiveChatTracker(activeChatTab, tab => sendToChat(tab, { type: 'PING' }), (tab, provider) => {
   activeWindowId = tab?.windowId;
   activeProvider = provider;
+  nextChosen = undefined;
   void showUsage();
+  void showNext();
 // Opening Handoff acknowledges a reset reminder's toolbar mark.
 void chrome.action.getBadgeText({}).then(text => { if (text === '✓') return chrome.action.setBadgeText({ text: '' }); }).catch(() => {});
   if (!captureStarted) {
@@ -93,6 +95,58 @@ void chrome.action.getBadgeText({}).then(text => { if (text === '✓') return ch
     (document.querySelector('#source-label') as HTMLElement).textContent = provider ? `${providerNames[provider]} · active tab` : 'Open a supported AI conversation';
   }
 }, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture this chat, or paste a baton.'; });
+// “Pass the baton to”: this chat's suggestions, live from the chat page (your latest message decides the task).
+type NextOption = { provider: ProviderId; status: 'room' | 'unknown' | 'limited'; detail: string; reason?: string };
+const nextSection = document.querySelector('#next-section') as HTMLElement;
+const nextList = document.querySelector('#next-list') as HTMLOListElement;
+const nextTasks = document.querySelector('#next-tasks') as HTMLElement;
+const nextBasis = document.querySelector('#next-basis') as HTMLElement;
+const nextStatus = document.querySelector('#next-status') as HTMLElement;
+const nextColor: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
+let nextChosen: Topic | undefined;
+let nextBusy = false;
+const showNext = async () => {
+  if (!activeProvider || nextBusy) { if (!activeProvider) nextSection.hidden = true; return; }
+  nextBusy = true;
+  try {
+    const tab = await activeChatTab();
+    const reply = tab?.id ? await sendToChat<{ ok: boolean; asked: string; topic: Topic; options: NextOption[] }>(tab, { type: 'SUGGEST', topic: nextChosen }) : undefined;
+    if (!reply?.ok) { nextSection.hidden = true; return; }
+    nextSection.hidden = false;
+    nextBasis.textContent = reply.asked ? `${nextChosen ? 'Ranked for' : 'Looks like'} ${topicNames[reply.topic].toLowerCase()} · based on “${reply.asked.replace(/\s+/g, ' ').slice(0, 60)}${reply.asked.length > 60 ? '…' : ''}”` : 'No message yet: ranked for everyday use.';
+    nextTasks.replaceChildren(...topics.map(topic => {
+      const chip = document.createElement('button'); chip.type = 'button'; chip.textContent = topicNames[topic]; chip.setAttribute('aria-pressed', String(topic === reply.topic));
+      chip.addEventListener('click', () => { nextChosen = topic; void showNext(); });
+      return chip;
+    }));
+    const usable = reply.options.filter(option => option.status !== 'limited');
+    const shown = [...usable.slice(0, 3), ...reply.options.filter(option => option.status === 'limited').slice(0, Math.max(0, 3 - usable.length))];
+    nextList.replaceChildren(...shown.map((option, index) => {
+      const item = document.createElement('li'); if (option.status === 'limited') item.className = 'limited';
+      const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', nextColor[option.provider]);
+      const who = document.createElement('span'); who.className = 'who';
+      const name = document.createElement('b'); name.textContent = providerNames[option.provider];
+      const detail = document.createElement('small'); detail.textContent = option.reason && option.status !== 'limited' ? `${option.reason} · ${option.detail}` : option.detail;
+      who.append(name, detail); item.append(dot, who);
+      if (index === 0 && option.status !== 'limited') { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Best'; item.append(tag); }
+      if (option.status !== 'limited') {
+        const go = document.createElement('button'); go.type = 'button'; go.className = 'go'; go.textContent = 'Pass →';
+        go.setAttribute('aria-label', `Pass the baton to ${providerNames[option.provider]}`);
+        go.addEventListener('click', async () => {
+          go.disabled = true; nextStatus.textContent = 'Saving your baton and opening a draft…';
+          const result = await sendToChat<{ ok: boolean; text: string }>(tab!, { type: 'PASS_TO', provider: option.provider, topic: reply.topic }).catch(() => undefined);
+          nextStatus.textContent = result?.text || 'That did not work. Use Capture this chat instead.'; go.disabled = false;
+        });
+        item.append(go);
+      }
+      return item;
+    }));
+  } catch { nextSection.hidden = true; } finally { nextBusy = false; }
+};
+document.querySelector('#next-refresh')?.addEventListener('click', () => { nextChosen = undefined; void showNext(); });
+// The box text changes as you type: refresh while Baton is open, and when you come back to it.
+setInterval(() => { if (!document.hidden && !nextChosen) void showNext(); }, 15000);
+window.addEventListener('focus', () => { if (!nextChosen) void showNext(); });
 const refreshChat = () => { void refreshActiveChat().catch(() => { /* Capture provides recovery guidance. */ }); };
 refreshChat();
 chrome.tabs.onActivated?.addListener(info => { if (activeWindowId === undefined || info.windowId === activeWindowId) refreshChat(); });

@@ -37,7 +37,7 @@ const cues: Record<Exclude<Topic, 'general'>, Cue[]> = {
     [/\bkm\/h|\bmph\b/i, 1]
   ],
   image: [
-    [/\b(generate|create|make|draw|design|render|paint|sketch)\b[^.?!\n]{0,40}\b(image|picture|photo|logo|icon|wallpaper|illustration|portrait|cartoon|sticker|poster|art|drawing|diagram|banner|avatar|anime|watercolou?r|painting|pixel art|3d render|scene)\b/i, 4],
+    [/\b(generate|create|make|draw|design|render|paint|sketch)\b[^.?!\n]{0,40}\b(image|picture|photo|logo|icon|wallpaper|illustration|portrait|cartoon|sticker|poster|art|drawing|diagram|banner|avatar|anime|watercolou?r|painting|pixel art|3d render|scene|meme|gif)\b/i, 4],
     [/\b(draw|sketch|illustration|logo|wallpaper|portrait|cartoon|sticker|photo ?realistic|4k|anime style|in the style of|watercolou?r|pixel art|oil painting|poster|banner|avatar|thumbnail)\b/i, 1.5],
     // Asking about a picture you already have is not making one.
     [/\b(this|the|my|attached|uploaded)\s+(image|photo|picture|screenshot)\b/i, -2]
