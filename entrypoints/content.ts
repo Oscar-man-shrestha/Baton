@@ -4,7 +4,7 @@ import { collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule } from '../src/core/capsules';
 import { newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
-import { pendingFor, pendingKey, shouldOffer, switchHelp, type PendingProject } from '../src/core/account-continue';
+import { pendingFor, pendingKey, shouldOffer, signInLabel, switchHelp, type PendingProject } from '../src/core/account-continue';
 import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../src/core/task-fit';
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
@@ -136,7 +136,12 @@ export default defineContentScript({
       await chrome.storage.local.set({ [pendingKey(id)]: pending });
       const help = switchHelp(id);
       if (help.chooser) window.open(help.chooser, '_blank', 'noopener');
-      return `Saved. ${help.steps.join(' ')}`;
+      // Log out with the service's own page, only after the user confirms: it signs out every tab of this AI.
+      if (help.logout && window.confirm(`Your project is saved.\n\nLog out of ${providerNames[id]} now so you can pick another account? Other ${providerNames[id]} tabs will be logged out too.`)) {
+        setTimeout(() => location.assign(help.logout!), 150);
+        return `Saved. Logging you out of ${providerNames[id]}… Then press “Continue with Google” and pick your other account.`;
+      }
+      return `Saved. ${(help.logout ? help.manual : help.steps).join(' ')}`;
     };
     const updateRescue = async () => {
       const saved = await chrome.storage.local.get(suggestionKeys());
@@ -456,7 +461,7 @@ export default defineContentScript({
       continueHost.style.bottom = `${bottom > innerHeight - 140 ? 96 : bottom}px`;
     };
     const showContinue = (pending: PendingProject) => {
-      continueCard.replaceChildren();
+      continueCard.replaceChildren(); continueCard.dataset.mode = 'offer';
       const mark = document.createElement('span'); mark.className = 'mark'; mark.setAttribute('aria-hidden', 'true'); mark.append(document.createElement('i'));
       const title = document.createElement('b'); title.textContent = 'Continue your project here?';
       const minutes = Math.max(1, Math.round((Date.now() - pending.at) / 60000));
@@ -478,7 +483,49 @@ export default defineContentScript({
       continueHost.style.display = 'block';
       go.focus({ preventScroll: true });
     };
+    // Signed out with a project waiting: ring the button that leads to Google's account chooser, with a one-line tip.
+    const ringHost = document.createElement('div');
+    ringHost.id = 'handoff-signin-ring';
+    ringHost.style.cssText = 'position:fixed;z-index:2147483003;display:none;pointer-events:none;border-radius:14px;border:3px solid #8b6cff;box-shadow:0 0 0 6px rgba(139,108,255,.25),0 0 28px rgba(167,139,250,.75)';
+    document.body.append(ringHost);
+    ctx.onInvalidated(() => ringHost.remove());
+    const signInTarget = (): { element: HTMLElement; kind: 'google' | 'login' } | undefined => {
+      let login: HTMLElement | undefined;
+      for (const element of Array.from(document.querySelectorAll<HTMLElement>('button, a, [role="button"]'))) {
+        const kind = signInLabel(element.innerText || element.textContent || '');
+        if (!kind) continue;
+        const rect = element.getBoundingClientRect();
+        if (rect.width < 20 || rect.height < 12 || rect.bottom < 0 || rect.top > innerHeight) continue;
+        if (kind === 'google') return { element, kind };
+        login ||= element;
+      }
+      return login ? { element: login, kind: 'login' } : undefined;
+    };
+    const showSignInTip = (target: { element: HTMLElement; kind: 'google' | 'login' }) => {
+      const rect = target.element.getBoundingClientRect();
+      ringHost.style.left = `${rect.left - 6}px`; ringHost.style.top = `${rect.top - 6}px`;
+      ringHost.style.width = `${rect.width + 12}px`; ringHost.style.height = `${rect.height + 12}px`;
+      ringHost.style.display = 'block';
+      const text = target.kind === 'google' ? 'Press “Continue with Google” and pick your other account. Your project is waiting.' : 'Press “Log in”, then “Continue with Google” and pick your other account. Your project is waiting.';
+      if (continueCard.dataset.mode !== 'signin' || continueCard.dataset.text !== text) {
+        continueCard.replaceChildren();
+        continueCard.dataset.mode = 'signin'; continueCard.dataset.text = text;
+        const mark = document.createElement('span'); mark.className = 'mark'; mark.setAttribute('aria-hidden', 'true'); mark.append(document.createElement('i'));
+        const title = document.createElement('b'); title.textContent = 'Switch account';
+        const tip = document.createElement('small'); tip.textContent = text;
+        continueCard.append(mark, title, tip);
+      }
+      continueHost.style.left = `${Math.max(16, Math.min(rect.left + rect.width / 2 - 210, innerWidth - 436))}px`;
+      continueHost.style.bottom = `${Math.max(16, innerHeight - rect.top + 18)}px`;
+      continueHost.style.display = 'block';
+    };
+    const hideSignInTip = () => { ringHost.style.display = 'none'; if (continueCard.dataset.mode === 'signin') { continueCard.dataset.mode = ''; hideContinue(); } };
     const checkContinue = () => {
+      if (pendingProject && pendingFor(pendingProject, id)) {
+        const target = signInTarget();
+        if (target) { showSignInTip(target); return; }
+        hideSignInTip();
+      } else hideSignInTip();
       const shown = continueHost.style.display === 'block';
       if (!pendingProject || !pendingFor(pendingProject, id)) { pendingProject = undefined; return; }
       const editor = findEditor(document, bundledSelectors.providers[id].editor);

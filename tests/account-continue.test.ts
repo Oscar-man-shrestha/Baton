@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PENDING_MS, pendingFor, shouldOffer, switchHelp } from '../src/core/account-continue';
+import { PENDING_MS, pendingFor, shouldOffer, signInLabel, switchHelp } from '../src/core/account-continue';
 
 const now = Date.UTC(2026, 9, 22, 12);
 const pending = { provider: 'chatgpt', draft: 'Goal: finish login', at: now - 60000, from: 'https://chatgpt.com/c/abc' } as const;
@@ -22,6 +22,21 @@ describe('same AI, another account', () => {
   it('points to each service’s own account screens; Gemini uses Google’s chooser', () => {
     expect(switchHelp('gemini').chooser).toMatch(/^https:\/\/accounts\.google\.com\/AccountChooser/);
     expect(switchHelp('chatgpt').chooser).toBeUndefined();
-    expect(switchHelp('chatgpt').steps[0]).toContain('Log out');
+    expect(switchHelp('perplexity').steps[0]).toContain('Sign out');
+  });
+  it('logs out only where the service has a log-out page', () => {
+    expect(switchHelp('claude').logout).toBe('https://claude.ai/logout');
+    expect(switchHelp('chatgpt').logout).toBe('https://chatgpt.com/auth/logout');
+    expect(switchHelp('grok').logout).toBe('https://grok.com/sign-out');
+    expect(switchHelp('perplexity').logout).toBeUndefined();
+    expect(switchHelp('deepseek').logout).toBeUndefined();
+    expect(switchHelp('gemini').logout).toBeUndefined();
+  });
+  it('finds the button that leads to Google’s chooser', () => {
+    expect(signInLabel('Continue with Google')).toBe('google');
+    expect(signInLabel(' Sign in with Google ')).toBe('google');
+    expect(signInLabel('Log in')).toBe('login');
+    expect(signInLabel('Continue with Apple')).toBeUndefined();
+    expect(signInLabel('New chat')).toBeUndefined();
   });
 });

@@ -18,6 +18,10 @@ When the user opens Baton on a supported chat tab that was already open before i
 
 The source includes an opt-in, hash-verified remote selector updater, but the current interface does not enable it. If introduced later, the privacy policy and permission disclosures must be updated with the exact endpoint and data transferred.
 
+## Switching account in the same AI
+
+"Same AI, another account" saves the project on this device and offers it on the next new chat with that AI, for six hours. Pressing Not now forgets the waiting project; the baton itself stays saved. For ChatGPT, Claude and Grok, Baton can open the service's own log-out page, but only after the user presses the button and confirms. For Gemini it opens Google's account chooser. Baton never enters passwords, never reads account details or cookies, and never signs anyone in.
+
 ## Welcome and uninstall pages
 
 After a first install, Baton opens its own welcome page inside the extension. When Baton is removed, the browser opens a feedback page on Baton's site (`oscar-man-shrestha.github.io/handoff/uninstall.html`). Its address carries only Baton's version number. Answering is optional. Only the chosen reason, any text the user types, and the version are sent, to the project's own Google Form, and only when the user presses Send feedback. Until that form is connected, the page only offers to copy the answer or open it in the user's own email app, addressed to batonforai@gmail.com.

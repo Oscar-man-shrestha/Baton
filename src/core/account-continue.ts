@@ -21,7 +21,13 @@ export function shouldOffer(pending: PendingProject | undefined, here: { url: st
   return !!pending && here.hasEditor && here.turnCount === 0 && here.url !== pending.from;
 }
 
-export type SwitchHelp = { chooser?: string; steps: string[] };
+export type SwitchHelp = { chooser?: string; logout?: string; steps: string[]; manual: string[] };
+/**
+ * The services' own log-out pages, opened only when the user presses “another account” and confirms (the user chose
+ * this to save time). Checked 2026-10-22: Claude lands on its sign-in page, ChatGPT on its signed-out home, Grok on
+ * X's sign-out. Perplexity has no log-out link and DeepSeek's is unclear, so those keep the guided steps.
+ */
+const logoutPages: Partial<Record<ProviderId, string>> = { chatgpt: 'https://chatgpt.com/auth/logout', claude: 'https://claude.ai/logout', grok: 'https://grok.com/sign-out' };
 const where: Partial<Record<ProviderId, string>> = {
   chatgpt: 'your profile picture (bottom left) → Log out',
   claude: 'your name (bottom left) → Log out',
@@ -29,11 +35,22 @@ const where: Partial<Record<ProviderId, string>> = {
   grok: 'your profile picture → Sign out',
   perplexity: 'your account (bottom left) → Sign out'
 };
+/** The button that leads to Google's account chooser on a signed-out page: “Continue with Google” first, else “Log in”. */
+export function signInLabel(text: string): 'google' | 'login' | undefined {
+  const label = text.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (/^(continue|sign in|log in|login) with google$/.test(label)) return 'google';
+  if (/^(log in|login|sign in|sign up or log in)$/.test(label)) return 'login';
+  return undefined;
+}
 /** Steps in each service's own screens. Gemini uses Google's account chooser, so several accounts can stay signed in. */
 export function switchHelp(provider: ProviderId): SwitchHelp {
   if (provider === 'gemini') return {
     chooser: 'https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fgemini.google.com%2Fapp',
-    steps: ['Pick your other Google account in Google’s window (or add one).', 'Gemini opens in that account. Baton offers your project there.']
+    steps: ['Pick your other Google account in Google’s window (or add one).', 'Gemini opens in that account. Baton offers your project there.'],
+    manual: ['Use your profile picture (top right) → switch account.', 'Baton offers your project in the new chat.']
   };
-  return { steps: [`Open ${where[provider] || 'the account menu → Log out'}.`, 'Sign in again and choose your other account (for example “Continue with Google”).', 'Open a new chat. Baton offers your project there.'] };
+  const manual = [`Open ${where[provider] || 'the account menu → Log out'}.`, 'Sign in again and choose your other account (for example “Continue with Google”).', 'Open a new chat. Baton offers your project there.'];
+  const logout = logoutPages[provider];
+  if (logout) return { logout, steps: ['Baton logs you out here.', 'Press “Continue with Google” (Baton highlights it) and pick your other account.', 'Open a new chat. Baton offers your project there.'], manual };
+  return { steps: manual, manual };
 }
