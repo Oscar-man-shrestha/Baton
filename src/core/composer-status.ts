@@ -1,8 +1,8 @@
 import type { Meter } from './limits';
 
-export function composerStatusText(tokens: number, meter?: Meter): string {
+export function composerStatusText(tokens: number, meter?: Meter, now = Date.now()): string {
   const prompt = tokens > 0 ? `≈${tokens.toLocaleString('en-US')} prompt tokens · ` : '';
-  const source = meter?.at && Date.now() - meter.at > 300000 ? 'last seen' : 'service notice';
+  const source = meter?.at && now - meter.at > 300000 ? 'last seen' : 'service notice';
   if (meter?.tier === 'banner' && meter.remainingPercent !== undefined) return `${prompt}Usage left: ${meter.remainingPercent}% (${source})`;
   if (meter?.tier === 'banner' && meter.remainingTokens !== undefined) return `${prompt}Usage left: ${meter.remainingTokens.toLocaleString('en-US')} tokens (${source})`;
   if (meter?.tier === 'banner' && meter.remainingCount !== undefined && meter.percent !== 100) return `${prompt}${meter.remainingCount} ${meter.feature === 'Pro searches' ? 'Pro searches' : meter.remainingCount === 1 ? 'message' : 'messages'} left (${source})`;

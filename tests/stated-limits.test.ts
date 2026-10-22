@@ -34,7 +34,7 @@ describe('“N left” notices', () => {
   it('becomes a reading with a count, and 0 left counts as reached', () => {
     const meter = estimateMeter('perplexity', '3 Pro searches left today', [], [], now);
     expect([meter.tier, meter.remainingCount, meter.feature, meter.percent]).toEqual(['banner', 3, 'Pro searches', undefined]);
-    expect(composerStatusText(0, { ...meter, at: now })).toBe('3 Pro searches left (service notice)');
+    expect(composerStatusText(0, { ...meter, at: now }, now)).toBe('3 Pro searches left (service notice)');
     expect(estimateMeter('claude', '0 messages remaining until 6:00 PM', [], [], now).percent).toBe(100);
   });
   it('is found as plain text near the composer, but not inside a chat message', () => {

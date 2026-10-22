@@ -39,9 +39,17 @@ export function perMessageCost(readings: Calibration[], sends: number[]): number
  * What to show for a service right now: current official readings, and for windows chat draws from,
  * the last official reading moved forward by messages sent since. Estimates end when the window resets.
  */
+const EXTRA_MAX_AGE = 24 * 3600000;
+function recentExtra(win: UsageWindow, now: number): boolean {
+  if (typeof win.at !== 'number' || win.at > now || now - win.at >= EXTRA_MAX_AGE) return false;
+  if (win.resetAt !== undefined && win.resetAt <= now) return false;
+  return isCurrentReading(win, win.at);
+}
 export function displayWindows(windows: UsageWindow[], history: UsageHistory, sends: number[], now = Date.now()): DisplayWindow[] {
   const current = activeWindows(windows, now);
-  const shown: DisplayWindow[] = current.filter(win => !estimable(win));
+  // Work/Codex allowances and credits change slowly: keep their last reading for a day (it shows the time it was
+  // read) instead of hiding it after an hour like chat limits.
+  const shown: DisplayWindow[] = (Array.isArray(windows) ? windows : []).filter(win => !estimable(win) && recentExtra(win, now));
   const keys = new Set([...current.filter(estimable).map(win => win.key), ...Object.keys(history)]);
   for (const key of keys) {
     const readings = (history[key] || []).filter(entry => entry.at <= now);

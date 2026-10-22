@@ -54,3 +54,18 @@ describe('live usage estimate', () => {
     expect(shown.percent).toBe(100);
   });
 });
+
+describe('slow allowances stay visible longer', () => {
+  const now = Date.UTC(2026, 9, 22, 12);
+  const reading = (feature: string, hoursAgo: number, extra: Record<string, unknown> = {}) => ({ provider: 'chatgpt', tier: 'banner', confidence: 'high', key: `chatgpt:${feature}`, feature, at: now - hoursAgo * 3600000, source: 'provider-page', explanation: '', ...extra }) as any;
+  it('keeps Work and credits readings for a day, labelled by their own time', () => {
+    const shown = displayWindows([reading('Work weekly', 5, { percent: 0, remainingPercent: 100 }), reading('Credits', 5, { remainingCount: 2500 })], {}, [], now);
+    expect(shown.map(win => win.feature)).toEqual(['Work weekly', 'Credits']);
+    expect(shown[0].at).toBe(now - 5 * 3600000);
+    expect(displayWindows([reading('Credits', 25, { remainingCount: 2500 })], {}, [], now)).toEqual([]);
+    expect(displayWindows([reading('Work weekly', 2, { percent: 10, resetAt: now - 1000 })], {}, [], now)).toEqual([]);
+  });
+  it('still hides a chat limit reading after an hour without history', () => {
+    expect(displayWindows([reading('Session', 2, { percent: 40, remainingPercent: 60 })], {}, [], now)).toEqual([]);
+  });
+});
