@@ -233,6 +233,13 @@ function renderLanes(saved: Record<string, any>) {
     if (lane.left !== undefined) { const fill = document.createElement('span'); fill.style.width = `${Math.max(2, lane.left)}%`; track.append(fill); }
     const value = document.createElement('em'); value.textContent = lane.value;
     const detail = document.createElement('small'); detail.textContent = lane.detail;
+    // Other allowances (ChatGPT's Work/Codex, credits) sit behind a small hover note, so the row stays about chat.
+    if (lane.extras.length) {
+      const note = document.createElement('span'); note.className = 'lane-extras'; note.tabIndex = 0;
+      note.textContent = lane.extras.every(text => /work|codex|credit|reset/i.test(text)) ? '＋ Work & credits' : '＋ Other limits';
+      note.title = lane.extras.join('\n'); note.setAttribute('aria-label', lane.extras.join(', '));
+      detail.append(' ', note);
+    }
     row.setAttribute('aria-label', `${providerNames[id]}: ${lane.value}${lane.detail ? `, ${lane.detail}` : ''}`);
     row.append(name, track, value, detail);
     return row;
