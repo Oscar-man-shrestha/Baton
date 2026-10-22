@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatFeature, chatSegments } from '../src/core/composer-line';
+import { chatFeature, chatSegments, workSegments } from '../src/core/composer-line';
 
 const now = Date.UTC(2026, 9, 22, 4);
 const min = 60000;
@@ -22,5 +22,15 @@ describe('usage bar under the composer', () => {
     expect(chatSegments([win('Work weekly', 0), win('Work 5-hour', 0), { ...win('Credits', 0), percent: undefined }], now)).toEqual([]);
     expect(['Work weekly', 'Credits', 'Images', 'Limit resets', 'Model'].some(chatFeature)).toBe(false);
     expect(['Session', 'Weekly', 'chat usage', 'Sonnet weekly'].every(chatFeature)).toBe(true);
+  });
+  it('adds ChatGPT’s Plan limits after the chat count, labelled Work so they never read as a chat limit', () => {
+    const work = (feature: string, percent: number, resetAt: number) => ({ ...win(feature, percent), provider: 'chatgpt', key: `chatgpt:${feature}`, resetAt });
+    // As on chatgpt.com/settings/usage: “5-hour limit · Resets in 5h 0m · 100% left”, “Weekly limit · Resets in 7d 0h · 100% left”.
+    expect(workSegments([work('Work weekly', 0, now + 7 * 24 * 3600000), work('Work 5-hour', 0, now + 300 * min), { ...win('Credits', 0), percent: undefined }], now)).toEqual([
+      { label: 'Work 5h', value: '100% left', left: 100, level: 'ok', note: '5h 0m' },
+      { label: 'Work week', value: '100% left', left: 100, level: 'ok', note: '7d 0h' }
+    ]);
+    expect(workSegments([work('Work 5-hour', 88, now + 42 * min)], now)).toEqual([{ label: 'Work 5h', value: '12% left', left: 12, level: 'low', note: '42m' }]);
+    expect(workSegments([win('Session', 40), win('Weekly', 10)], now)).toEqual([]);
   });
 });

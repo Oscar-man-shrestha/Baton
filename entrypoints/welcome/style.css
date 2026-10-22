@@ -42,7 +42,7 @@ h3 { font-size: 1.05rem; }
 .btn.ghost { color: var(--chalk); background: var(--ink-2); border-color: var(--line); }
 .note { min-height: 1.4em; margin: 12px 0 0; color: var(--ok); font-weight: 700; }
 /* Demo card: Baton's real bar and button, on a tab per AI. Pill and ring styles match the content script. */
-.demo { position: relative; width: 100%; max-width: 640px; justify-self: end; display: flex; flex-direction: column; gap: 12px; padding: 0 0 16px; overflow: hidden; background: color-mix(in srgb, var(--ink-2) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 30px 70px rgba(0,0,0,.45); }
+.demo { position: relative; width: 100%; max-width: 680px; justify-self: end; display: flex; flex-direction: column; gap: 12px; padding: 0 0 16px; overflow: hidden; background: color-mix(in srgb, var(--ink-2) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 30px 70px rgba(0,0,0,.45); }
 .demo .chrome { display: flex; align-items: flex-end; gap: 14px; padding: 10px 14px 0; background: var(--ink); border-bottom: 1px solid var(--line); }
 .demo .dots { display: flex; gap: 6px; padding-bottom: 12px; }
 .demo .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
@@ -146,6 +146,6 @@ footer button { font: 700 .9rem var(--body); padding: 9px 14px; border-radius: 1
   .setup { gap: 20px; }
   .step { padding: 26px; }
 }
-/* Phones: both rings fit when “left”, the reset times and × step aside; ChatGPT keeps its daily count. */
-@media (max-width: 480px) { .seg:has(.ring) .n, .seg .u, .pill .x { display: none; } .pill { gap: 8px; padding-right: 10px; } .segs { gap: 8px; } }
+/* Phones: two segments fit when “left”, the reset times and × step aside (ChatGPT drops its third, Work week). */
+@media (max-width: 480px) { .seg:has(.ring) .n, .seg .u, .pill .x, .segs:has(.seg:nth-child(3)) .seg .n, .seg:nth-child(3) { display: none; } .pill { gap: 8px; padding-right: 10px; } .segs { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pass::before { animation: none; } .menu { transition: none; } .hero-canvas { transition: none; } }

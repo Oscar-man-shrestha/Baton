@@ -15,7 +15,7 @@ import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
-import { chatFeature, chatSegments, type Segment } from '../src/core/composer-line';
+import { chatFeature, chatSegments, workSegments, type Segment } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
@@ -296,7 +296,16 @@ export default defineContentScript({
       }
       return false;
     };
-    const spotTaken = (left: number, top: number, width: number, height: number, surface: Element, step = 12): Element | true | undefined => {
+    // Last resort, above the box only: the sites' one-line “… can make mistakes.” notice may sit under Baton's bar.
+    // When the chat box is at the bottom of the window (ChatGPT in a long chat), that line is the only room left.
+    const disclaimer = (element: Element) => {
+      for (let node: Element | null = element, depth = 0; node && depth < 4 && node !== document.body; node = node.parentElement, depth++) {
+        const text = node.textContent || '';
+        if (text.length < 160 && /can make mistakes/i.test(text)) return true;
+      }
+      return false;
+    };
+    const spotTaken = (left: number, top: number, width: number, height: number, surface: Element, step = 12, overDisclaimer = false): Element | true | undefined => {
       if (top < 0 || left < 0 || top + height > innerHeight - 2 || left + width > innerWidth - 2) return true;
       // Sample across the width and always at the right edge, so a grown pill can't end inside a neighbour.
       const xs: number[] = []; for (let x = left + 6; x < left + width - 4; x += step) xs.push(x); xs.push(left + width - 4);
@@ -305,6 +314,7 @@ export default defineContentScript({
           // Look through Baton's own button, bar and cards: only the site's content decides whether a spot is free.
           const element = document.elementsFromPoint(x, y).find(hit => !hit.id.startsWith('handoff-'));
           if (!element || element === document.body || element === document.documentElement) continue;
+          if (overDisclaimer && disclaimer(element)) continue;
           if (surface.contains(element) || element.closest(interactiveSelector) || ownText(element) || floatingLayer(element, surface)) return element;
         }
       }
@@ -380,6 +390,8 @@ export default defineContentScript({
         if (segment.note) node.append(piece('n', segment.note));
         nextBody.append(node);
       };
+      // ChatGPT: its Plan limits (Codex/Work, not chat) are the only numbers it publishes, so they follow the chat count.
+      const work = id === 'chatgpt' ? workSegments(extras) : [];
       const segments = chatSegments(chat);
       if (segments.length) segments.forEach(addSegment);
       else {
@@ -388,10 +400,11 @@ export default defineContentScript({
         const text = composerStatusText(0, chatMeter);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
         if (!text.endsWith('Usage left: unknown')) addSegment({ label: '', value: text.replace(/^Usage left: /, '') });
-        else if (counted.uncapped) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} sent today` });
+        else if (counted.uncapped) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} ${work.length ? 'today' : 'sent today'}` });
         else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
         else addSegment({ label: 'Chat', value: extras.length ? 'no limit shown' : 'usage not shown' });
       }
+      work.forEach(addSegment);
       if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); nextBody.append(tokens); }
       if (nextBody.innerHTML !== statusBody.innerHTML) statusBody.replaceChildren(...Array.from(nextBody.childNodes));
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
@@ -410,7 +423,7 @@ export default defineContentScript({
       statusHost.style.maxWidth = `${pillMaxWidth}px`;
       const pill = statusHost.getBoundingClientRect();
       const pillHeight = pill.height || 28;
-      const conflict = (top: number) => spotTaken(pillLeft, top, pill.width, pillHeight, surface, 24);
+      const conflict = (top: number, overDisclaimer = false) => spotTaken(pillLeft, top, pill.width, pillHeight, surface, 24, overDisclaimer);
       let top = surfaceRect.bottom + 6;
       let hit = conflict(top);
       if (hit && hit !== true) {
@@ -423,6 +436,7 @@ export default defineContentScript({
         hit = conflict(top);
       }
       if (hit) { top = surfaceRect.top - pillHeight - 6; hit = conflict(top); }
+      if (hit) { top = surfaceRect.top - pillHeight - 2; hit = conflict(top, true); }
       if (hit) { statusHost.style.display = 'none'; statusHost.style.visibility = ''; statusPlacement = ''; placePassButton(surface, surfaceRect); return; }
       statusHost.style.top = `${top}px`;
       statusHost.style.visibility = '';

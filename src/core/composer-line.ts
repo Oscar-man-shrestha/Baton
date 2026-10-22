@@ -20,3 +20,17 @@ export function chatSegments(windows: DisplayWindow[], now = Date.now()): Segmen
       return { label: short(win.feature), value: `${estimated ? '≈' : ''}${left}% left`, left, level: level(left), ...(reset ? { note: reset } : {}) };
     });
 }
+
+/**
+ * ChatGPT's only published limits: the 5-hour and weekly “Plan limits” shared by Codex, Work, Workspace Agents and
+ * ChatGPT for Excel (chat is not included). They go after the chat count, labelled “Work” so no one reads them as chat.
+ */
+export function workSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
+  return [['Work 5-hour', 'Work 5h'], ['Work weekly', 'Work week']].flatMap(([feature, label]) => {
+    const win = windows.find(candidate => candidate.feature === feature && candidate.percent !== undefined);
+    if (!win) return [];
+    const left = Math.max(0, Math.round(100 - win.percent!));
+    const reset = resetCountdown(win.resetAt, now);
+    return [{ label, value: `${left}% left`, left, level: level(left), ...(reset ? { note: reset } : {}) }];
+  });
+}

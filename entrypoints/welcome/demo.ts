@@ -20,9 +20,9 @@ const sites: Record<string, Site> = {
   },
   chatgpt: {
     url: 'chatgpt.com', you: 'Write a cover letter for a design job.', ai: 'Dear hiring team, I’m a product designer who loves turning messy problems into…', placeholder: 'Message ChatGPT', topic: 'Writing',
-    segments: [{ label: 'Chat', value: 'No cap', note: '4 sent today' }],
+    segments: [{ label: 'Chat', value: 'No cap', note: '4 today' }, { label: 'Work 5h', left: 82, note: '3h 12m' }, { label: 'Work week', left: 64, note: '5d 2h' }],
     options: [{ name: 'Claude', color: '#d97757', why: 'top-rated for writing' }, { name: 'Gemini', color: '#4c8df6', why: 'long, polished drafts' }],
-    why: 'ChatGPT publishes no cap for chat, so Baton counts what you sent today instead of guessing a percentage.'
+    why: 'Chat has no cap, so Baton counts today’s messages. Work 5h and week are ChatGPT’s Plan limits (Codex, Work, Agents) from its Usage page.'
   }
 };
 const order = Object.keys(sites);
