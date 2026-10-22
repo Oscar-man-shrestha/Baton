@@ -1,0 +1,7 @@
+# Baton 0.3.35 — reliable ×, visible switches, suggestions by task
+
+- **× on the usage bar works:** the pill is built once (mark, body, ×). Only its body is refilled, and only when the figures change, so streaming replies no longer replace the × mid-press. It hides the bar on press (pointerdown) as well as on click, and is more visible (70% opacity, full on hover). The pill isn't re-measured when nothing has moved.
+- **Always-visible switches:** Baton's Usage section now has an **On chat pages** row with **Usage bar** and **Baton button** switches. They replace the "↺ Show…" links that only appeared after hiding. They stay in sync with the × on the bar, **Hide this button** in the Baton menu, and the Usage window switch.
+- **Suggestions by prompt topic:** the Baton menu guesses the topic from the text being typed, or else from the last three questions in the chat. The topics are code, research, current events, writing, maths, images and general. It ranks the AIs for that topic, then by usage left. Services at their limit stay last, and a service under 15% left drops below ones with room. Each row says why, for example "searches the web with sources · 80% left". The guess runs on this device from keywords (no API, nothing sent). The ranking table is Baton's own judgment (`src/core/task-fit.ts`, easy to retune).
+
+Verified: 226 tests in 33 files, typecheck, complete build; build-1 synced with the completeness guard. Not checked live: the × and switches on each site, and the topic suggestions.

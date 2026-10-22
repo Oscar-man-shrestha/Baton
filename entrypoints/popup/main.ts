@@ -629,17 +629,19 @@ if (autoRefresh.checked && Date.now() - (Number(autoSettings.lastAutoUsageRefres
 const composerToggle = document.querySelector('#composer-usage') as HTMLInputElement;
 composerToggle.checked = (await chrome.storage.local.get('composerUsageEnabled')).composerUsageEnabled !== false;
 composerToggle.addEventListener('change', async () => { await chrome.storage.local.set({ composerUsageEnabled: composerToggle.checked }); });
-// While the bar under chat boxes is hidden (× on the bar), offer one click to bring it back.
-const showBar = document.querySelector('#show-composer-bar') as HTMLButtonElement | null;
-const syncShowBar = (enabled: boolean) => { if (showBar) showBar.hidden = enabled; composerToggle.checked = enabled; };
-syncShowBar(composerToggle.checked);
-showBar?.addEventListener('click', () => { void chrome.storage.local.set({ composerUsageEnabled: true }); });
-chrome.storage.onChanged.addListener(changes => { if (changes.composerUsageEnabled) syncShowBar(changes.composerUsageEnabled.newValue !== false); });
-// Same for the Baton button by chat boxes (hidden from its own menu).
-const showPass = document.querySelector('#show-pass-button') as HTMLButtonElement | null;
-if (showPass) showPass.hidden = (await chrome.storage.local.get('passButtonEnabled')).passButtonEnabled !== false;
-showPass?.addEventListener('click', () => { void chrome.storage.local.set({ passButtonEnabled: true }); });
-chrome.storage.onChanged.addListener(changes => { if (changes.passButtonEnabled && showPass) showPass.hidden = changes.passButtonEnabled.newValue !== false; });
+// Always-visible switches for what Baton adds to chat pages; the × on the bar and “Hide” in the Baton menu turn them off.
+const chatSwitches = { composerUsageEnabled: document.querySelector('#toggle-bar') as HTMLInputElement | null, passButtonEnabled: document.querySelector('#toggle-pass') as HTMLInputElement | null };
+const switchState = await chrome.storage.local.get(Object.keys(chatSwitches));
+for (const [key, input] of Object.entries(chatSwitches)) {
+  if (!input) continue;
+  input.checked = switchState[key] !== false;
+  input.addEventListener('change', () => { void chrome.storage.local.set({ [key]: input.checked }); });
+}
+composerToggle.addEventListener('change', () => { if (chatSwitches.composerUsageEnabled) chatSwitches.composerUsageEnabled.checked = composerToggle.checked; });
+chrome.storage.onChanged.addListener(changes => {
+  for (const [key, input] of Object.entries(chatSwitches)) if (changes[key] && input) input.checked = changes[key].newValue !== false;
+  if (changes.composerUsageEnabled) composerToggle.checked = changes.composerUsageEnabled.newValue !== false;
+});
 
 const cloudStatus = document.querySelector('#cloud-status') as HTMLElement;
 const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');
