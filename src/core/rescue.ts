@@ -55,11 +55,3 @@ export function rescueOptions(source: ProviderId, saved: Record<string, unknown>
   const order = { room: 0, unknown: 1, limited: 2 };
   return options.sort((a, b) => order[a.status] - order[b.status] || (b.remainingPercent ?? 0) - (a.remainingPercent ?? 0) || (a.resetAt ?? Infinity) - (b.resetAt ?? Infinity));
 }
-
-export type AccountSwitch = { url?: string; steps: string };
-/** Only the service's own account screens. Handoff never signs anyone out or in. */
-export function accountSwitch(id: ProviderId): AccountSwitch {
-  if (id === 'gemini') return { url: 'https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fgemini.google.com%2Fapp', steps: 'Pick another Google account in Google’s chooser, then paste your project into the new chat.' };
-  const menu = id === 'claude' ? 'your name at the bottom left → Log out' : id === 'chatgpt' ? 'your profile picture → Log out' : 'the account menu → Log out';
-  return { steps: `${providerNames[id]} has no account switcher. Use ${menu}, sign in with the other account, then paste your project.` };
-}

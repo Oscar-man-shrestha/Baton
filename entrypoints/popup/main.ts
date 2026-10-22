@@ -113,6 +113,8 @@ const showNext = async () => {
     const reply = tab?.id ? await sendToChat<{ ok: boolean; asked: string; topic: Topic; options: NextOption[] }>(tab, { type: 'SUGGEST', topic: nextChosen }) : undefined;
     if (!reply?.ok) { nextSection.hidden = true; return; }
     nextSection.hidden = false;
+    const sameAi = document.querySelector('#next-same-ai') as HTMLElement; sameAi.hidden = false;
+    (document.querySelector('#next-same-ai-label') as HTMLElement).textContent = `${providerNames[activeProvider]}, another account`;
     nextBasis.textContent = reply.asked ? `${nextChosen ? 'Ranked for' : 'Looks like'} ${topicNames[reply.topic].toLowerCase()} · based on “${reply.asked.replace(/\s+/g, ' ').slice(0, 60)}${reply.asked.length > 60 ? '…' : ''}”` : 'No message yet: ranked for everyday use.';
     nextTasks.replaceChildren(...topics.map(topic => {
       const chip = document.createElement('button'); chip.type = 'button'; chip.textContent = topicNames[topic]; chip.setAttribute('aria-pressed', String(topic === reply.topic));
@@ -144,6 +146,16 @@ const showNext = async () => {
   } catch { nextSection.hidden = true; } finally { nextBusy = false; }
 };
 document.querySelector('#next-refresh')?.addEventListener('click', () => { nextChosen = undefined; void showNext(); });
+// Same AI, another account: the chat page saves the project and offers it on the next fresh chat after you switch.
+const sameAiOther = async (status: HTMLElement) => {
+  const tab = await activeChatTab();
+  if (!tab?.id) { status.textContent = 'Open the AI chat you want to continue first.'; return; }
+  status.textContent = 'Saving your project…';
+  const reply = await sendToChat<{ ok: boolean; text: string }>(tab, { type: 'SAME_AI_OTHER_ACCOUNT' }).catch(() => undefined);
+  status.textContent = reply?.text || 'That did not work. Refresh the chat tab and try again.';
+};
+document.querySelector('#next-same-ai')?.addEventListener('click', () => { void sameAiOther(nextStatus); });
+document.querySelector('#same-ai-other')?.addEventListener('click', () => { void sameAiOther(status); });
 // The box text changes as you type: refresh while Baton is open, and when you come back to it.
 setInterval(() => { if (!document.hidden && !nextChosen) void showNext(); }, 15000);
 window.addEventListener('focus', () => { if (!nextChosen) void showNext(); });
@@ -541,6 +553,8 @@ captureButton.addEventListener('click', async () => {
     negativeFeedback.disabled = choices.length === 0;
     destination.value = choices[0]?.id || 'chatgpt';
     showAccountHelp();
+    (document.querySelector('#same-ai-other') as HTMLElement).hidden = false;
+    (document.querySelector('#same-ai-other-label') as HTMLElement).textContent = `Continue in ${providerNames[source as ProviderId] || 'this AI'} with another account`;
     recommendation.textContent = choices[0] ? `Suggested: ${destination.selectedOptions[0].text} for ${topicNames[currentTopic].toLowerCase()}. You can change this.` : 'No other service is enabled. You can copy the draft.';
     const visibleWarnings = [data.warning, ...rendered.receipt.warnings].filter(Boolean);
     status.textContent = `${data.turnCount} visible messages captured. ${visibleWarnings.length ? visibleWarnings.join(' ') : 'Review the draft before continuing.'}`;

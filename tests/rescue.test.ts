@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountSwitch, newChatUrls, providerEnabled, reachedLimit, rescueOptions } from '../src/core/rescue';
+import { newChatUrls, providerEnabled, reachedLimit, rescueOptions } from '../src/core/rescue';
 
 const now = Date.UTC(2026, 9, 22, 6);
 const win = (provider: string, feature: string, percent: number, extra: Record<string, unknown> = {}) => ({ provider, tier: 'banner', confidence: 'high', key: `${provider}:${feature}`, feature, percent, remainingPercent: 100 - percent, at: now - 60000, source: 'provider-page', explanation: '', ...extra });
@@ -50,9 +50,6 @@ describe('limit rescue', () => {
     expect(providerEnabled('grok', { grok: false })).toBe(false);
   });
   it('switches accounts only through the service’s own screens', () => {
-    expect(new URL(accountSwitch('gemini').url!).hostname).toBe('accounts.google.com');
-    expect(accountSwitch('claude').url).toBeUndefined();
-    expect(accountSwitch('claude').steps).toContain('Log out');
     expect(Object.values(newChatUrls).every(url => url.startsWith('https://'))).toBe(true);
   });
 });
@@ -78,7 +75,7 @@ describe('limit rescue card', () => {
     const labels = Array.from(card.querySelectorAll('.options button')).map(button => button.textContent);
     expect(labels).toEqual(['Continue in Gemini63% left', 'Continue in ChatGPTlimit reached · resets in 1h 0m']);
     expect((card.querySelectorAll('.options button')[1] as HTMLButtonElement).disabled).toBe(true);
-    expect(card.textContent).toContain('Switch Claude account');
+    expect(card.textContent).toContain('Claude, another account');
     expect(card.textContent).toContain('Remind me when it resets');
     expect(card.textContent).toContain('never sent');
   });

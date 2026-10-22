@@ -40,7 +40,7 @@ export function buildRescueCard(doc: Document, limit: LimitState, options: Rescu
     buttons.push(button); list.append(button);
   }
   const row = doc.createElement('div'); row.className = 'row';
-  const switchButton = doc.createElement('button'); switchButton.type = 'button'; switchButton.textContent = `Switch ${providerNames[limit.provider]} account`;
+  const switchButton = doc.createElement('button'); switchButton.type = 'button'; switchButton.textContent = `${providerNames[limit.provider]}, another account`; switchButton.title = 'Save your project, switch account in this AI, and continue here';
   run(switchButton, handlers.switchAccount); buttons.push(switchButton); row.append(switchButton);
   if (limit.resetAt) {
     const remind = doc.createElement('button'); remind.type = 'button'; remind.textContent = 'Remind me when it resets';
