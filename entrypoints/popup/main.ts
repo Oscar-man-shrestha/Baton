@@ -2,13 +2,14 @@ import { renderBrief, wrapHandoff, draftBudget, redact } from '../../src/core/br
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { rankProviders, trainClassifier, providerTable, type Feedback, type Intent } from '../../src/core/router';
-import { providerIds, type ProviderId } from '../../src/core/selectors';
+import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/selectors';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
 import type { TurnArchive } from '../../src/core/capture';
 import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { displayLabel, displayWindows, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
 import { messageSummary, type LimitHit } from '../../src/core/message-counts';
+import { laneFor } from '../../src/core/usage-lanes';
 import { providerEnabled } from '../../src/core/rescue';
 import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
@@ -91,7 +92,7 @@ void chrome.action.getBadgeText({}).then(text => { if (text === '✓') return ch
     status.textContent = provider ? '' : isSupportedChatUrl(tab?.url) ? 'Connecting to your AI chat…' : 'Open an AI chat to get started.';
     (document.querySelector('#source-label') as HTMLElement).textContent = provider ? `${providerNames[provider]} · active tab` : 'Open a supported AI conversation';
   }
-}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture Page or paste a baton.'; });
+}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture this chat, or paste a baton.'; });
 const refreshChat = () => { void refreshActiveChat().catch(() => { /* Capture provides recovery guidance. */ }); };
 refreshChat();
 chrome.tabs.onActivated?.addListener(info => { if (activeWindowId === undefined || info.windowId === activeWindowId) refreshChat(); });
@@ -126,13 +127,36 @@ for (const [buttonId, statusId] of [['#refresh-all-usage', '#usage-refresh-statu
   button?.addEventListener('click', () => { void refreshAllUsage(button, document.querySelector(statusId) as HTMLElement, buttonId === '#dashboard-refresh-usage'); });
 }
 window.setInterval(() => { void showUsage(); }, 60000);
+// Each service's own brand colour marks its lane and its batons.
+const laneColors: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
 const providerNames: Record<ProviderId, string> = { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', deepseek: 'DeepSeek', grok: 'Grok', perplexity: 'Perplexity' };
 // Messages Handoff counted in the service's window, with the limit learned from past limit notices.
 const countedLine = (saved: Record<string, any>, id: ProviderId): string => { const summary = messageSummary(id, (saved[`usageSends:${id}`] || []) as number[], (saved[`limitHits:${id}`] || []) as LimitHit[], Date.now(), saved[`statedLimit:${id}`]); return summary.count || summary.learnedLimit !== undefined ? `${summary.text} · counted by Baton` : ''; };
 // Official readings plus, for windows chat draws from, an estimate moved forward by messages sent since.
 const shownWindows = (saved: Record<string, any>, id: ProviderId): DisplayWindow[] => displayWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], (saved[`usageHistory:${id}`] || {}) as UsageHistory, (saved[`usageSends:${id}`] || []) as number[]);
+// “Your lanes”: one track per enabled service, the active one first and marked.
+function renderLanes(saved: Record<string, any>) {
+  const lanes = document.querySelector('#lanes') as HTMLElement | null;
+  if (!lanes) return;
+  const enabled = (saved.enabledProviders || {}) as Record<string, boolean>;
+  const order = providerIds.filter(id => providerEnabled(id, enabled)).sort((a, b) => Number(b === activeProvider) - Number(a === activeProvider));
+  lanes.replaceChildren(...order.map(id => {
+    const lane = laneFor(saved, id);
+    const row = document.createElement('div'); row.className = 'lane'; row.setAttribute('role', 'listitem'); row.style.setProperty('--lane', laneColors[id]);
+    const name = document.createElement('b'); name.textContent = providerNames[id];
+    if (id === activeProvider) { const here = document.createElement('span'); here.className = 'here'; here.textContent = 'here'; name.append(here); }
+    const track = document.createElement('span'); track.className = `track${lane.left === undefined ? ' unknown' : lane.left < 20 ? ' low' : ''}`;
+    if (lane.left !== undefined) { const fill = document.createElement('span'); fill.style.width = `${Math.max(2, lane.left)}%`; track.append(fill); }
+    const value = document.createElement('em'); value.textContent = lane.value;
+    const detail = document.createElement('small'); detail.textContent = lane.detail;
+    row.setAttribute('aria-label', `${providerNames[id]}: ${lane.value}${lane.detail ? `, ${lane.detail}` : ''}`);
+    row.append(name, track, value, detail);
+    return row;
+  }));
+}
 async function showUsage() {
-  const saved = await chrome.storage.local.get(providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`]));
+  const saved = await chrome.storage.local.get([...providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`]), 'enabledProviders']);
+  renderLanes(saved);
   usageList.replaceChildren();
   renderActiveUsage(saved);
   for (const id of providerIds) {
@@ -293,6 +317,11 @@ const showLibrary = async () => {
   (document.querySelector('#thread-count') as HTMLElement).textContent = String(recent.length);
   const folders = await listFolders();
   (document.querySelector('#folder-count') as HTMLElement).textContent = String(folders.length);
+  // “1 folder”, “2 folders”: the word after each count follows its number.
+  for (const [id, word] of [['#chat-count', 'baton'], ['#folder-count', 'folder'], ['#thread-count', 'chat']] as const) {
+    const count = document.querySelector(id) as HTMLElement; const label = count.nextSibling;
+    if (label?.nodeType === 3) label.textContent = ` ${word}${count.textContent === '1' ? '' : 's'}`;
+  }
   const folderOptions = document.querySelector('#folder-options') as HTMLElement; folderOptions.replaceChildren();
   for (const folder of folders) { const option = document.createElement('option'); option.value = folder; folderOptions.append(option); }
   const recentList = document.querySelector('#recent-list') as HTMLElement; recentList.replaceChildren();
@@ -334,6 +363,9 @@ const showLibrary = async () => {
     });
     const card = () => {
       const row = document.createElement('div'); row.className = 'capsule-row';
+      const laneHost = (() => { try { return new URL(item.url).hostname; } catch { return ''; } })();
+      const laneId = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(laneHost));
+      if (laneId) row.style.setProperty('--lane', laneColors[laneId]);
       const open = button.cloneNode(true) as HTMLButtonElement; open.className = 'capsule-open'; open.addEventListener('click', () => button.click());
       const actions = document.createElement('div'); actions.className = 'capsule-actions';
       const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'icon-button'; copy.textContent = '⧉'; copy.setAttribute('aria-label', `Copy ${item.name}`);
@@ -449,7 +481,7 @@ captureButton.addEventListener('click', async () => {
     const promptTokens = encode(data.pendingPrompt || '').length;
     cost.textContent = promptTokens ? `Unsent prompt: about ${promptTokens} tokens. ${meter.estimatedReplyCost === undefined ? 'Share of remaining allowance unknown.' : `A rough reply may equal about ${meter.estimatedReplyCost}% of the token count in a past chat that showed a limit; actual allowance unknown.`} ${shouldNudge(meter) ? 'Consider preparing a brief before the limit.' : ''}` : 'No unsent prompt found. Reply cost is unknown.';
   } catch (error) { status.textContent = `Capture failed: ${String(error)}. You can paste a brief instead.`; }
-  finally { captureButton.disabled = false; captureButton.textContent = '✧ Capture Page'; showDraftBudget(); }
+  finally { captureButton.disabled = false; captureButton.textContent = 'Capture this chat →'; showDraftBudget(); }
 });
 
 for (const [selector, positive] of [['#positive', true], ['#negative', false]] as const) document.querySelector(selector)?.addEventListener('click', async () => {

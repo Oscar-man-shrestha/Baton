@@ -17,3 +17,44 @@ details{border-top:1px solid var(--line);padding-top:9px;margin-top:12px}summary
 .header #show-usage{width:auto;min-width:42px;padding:4px 7px;border:1px solid var(--line);border-radius:9px;font-size:10px;color:var(--brand)}
 .cloud-card{display:flex;align-items:center;gap:10px;margin:-12px 0 20px;padding:10px 10px 10px 12px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.cloud-card>div{flex:1;min-width:0}.cloud-card strong{display:block;font-size:12px;font-weight:600}.cloud-card small{display:block;color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cloud-card button{flex:none;font-size:11px;padding:7px 10px;min-height:32px;border-radius:9px;background:var(--brand);border-color:var(--brand);color:#fff}.dialog-section{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--raised)}.dialog-section h3,.dialog-heading{margin:0 0 6px;font-size:13px}.dialog-heading{margin-top:14px}
 .usage-refresh-row{display:flex;align-items:center;gap:8px;margin:8px 0 0}.usage-refresh-row button{flex:none;font-size:11px;padding:6px 10px;min-height:30px;border-radius:9px}.usage-refresh-row small{flex:1;min-width:0;color:var(--muted);font-size:10px;line-height:1.35}
+/* Baton layout (0.3.25): own structure on the existing palette — baton mark, pass card, lanes, quiet counts, lane-edged list. */
+.baton-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--soft);font-size:0}
+.baton-mark i{display:block;width:20px;height:7px;border-radius:4px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,var(--brand) 0 5px,var(--surface) 5px 7px)}
+.header .mark.baton-mark{width:30px;height:30px}
+.dashboard-empty>.baton-mark{width:48px;height:48px;margin:0 auto 13px;border-radius:16px}
+.dashboard-empty>.baton-mark i{width:30px;height:10px;border-radius:6px}
+.pass-card{position:relative;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:13px;padding:12px 12px 10px 14px;margin:0 0 16px}
+.pass-card .source-line{margin:0}
+.pass-card h2{font-size:15px;margin:5px 0 2px}
+.pass-hint{color:var(--muted);font-size:10.5px;margin:0 0 10px}
+.quick-actions{display:flex;gap:6px;margin-top:0}
+.quick-actions button{min-height:34px;padding:6px 10px;font-size:11px;border-radius:9px;background:var(--raised);white-space:nowrap}
+.quick-actions button>span{font-size:13px}
+.quick-actions .pass-primary{flex:1;background:var(--brand);border-color:var(--brand);color:var(--brand-text);font-weight:650;font-size:12px}
+.quick-actions .pass-primary>span{color:inherit}
+.pass-card .capture-extras{margin-top:6px}
+.lanes-section{margin:0 0 16px}
+.lanes-section .section-top{margin-bottom:2px}
+.lanes-section h3,.recent-heading h2{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.lanes-section .usage-refresh-row{margin:0}
+.lanes-status{display:block;color:var(--muted);font-size:9.5px;margin:0 0 6px}
+.lanes{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px 12px}
+.lane{display:grid;grid-template-columns:78px 1fr auto;align-items:center;gap:4px 10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.lane:last-child{border-bottom:0}
+.lane b{font-size:11.5px;font-weight:600;white-space:nowrap}
+.lane .here{margin-left:4px;font-size:8px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}
+.lane .track{position:relative;height:7px;border-radius:4px;background:var(--raised);overflow:hidden}
+.lane .track>span{position:absolute;inset:0 auto 0 0;border-radius:4px;background:var(--lane,var(--brand))}
+.lane .track.low>span{background:var(--warn)}
+.lane .track.unknown{background:repeating-linear-gradient(90deg,var(--raised) 0 6px,transparent 6px 10px)}
+.lane em{font-style:normal;font-size:10.5px;font-weight:650;text-align:right;min-width:58px}
+.lane small{grid-column:2/4;color:var(--muted);font-size:9.5px;line-height:1.3}
+.lanes-section .active-usage{margin-top:8px}
+.recent-heading{margin-top:0}
+.stats{display:block;margin:0 0 8px;color:var(--muted);font-size:10.5px}
+.stats strong{display:inline;margin:0;font-size:11px;line-height:inherit;color:var(--text);font-weight:650}
+.capsule-row{position:relative;padding-left:4px;overflow:hidden}
+.capsule-row:before{content:'';position:absolute;inset:7px auto 7px 0;width:4px;border-radius:3px;background:var(--lane,var(--brand))}
+.capsule-open:before{display:none}
+.capsule-open small{margin-left:0}
+@media(max-width:350px){.quick-actions{flex-wrap:wrap}.quick-actions .pass-primary{flex-basis:100%}.lane{grid-template-columns:64px 1fr auto}.stats strong{font-size:11px;margin:0}}

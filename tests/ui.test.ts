@@ -74,6 +74,11 @@ describe('Baton naming', () => {
     }
     const popup = readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8');
     expect(popup).toContain('New Baton');
-    expect(popup).toContain('Recent Batons');
+    for (const text of ['Pass the baton', 'Your lanes', 'Capture this chat', 'id="lanes"']) expect(popup).toContain(text);
+    const doc = new JSDOM(popup).window.document;
+    // Not Capsule Infinity's layout: no stat tiles, one primary pass action, lanes above the list.
+    expect(doc.querySelector('.stats')?.tagName).toBe('P');
+    expect(doc.querySelector('.quick-actions .pass-primary')?.id).toBe('capture');
+    expect(doc.querySelector('#lanes')!.compareDocumentPosition(doc.querySelector('#recent-list')!) & 4).toBeTruthy();
   });
 });
