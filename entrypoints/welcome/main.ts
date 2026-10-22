@@ -1,5 +1,6 @@
 import { newChatUrls, providerNames } from '../../src/core/rescue';
 import { providerIds } from '../../src/core/selectors';
+import { startMotion } from './motion';
 
 // Opens once after install, and from the ? button in Baton (welcome.html#guide), where it reads as the guide.
 const guideMode = () => { const guide = location.hash === '#guide'; document.title = guide ? 'How to use Baton' : 'Welcome to Baton'; (document.querySelector('#eyebrow') as HTMLElement).textContent = guide ? 'Baton guide' : 'Baton Pass is installed'; };
@@ -37,3 +38,5 @@ document.querySelector('#start-tour')?.addEventListener('click', () => {
     document.querySelector('#setup')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
 });
+
+startMotion();
