@@ -81,6 +81,7 @@ describe('Baton naming', () => {
     expect(order.querySelector('#other-lanes')?.contains(order.querySelector('#lanes'))).toBe(true);
     // The bar under chat boxes can be hidden with its ×; this link (hidden by default) brings it back.
     expect(order.querySelector('.lanes-section #show-composer-bar')?.hasAttribute('hidden')).toBe(true);
+    expect(order.querySelector('.lanes-section #show-pass-button')?.hasAttribute('hidden')).toBe(true);
     const doc = new JSDOM(popup).window.document;
     // Not Capsule Infinity's layout: no stat tiles, one primary pass action, lanes above the list.
     expect(doc.querySelector('.stats')?.tagName).toBe('P');

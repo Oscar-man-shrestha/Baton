@@ -87,6 +87,15 @@ export default defineContentScript({
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
       return redact(wrapHandoff(renderBrief(brief, 1400).text)).text;
     };
+    // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
+    const passTo = async (target: ProviderId) => {
+      const draft = await rescueDraft();
+      if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
+      const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
+      if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
+      return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
+    };
+    const usageKeys = () => [...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders'];
     const updateRescue = async () => {
       const saved = await chrome.storage.local.get([...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders']);
       const limit = reachedLimit(saved, id);
@@ -96,13 +105,7 @@ export default defineContentScript({
       rescueSignature = signature;
       const name = providerNames[id];
       const card = buildRescueCard(document, limit, rescueOptions(id, saved, (saved.enabledProviders || {}) as Record<string, boolean>), {
-        continueIn: async target => {
-          const draft = await rescueDraft();
-          if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
-          const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
-          if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
-          return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
-        },
+        continueIn: passTo,
         switchAccount: async () => {
           const draft = await rescueDraft();
           const help = accountSwitch(id);
@@ -129,6 +132,89 @@ export default defineContentScript({
     chrome.storage.onChanged.addListener(rescueChanged);
     ctx.onInvalidated(() => { chrome.storage.onChanged.removeListener(rescueChanged); rescueHost.remove(); });
     void updateRescue().catch(() => {});
+    // Baton button: a round shortcut just outside the composer's bottom-right corner. Its menu lists the other AIs,
+    // ranked by room left (the best one marked “Suggested”); picking one passes the chat as an unsent draft.
+    const passHost = document.createElement('div');
+    passHost.id = 'handoff-pass';
+    passHost.style.cssText = 'position:fixed;z-index:2147483002;display:none;width:28px;height:28px';
+    const passShadow = passHost.attachShadow({ mode: 'closed' });
+    const passStyle = document.createElement('style');
+    passStyle.textContent = ':host{all:initial}.pass{all:unset;box-sizing:border-box;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.96),rgba(25,24,35,.96));border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s}.pass:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.42),0 0 0 3px rgba(176,154,255,.22)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.brand{width:14px;height:5px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.5) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.5)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}@media(prefers-color-scheme:light){.pass{background:linear-gradient(180deg,#fff,#f4f3fa);border-color:rgba(30,25,70,.12);box-shadow:0 6px 16px rgba(30,25,70,.15)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}}@media(prefers-reduced-motion:reduce){.pass{transition:none}}';
+    const passButton = document.createElement('button');
+    passButton.type = 'button'; passButton.className = 'pass';
+    passButton.title = 'Pass the baton to another AI'; passButton.setAttribute('aria-label', 'Pass the baton to another AI'); passButton.setAttribute('aria-haspopup', 'menu');
+    const passMark = document.createElement('i'); passMark.className = 'brand'; passMark.setAttribute('aria-hidden', 'true'); passButton.append(passMark);
+    const passMenu = document.createElement('div'); passMenu.className = 'menu'; passMenu.setAttribute('role', 'menu'); passMenu.hidden = true;
+    passShadow.append(passStyle, passButton, passMenu);
+    document.body.append(passHost);
+    let passEnabled = true;
+    const laneColor: Record<ProviderId, string> = { claude: '#d97757', gemini: '#4c8df6', chatgpt: '#10a37f', deepseek: '#4d6bfe', grok: '#9aa3ad', perplexity: '#20b8cd' };
+    const closePassMenu = () => { passMenu.hidden = true; passButton.setAttribute('aria-expanded', 'false'); };
+    const openPassMenu = async () => {
+      const saved = await chrome.storage.local.get(usageKeys());
+      const options = rescueOptions(id, saved, (saved.enabledProviders || {}) as Record<string, boolean>);
+      const suggested = options.find(option => option.status === 'room') || options.find(option => option.status === 'unknown');
+      passMenu.replaceChildren();
+      const title = document.createElement('h2'); title.textContent = 'Pass the baton to…';
+      const hint = document.createElement('p'); hint.textContent = 'Opens a new chat with your project as a draft. You press Send.';
+      const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
+      passMenu.append(title, hint);
+      const run = async (action: () => Promise<string>) => { status.textContent = 'Working…'; try { status.textContent = await action(); } catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Open Baton to try again.'; } };
+      for (const option of options) {
+        const item = document.createElement('button'); item.type = 'button'; item.className = 'opt'; item.setAttribute('role', 'menuitem');
+        const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', laneColor[option.provider]);
+        const text = document.createElement('span'); const name = document.createElement('b'); name.textContent = providerNames[option.provider]; const detail = document.createElement('small'); detail.textContent = option.detail; text.append(name, detail);
+        item.append(dot, text);
+        if (option === suggested) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Suggested'; item.append(tag); }
+        if (option.status === 'limited') item.setAttribute('aria-disabled', 'true');
+        else item.addEventListener('click', () => { void run(() => passTo(option.provider)); });
+        passMenu.append(item);
+      }
+      const row = document.createElement('div'); row.className = 'row';
+      const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy project';
+      copy.addEventListener('click', () => { void run(async () => { const draft = await rescueDraft(); await navigator.clipboard.writeText(draft); return 'Project copied and saved as a baton. Paste it into any AI.'; }); });
+      const hideButton = document.createElement('button'); hideButton.type = 'button'; hideButton.textContent = 'Hide this button';
+      hideButton.title = 'Turn it back on in Baton → Usage';
+      hideButton.addEventListener('click', () => { passEnabled = false; closePassMenu(); passHost.style.display = 'none'; void chrome.storage.local.set({ passButtonEnabled: false }); });
+      row.append(copy, hideButton);
+      passMenu.append(status, row);
+      passMenu.hidden = false; passButton.setAttribute('aria-expanded', 'true');
+      // Open upwards from the button when there is room, otherwise downwards; keep it on screen.
+      const button = passHost.getBoundingClientRect(); const menu = passMenu.getBoundingClientRect();
+      const left = Math.max(8, Math.min(button.right - menu.width, innerWidth - menu.width - 8));
+      const top = button.top - menu.height - 8 >= 8 ? button.top - menu.height - 8 : Math.min(button.bottom + 8, innerHeight - menu.height - 8);
+      passMenu.style.left = `${left}px`; passMenu.style.top = `${top}px`;
+      (passMenu.querySelector('.opt:not([aria-disabled=true])') as HTMLElement | null)?.focus();
+    };
+    passButton.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); if (!passMenu.hidden) closePassMenu(); else void openPassMenu().catch(() => {}); });
+    ctx.addEventListener(document, 'click', event => { if (!passMenu.hidden && !event.composedPath().includes(passHost)) closePassMenu(); }, { capture: true });
+    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Escape' && !passMenu.hidden) { closePassMenu(); passButton.focus(); } }, { capture: true });
+    ctx.onInvalidated(() => passHost.remove());
+    // Free spot check shared by the usage pill and the Baton button: no visible text, controls or the composer itself.
+    const interactiveSelector = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
+    const ownText = (element: Element) => Array.from(element.childNodes).some(node => node.nodeType === 3 && !!node.textContent?.trim());
+    const spotTaken = (left: number, top: number, width: number, height: number, surface: Element, step = 12): Element | true | undefined => {
+      if (top < 0 || left < 0 || top + height > innerHeight - 2 || left + width > innerWidth - 2) return true;
+      for (let x = left + 6; x < left + width - 4; x += step) {
+        for (const y of [top + 4, top + height / 2, top + height - 4]) {
+          const element = document.elementFromPoint(x, y);
+          if (!element || element === document.body || element === document.documentElement) continue;
+          if (surface.contains(element) || element.closest(interactiveSelector) || ownText(element)) return element;
+        }
+      }
+      return undefined;
+    };
+    const placePassButton = (surface: Element, box: DOMRect, pill?: DOMRect) => {
+      if (!passEnabled) { passHost.style.display = 'none'; return; }
+      const size = 28;
+      const overlapsPill = (left: number, top: number) => !!pill && left < pill.right + 4 && left + size > pill.left - 4 && top < pill.bottom + 4 && top + size > pill.top - 4;
+      const spots: [number, number][] = [[box.right - size, box.bottom + 5], [box.right + 8, box.bottom - size - 6], [box.right - size, box.top - size - 6]];
+      passHost.style.visibility = 'hidden'; passHost.style.display = 'block';
+      const spot = spots.find(([left, top]) => !overlapsPill(left, top) && !spotTaken(left, top, size, size, surface));
+      if (!spot) { if (passMenu.hidden) passHost.style.display = 'none'; passHost.style.visibility = ''; return; }
+      passHost.style.left = `${spot[0]}px`; passHost.style.top = `${spot[1]}px`; passHost.style.visibility = '';
+    };
+    void chrome.storage.local.get('passButtonEnabled').then(saved => { passEnabled = saved.passButtonEnabled !== false; scheduleStatus(); });
     let statusFrame = 0;
     let lastPrompt = '';
     let lastPromptTokens = 0;
@@ -138,11 +224,12 @@ export default defineContentScript({
       statusFrame = 0;
       positionRescue();
       const editor = findEditor(document, bundledSelectors.providers[id].editor);
-      if (!editor || !composerUsageEnabled) { statusHost.style.display = 'none'; return; }
+      const hideAll = () => { statusHost.style.display = 'none'; if (passMenu.hidden) passHost.style.display = 'none'; };
+      if (!editor) { hideAll(); return; }
       const editorRect = editor.getBoundingClientRect();
       const exposed = document.elementFromPoint(editorRect.left + Math.min(20, editorRect.width / 2), editorRect.top + Math.min(10, editorRect.height / 2));
       // A settings dialog can cover the composer while it remains in the DOM.
-      if (!exposed || !editor.contains(exposed)) { statusHost.style.display = 'none'; return; }
+      if (!exposed || !editor.contains(exposed)) { hideAll(); return; }
       let surface: Element = editor;
       let ancestor = editor.parentElement;
       // The composer is the outermost rounded box with a visible background, border or shadow around the editor
@@ -157,7 +244,8 @@ export default defineContentScript({
         if (rect.width >= editorRect.width * 0.85 && rect.width < innerWidth * 0.95 && rect.height <= 360 && rect.bottom >= editorRect.bottom && looksLikeBox(ancestor)) surface = ancestor;
       }
       const surfaceRect = surface.getBoundingClientRect();
-      if (surfaceRect.width < 180 || surfaceRect.bottom < 0 || surfaceRect.left >= innerWidth - 180) { statusHost.style.display = 'none'; return; }
+      if (surfaceRect.width < 180 || surfaceRect.bottom < 0 || surfaceRect.left >= innerWidth - 180) { hideAll(); return; }
+      if (!composerUsageEnabled) { statusHost.style.display = 'none'; placePassButton(surface, surfaceRect); return; }
       const pillLeft = Math.max(8, surfaceRect.left);
       const pillMaxWidth = Math.min(Math.max(surfaceRect.width, 220), innerWidth - pillLeft - 8);
       const value = editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
@@ -216,20 +304,7 @@ export default defineContentScript({
       statusHost.style.maxWidth = `${pillMaxWidth}px`;
       const pill = statusHost.getBoundingClientRect();
       const pillHeight = pill.height || 28;
-      const interactive = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
-      const ownText = (element: Element) => Array.from(element.childNodes).some(node => node.nodeType === 3 && !!node.textContent?.trim());
-      const conflict = (top: number): Element | true | undefined => {
-        if (top < 0 || top + pillHeight > innerHeight - 2) return true;
-        for (let x = pillLeft + 6; x < pillLeft + pill.width - 4; x += 32) {
-          for (const y of [top + 4, top + pillHeight / 2, top + pillHeight - 4]) {
-            const element = document.elementFromPoint(x, y);
-            if (!element || element === document.body || element === document.documentElement) continue;
-            if (surface.contains(element)) return element;
-            if (element.closest(interactive) || ownText(element)) return element;
-          }
-        }
-        return undefined;
-      };
+      const conflict = (top: number) => spotTaken(pillLeft, top, pill.width, pillHeight, surface, 24);
       let top = surfaceRect.bottom + 6;
       let hit = conflict(top);
       if (hit && hit !== true) {
@@ -242,9 +317,10 @@ export default defineContentScript({
         hit = conflict(top);
       }
       if (hit) { top = surfaceRect.top - pillHeight - 6; hit = conflict(top); }
-      if (hit) { statusHost.style.display = 'none'; statusHost.style.visibility = ''; return; }
+      if (hit) { statusHost.style.display = 'none'; statusHost.style.visibility = ''; placePassButton(surface, surfaceRect); return; }
       statusHost.style.top = `${top}px`;
       statusHost.style.visibility = '';
+      placePassButton(surface, surfaceRect, statusHost.getBoundingClientRect());
     };
     const scheduleStatus = () => { if (!statusFrame) statusFrame = requestAnimationFrame(updateStatus); };
     ctx.addEventListener(document, 'input', scheduleStatus, { capture: true });
@@ -295,6 +371,7 @@ export default defineContentScript({
     if (isUsagePageUrl(id, location.href)) ctx.setTimeout(() => { void observeUsage(true).catch(() => {}); }, 1500);
     const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
+      if (changes.passButtonEnabled) passEnabled = changes.passButtonEnabled.newValue !== false;
       if (changes[`usageWindows:${id}`]) latestWindows = (changes[`usageWindows:${id}`].newValue || []) as UsageWindow[];
       if (changes[`meter:${id}`]) latestMeter = changes[`meter:${id}`].newValue as Meter | undefined;
       if (changes[`usageHistory:${id}`]) latestHistory = (changes[`usageHistory:${id}`].newValue || {}) as UsageHistory;

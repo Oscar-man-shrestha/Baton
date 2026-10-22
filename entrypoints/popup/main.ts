@@ -635,6 +635,11 @@ const syncShowBar = (enabled: boolean) => { if (showBar) showBar.hidden = enable
 syncShowBar(composerToggle.checked);
 showBar?.addEventListener('click', () => { void chrome.storage.local.set({ composerUsageEnabled: true }); });
 chrome.storage.onChanged.addListener(changes => { if (changes.composerUsageEnabled) syncShowBar(changes.composerUsageEnabled.newValue !== false); });
+// Same for the Baton button by chat boxes (hidden from its own menu).
+const showPass = document.querySelector('#show-pass-button') as HTMLButtonElement | null;
+if (showPass) showPass.hidden = (await chrome.storage.local.get('passButtonEnabled')).passButtonEnabled !== false;
+showPass?.addEventListener('click', () => { void chrome.storage.local.set({ passButtonEnabled: true }); });
+chrome.storage.onChanged.addListener(changes => { if (changes.passButtonEnabled && showPass) showPass.hidden = changes.passButtonEnabled.newValue !== false; });
 
 const cloudStatus = document.querySelector('#cloud-status') as HTMLElement;
 const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');
