@@ -4,7 +4,7 @@ import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, question
 import { draftBudget, exactDetails, goalFromUserText, updateBrief } from '../src/core/brief';
 import { saveCapturedCapsule, saveSelectionCapsule, saveWrittenBrief } from '../src/core/capsules';
 import { briefPrompt, checkSummary, checkWrittenBrief, completeWrittenBrief, findWrittenBrief, withoutHandoffRequests } from '../src/core/written-brief';
-import { handoffDraft } from '../src/core/context-export';
+import { fullContext, handoffDraft } from '../src/core/context-export';
 import { listFolders, type Project } from '../src/core/projects';
 import { selectionName, selectionSummary } from '../src/core/selection';
 import { formatShortcut, onMac, type ShortcutCommand } from '../src/core/shortcuts';
@@ -16,7 +16,8 @@ import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
 import { archiveWindow, captureCheck, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
-import { fetchStoredChat } from '../src/core/lossless';
+import { fetchStoredChat, fetchStoredFile } from '../src/core/lossless';
+import { attachFiles, downloadFiles, textFile, transcriptName, type FilePayload } from '../src/core/files';
 import { chatTokens, longChat, stillDismissed, type LongChat } from '../src/core/long-chat';
 import type { Extraction, Turn } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
@@ -132,28 +133,36 @@ export default defineContentScript({
       const previous = stored?.length || genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
       const archive = archiveWindow(previous?.selectorsVersion === bundledSelectors.version ? previous : undefined, data.turns);
       if (!archive.turns.length) throw new Error('There is no conversation on this page to carry over yet.');
-      return { data, archive };
+      return { data, archive, files: (stored || []).flatMap(turn => turn.files || []) };
     };
     const saveVisibleChat = async (target?: ProviderId) => {
-      const { data, archive } = await chatArchive();
+      const { data, archive, files } = await chatArchive();
       const brief = updateBrief(undefined, archive.turns, data.artifacts);
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
-      return { draft: handoffDraft(archive, brief, pageUrl(), target).draft, messages: archive.turns.length, check: captureCheck(archive.turns) };
+      const handoff = handoffDraft(archive, brief, pageUrl(), target);
+      // Too long to type in whole: the summary is typed, and the complete chat goes along as a Markdown file.
+      const transcript = handoff.mode === 'compact' ? textFile(transcriptName(document.title), fullContext(archive, pageUrl()).text, 'text/markdown') : undefined;
+      return { draft: handoff.draft, mode: handoff.mode, transcript, files, messages: archive.turns.length, check: captureCheck(archive.turns) };
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
-    const openDraftIn = async (target: ProviderId, draft: string) => {
+    const openDraftIn = async (target: ProviderId, draft: string, files: FilePayload[] = []) => {
       // Copied first, so a page that doesn't take the text (or a sign-in screen) never loses the draft.
       await navigator.clipboard.writeText(draft).catch(() => {});
-      const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
+      const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft, files });
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
       void chrome.storage.local.get('passCount').then(saved => chrome.storage.local.set({ passCount: (Number(saved.passCount) || 0) + 1 })).catch(() => {});
     };
     const passTo = async (target: ProviderId, next?: string) => {
       const saved = await saveVisibleChat(target);
-      const draft = withNextStep(saved.draft, next);
+      let draft = withNextStep(saved.draft, next);
       if (!draftBudget(draft, target).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
-      await openDraftIn(target, draft);
-      return `Opened ${providerNames[target]} with your project as an unsent draft: ${saved.check.text}. Also saved as a baton and copied, in case the page doesn't show it.`;
+      // Your uploaded files, fetched here with your session, go to the next AI's chat box with the draft (never sent).
+      const uploads = await downloadFiles(saved.files, fetchStoredFile).catch(() => ({ files: [] as FilePayload[], skipped: [] as string[] }));
+      const files = [...(saved.transcript ? [saved.transcript] : []), ...uploads.files];
+      if (saved.transcript) draft = `${draft}\n\nAttached: “${saved.transcript.name}”, the complete conversation word for word. Check it for anything the summary above leaves out.`;
+      await openDraftIn(target, draft, files);
+      const carried = files.length ? ` ${files.length === 1 ? 'One file' : `${files.length} files`} will be attached there${saved.transcript ? ', including the full chat' : ''}.` : '';
+      return `Opened ${providerNames[target]} with your project as an unsent draft: ${saved.check.text}.${carried}${uploads.skipped.length ? ` Not attached (too big or unavailable): ${uploads.skipped.join(', ')}.` : ''} Also saved as a baton and copied.`;
     };
     // A saved selection goes exactly as saved. Too long to type in for you: it is copied and the AI opens to paste it.
     const passSaved = async (saved: Project, target: ProviderId, next?: string) => {
@@ -1337,6 +1346,11 @@ export default defineContentScript({
           const meter = isCurrentReading(latestMeter) ? latestMeter : limit.kind === 'unknown' && isCurrentReading(storedMeter) ? storedMeter : observed;
           sendResponse({ provider: id, turnCount: archive.turns.length, hasUserTurn: archive.turns.some(turn => turn.role === 'user'), artifactCount: result.artifacts.length, incomplete: result.incomplete || archive.incomplete || archive.truncated || !archiveSaved || hadMoreTurns, archiveSaved, warning, pendingPrompt: pendingPrompt.trim().slice(0, 8000), brief, meter, url: pageUrl() });
         })().catch(error => sendResponse({ error: String(error) }));
+        return true;
+      }
+      if (message?.type === 'ATTACH_FILES' && Array.isArray(message.files)) {
+        const editor = findEditor(document, bundledSelectors.providers[id].editor);
+        void attachFiles(document, id, message.files as FilePayload[], editor).then(attached => sendResponse({ ok: true, attached })).catch(() => sendResponse({ ok: false }));
         return true;
       }
       if (message?.type === 'INJECT_DRAFT' && typeof message.text === 'string') {

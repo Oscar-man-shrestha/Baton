@@ -14,6 +14,8 @@ The local transcript can be incomplete if messages were never rendered, windows 
 
 **Reading the whole chat (1.1.0).** On all six supported services (ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity), when the user saves, passes or captures a chat, Baton reads that chat as the service stores it, from the service's own site with the session the page already has (on ChatGPT and DeepSeek, the page's own session token, and on Gemini the page's own request token, used only for that request and never stored). The request goes only to the service the user is on; nothing is sent to Baton or anyone else. If that fails, Baton reads the page instead.
 
+**Files in a handoff (1.1.0).** When the user passes a chat, Baton may fetch the files the user uploaded to that chat from the service's own site (with the page's session), hold them in memory, and attach them, together with a Markdown copy of the chat, to the chat box of the service the user chose. They are uploaded to that service only if the service does so on attaching, as with any file the user adds; Baton sends nothing itself and keeps no copy.
+
 **Have this AI write the handoff (1.1.0, opt-in).** When the user chooses it, Baton types a request into the current chat's own text box; the user decides whether to send it to that service. Baton then reads the service's reply on the page, checks it locally against names and figures from the chat, and saves it as a local baton. Baton itself sends nothing.
 
 Baton may recognize common key and personal-data patterns before rendering a draft, but automated detection can miss sensitive data. Users should inspect and edit the draft. Copying a draft or sending it in a provider's chat is governed by that provider's own policies.

@@ -1,5 +1,6 @@
 import type { Turn } from './adapter';
 import type { ProviderId } from './selectors';
+import type { FileRef } from './files';
 
 /**
  * Lossless capture: the chat as the service itself stores it, read from the page's own site with the user's session
@@ -9,10 +10,11 @@ import type { ProviderId } from './selectors';
  */
 
 type ClaudeBlock = { type: string; text?: string; name?: string; input?: { filepaths?: string[] } };
-type ClaudeMessage = { uuid: string; parent_message_uuid?: string; sender: string; content?: ClaudeBlock[]; text?: string; files?: { file_name?: string }[]; files_v2?: { file_name?: string }[]; attachments?: { file_name?: string }[] };
+type ClaudeFile = { file_name?: string; file_kind?: string; preview_url?: string; size_bytes?: number };
+type ClaudeMessage = { uuid: string; parent_message_uuid?: string; sender: string; content?: ClaudeBlock[]; text?: string; files?: ClaudeFile[]; files_v2?: ClaudeFile[]; attachments?: { file_name?: string; file_type?: string; extracted_content?: string; file_size?: number }[] };
 export type ClaudeConversation = { current_leaf_message_uuid?: string; chat_messages?: ClaudeMessage[] };
 
-type GptMessage = { author: { role: string }; content: { content_type: string; parts?: unknown[]; text?: string }; metadata?: { is_visually_hidden_from_conversation?: boolean; attachments?: { name?: string }[] } };
+type GptMessage = { author: { role: string }; content: { content_type: string; parts?: unknown[]; text?: string }; metadata?: { is_visually_hidden_from_conversation?: boolean; attachments?: { id?: string; name?: string; mime_type?: string; size?: number }[] } };
 export type GptConversation = { current_node?: string; mapping?: Record<string, { parent?: string | null; message?: GptMessage | null }> };
 
 const baseName = (path: string) => path.split('/').pop() || path;
@@ -33,8 +35,11 @@ export function claudeTurns(conversation: ClaudeConversation): Turn[] {
     const blocks = message.content || [];
     const text = blocks.length ? blocks.filter(block => block.type === 'text' && block.text?.trim()).map(block => block.text!.trim()).join('\n\n') : message.text || '';
     const made = blocks.filter(block => block.type === 'tool_use' && block.name === 'present_files').flatMap(block => block.input?.filepaths || []).map(baseName);
-    const uploaded = [...(message.files || []), ...(message.files_v2 || []), ...(message.attachments || [])].map(file => file.file_name || '');
-    return { role: message.sender === 'human' ? 'user' as const : 'assistant' as const, text: withFiles(text, [...uploaded, ...made]), id: `claude:${message.uuid}` };
+    // Pasted or uploaded text documents are kept inside the chat; images come back as Claude's full-size preview (WebP).
+    const documents: FileRef[] = (message.attachments || []).map((file, index) => ({ name: file.file_name || `Pasted text ${index + 1}.${file.file_type === 'txt' || !file.file_type ? 'txt' : file.file_type}`, type: 'text/plain', text: file.extracted_content || '', size: file.file_size }));
+    const images: FileRef[] = [...(message.files || []), ...(message.files_v2 || [])].map(file => ({ name: file.preview_url && file.file_kind === 'image' ? (file.file_name || 'image').replace(/\.[^.]+$/, '') + '.webp' : file.file_name || 'file', url: file.preview_url, size: file.size_bytes }));
+    const refs = [...documents, ...images];
+    return { role: message.sender === 'human' ? 'user' as const : 'assistant' as const, text: withFiles(text, [...refs.map(ref => ref.name), ...made]), id: `claude:${message.uuid}`, ...(refs.length ? { files: refs } : {}) };
   }));
 }
 
@@ -51,11 +56,13 @@ export function chatgptTurns(conversation: GptConversation): Turn[] {
     if (!['text', 'multimodal_text'].includes(message.content.content_type)) continue;
     // Citation markers (private-use characters around “cite…”) are not part of the answer.
     const text = (message.content.parts || []).filter((part): part is string => typeof part === 'string').join('\n').replace(/[^]*/g, '').replace(/[-]/g, '').trim();
-    const files = (message.metadata?.attachments || []).map(file => file.name || '');
+    const attached = message.metadata?.attachments || [];
+    const files = attached.map(file => file.name || '');
+    const refs: FileRef[] = attached.filter(file => file.id && file.name).map(file => ({ name: file.name!, type: file.mime_type, size: file.size, url: file.id!, via: 'chatgpt' as const }));
     if (!text && !files.length) continue;
     const last = turns[turns.length - 1];
     if (last && last.role === 'assistant' && role === 'assistant') last.text = `${last.text}\n\n${withFiles(text, files)}`.trim();
-    else turns.push({ role, text: withFiles(text, files) });
+    else turns.push({ role, text: withFiles(text, files), ...(refs.length ? { files: refs } : {}) });
   }
   return numbered(turns);
 }
@@ -81,12 +88,13 @@ type PerplexityEntry = { query_str?: string; blocks?: { intended_usage?: string;
 export function perplexityTurns(entries: PerplexityEntry[]): Turn[] {
   return numbered(entries.flatMap(entry => {
     const files = (entry.attachments || []).map(file => typeof file === 'string' ? decodeURIComponent(baseName(file.split('?')[0])) : file.file_name || file.name || '');
+    const refs: FileRef[] = (entry.attachments || []).flatMap((file, index) => typeof file === 'string' && /^https:/.test(file) ? [{ name: files[index], url: file }] : []);
     const answer = (entry.blocks || []).filter(block => block.intended_usage === 'ask_text').map(block => block.markdown_block?.answer?.trim() || '').filter(Boolean).join('\n\n');
-    return [{ role: 'user' as const, text: withFiles(entry.query_str || '', files) }, { role: 'assistant' as const, text: answer }];
+    return [{ role: 'user' as const, text: withFiles(entry.query_str || '', files), ...(refs.length ? { files: refs } : {}) }, { role: 'assistant' as const, text: answer }];
   }));
 }
 
-type GrokResponse = { responseId: string; parentResponseId?: string; sender: string; message?: string; createTime?: string; error?: unknown; fileAttachmentsMetadata?: { fileName?: string }[] };
+type GrokResponse = { responseId: string; parentResponseId?: string; sender: string; message?: string; createTime?: string; error?: unknown; fileAttachmentsMetadata?: { fileName?: string; fileMimeType?: string; fileUri?: string }[] };
 /** Grok: the branch ending in the newest message (a regenerated reply replaces the earlier one); failed replies skipped. */
 export function grokTurns(responses: GrokResponse[]): Turn[] {
   const byId = new Map(responses.map(response => [response.responseId, response]));
@@ -94,10 +102,11 @@ export function grokTurns(responses: GrokResponse[]): Turn[] {
   const leaf = responses.filter(response => !parents.has(response.responseId) && !response.error).sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
   const branch: GrokResponse[] = [];
   for (let at: GrokResponse | undefined = leaf; at && !branch.includes(at); at = byId.get(at.parentResponseId || '')) branch.unshift(at);
-  return numbered(branch.filter(response => !response.error).map(response => ({
-    role: response.sender.toLowerCase() === 'human' ? 'user' as const : 'assistant' as const,
-    text: withFiles(response.message || '', (response.fileAttachmentsMetadata || []).map(file => file.fileName || ''))
-  })));
+  return numbered(branch.filter(response => !response.error).map(response => {
+    const meta = response.fileAttachmentsMetadata || [];
+    const refs: FileRef[] = meta.filter(file => file.fileUri && file.fileName).map(file => ({ name: file.fileName!, type: file.fileMimeType, url: `https://assets.grok.com/${file.fileUri}` }));
+    return { role: response.sender.toLowerCase() === 'human' ? 'user' as const : 'assistant' as const, text: withFiles(response.message || '', meta.map(file => file.fileName || '')), ...(refs.length ? { files: refs } : {}) };
+  }));
 }
 
 /** Gemini: turns arrive newest first; each holds your message and the reply drafts, with the one shown named at [3][3]. */
@@ -172,4 +181,20 @@ export async function fetchStoredChat(id: ProviderId, location: Location, timeou
   const line = (await response.text()).split('\n').find(row => row.startsWith('[["wrb.fr","hNvQHb"'));
   const payload = line ? JSON.parse(line)[0][2] : undefined;
   return payload ? geminiTurns(JSON.parse(payload)) : undefined;
+}
+
+/** Fetches one file of the stored chat on its own site (ChatGPT: its download link first, with the page's session). */
+export async function fetchStoredFile(ref: FileRef, timeout = 20000): Promise<Blob> {
+  const signal = AbortSignal.timeout(timeout);
+  let url = ref.url || '';
+  if (ref.via === 'chatgpt') {
+    const session = await (await fetch('/api/auth/session', { credentials: 'include', signal })).json() as { accessToken?: string };
+    const chat = location.pathname.match(/\/c\/([0-9a-f-]{36})/)?.[1] || '';
+    const link = await (await fetch(`/backend-api/files/download/${url}?conversation_id=${chat}&inline=false`, { credentials: 'include', signal, headers: { authorization: `Bearer ${session.accessToken}` } })).json() as { download_url?: string };
+    if (!link.download_url) throw new Error('No download link');
+    url = link.download_url;
+  }
+  const response = await fetch(url, { credentials: 'include', signal });
+  if (!response.ok) throw new Error(String(response.status));
+  return response.blob();
 }

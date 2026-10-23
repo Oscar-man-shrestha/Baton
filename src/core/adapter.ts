@@ -1,7 +1,9 @@
+import type { FileRef } from './files';
 import type { ProviderId, SelectorBundle } from './selectors';
 import { messageMarkdown } from './markdown';
 
-export type Turn = { role: 'user' | 'assistant'; text: string; index: number; id?: string };
+// files: where the message's files can be fetched again (stored-chat capture only), for re-attaching in the next AI.
+export type Turn = { role: 'user' | 'assistant'; text: string; index: number; id?: string; files?: FileRef[] };
 export type Artifact = { name: string; kind: string; content: string; version: number };
 export type Extraction = { provider: ProviderId; turns: Turn[]; artifacts: Artifact[]; incomplete: boolean; warning?: string };
 export type LimitSignal = { kind: 'banner' | 'unknown'; text: string; resetAt?: number };

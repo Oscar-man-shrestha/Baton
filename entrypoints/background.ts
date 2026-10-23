@@ -13,6 +13,8 @@ import { providerEnabled, providerNames } from '../src/core/rescue';
 import { fetchRankings } from '../src/core/task-fit';
 import { pageCommands, type ShortcutCommand } from '../src/core/shortcuts';
 
+import { fileLimits, type FilePayload } from '../src/core/files';
+
 export default defineBackground(() => {
   const enqueueUsage = usageQueue();
   const badgeKey = (tabId: number) => `usageBadge:${tabId}`;
@@ -184,12 +186,24 @@ export default defineBackground(() => {
       if (await chrome.permissions.contains({ permissions: ['notifications'] })) await chrome.notifications.create(alarm.name, { type: 'basic', iconUrl: chrome.runtime.getURL('icon-128.png'), title: `${providerNames[provider]} is available again`, message: 'Its usage limit was due to reset now. Your saved project is in Baton.', priority: 0 });
     })().catch(() => {});
   });
-  const deliverDraft = async (tabId: number, text: string) => {
+  // Files go once the draft is in (attaching sooner can be lost while the page is still setting up its chat box).
+  const deliverFiles = async (tabId: number, files: FilePayload[]) => {
+    for (let attempt = 1; attempt <= 6; attempt++) {
+      try {
+        const result = await chrome.tabs.sendMessage(tabId, { type: 'ATTACH_FILES', files });
+        if (result?.ok) { await chrome.storage.local.set({ lastFileAttach: { at: Date.now(), sent: files.map(file => file.name), attached: result.attached } }); return; }
+      } catch { /* The page may still be loading. */ }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    await chrome.storage.local.set({ lastFileAttach: { at: Date.now(), sent: files.map(file => file.name), attached: [] } });
+  };
+  const deliverDraft = async (tabId: number, text: string, files: FilePayload[] = []) => {
     for (let attempt = 1; attempt <= 12; attempt++) {
       try {
         const result = await chrome.tabs.sendMessage(tabId, { type: 'INJECT_DRAFT', text });
         if (result?.ok) {
           await chrome.storage.local.set({ lastDraftInsertion: { at: Date.now(), ok: true, attempts: attempt } });
+          if (files.length) await deliverFiles(tabId, files);
           return;
         }
       } catch { /* Content script or editor may still be loading. */ }
@@ -295,6 +309,9 @@ export default defineBackground(() => {
     const allowed = ['chatgpt.com', 'claude.ai', 'gemini.google.com', 'chat.deepseek.com', 'grok.com', 'www.perplexity.ai'];
     const url = new URL(message.url);
     if (url.protocol !== 'https:' || !allowed.includes(url.hostname)) { sendResponse({ ok: false, error: 'Unsupported destination' }); return; }
+    // At most 9 files (8 uploads and the full chat), each a name, a type and base64 data, within Baton's size limits.
+    const files = (Array.isArray(message.files) ? message.files : []).filter((file: FilePayload) => typeof file?.name === 'string' && typeof file.type === 'string' && typeof file.data === 'string' && file.name.length <= 200).slice(0, fileLimits.count + 1) as FilePayload[];
+    if (files.reduce((sum, file) => sum + file.data.length, 0) > fileLimits.total * 1.4) { sendResponse({ ok: false, error: 'Files too large' }); return; }
     chrome.tabs.create({ url: url.toString() }, tab => {
       const id = tab?.id;
       if (!id) { sendResponse({ ok: false }); return; }
@@ -303,7 +320,7 @@ export default defineBackground(() => {
         if (started) return;
         started = true;
         chrome.tabs.onUpdated.removeListener(onUpdated);
-        void deliverDraft(id, message.text);
+        void deliverDraft(id, message.text, files);
       };
       const onUpdated = (updatedId: number, info: { status?: string }) => {
         if (updatedId !== id || info.status !== 'complete') return;
