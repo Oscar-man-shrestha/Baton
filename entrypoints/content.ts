@@ -16,7 +16,7 @@ import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, i
 import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
 import { chatFeature, chatSegments, countSegments, workSegments, type Segment } from '../src/core/composer-line';
-import { messageSummary, recordLimitHit, type LimitHit } from '../src/core/message-counts';
+import { messageSummary, recordLimitHit, sentToday, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
   matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*', 'https://chat.deepseek.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*'],
@@ -407,7 +407,8 @@ export default defineContentScript({
         if (!text.endsWith('Usage left: unknown')) addSegment({ label: '', value: text.replace(/^Usage left: /, '') });
         else if (counted.uncapped) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} ${work.length ? 'today' : 'sent today'}` });
         else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
-        else addSegment({ label: 'Chat', value: extras.length ? 'no limit shown' : 'usage not shown' });
+        // Nothing reported and nothing counted yet: say so plainly, with today's count from this browser.
+        else addSegment({ label: 'Chat', value: 'No limit shown', note: `${sentToday(latestSends, Date.now())} today` });
       }
       work.forEach(addSegment);
       if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); nextBody.append(tokens); }

@@ -1,5 +1,5 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import { usageKindOf } from '../src/core/usage-kind';
+import { isClaudeReplyStream, usageKindOf } from '../src/core/usage-kind';
 
 // Usage tap: runs in the page's own context on ChatGPT, Claude and Gemini, before their scripts. When the site fetches
 // its own usage (ChatGPT's allowances and Codex/Work windows, Claude's usage meter, Gemini's quota), Baton reads a copy
@@ -16,6 +16,22 @@ export default defineContentScript({
     const limit = 400000;
     const post = (kind: string, text: string) => { if (text && text.length <= limit) window.postMessage({ source: 'baton-usage-tap', kind, text }, location.origin); };
 
+    const scanClaudeStream = async (body: ReadableStream<Uint8Array>) => {
+      const reader = body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          for (let cut = buffer.indexOf('\n\n'); cut !== -1; cut = buffer.indexOf('\n\n')) {
+            const data = buffer.slice(0, cut).split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trim()).join('\n');
+            buffer = buffer.slice(cut + 2);
+            if (!data.includes('message_limit')) continue;
+            try { const event = JSON.parse(data); if (event && event.message_limit) post('claude-usage', JSON.stringify({ message_limit: event.message_limit })); } catch { /* partial */ }
+          }
+        }
+      } catch { /* stream closed */ }
+    };
     const originalFetch = window.fetch;
     window.fetch = function (this: unknown, input: RequestInfo | URL, init?: RequestInit) {
       const result = originalFetch.apply(this, [input, init] as Parameters<typeof fetch>);
@@ -23,6 +39,8 @@ export default defineContentScript({
         const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href).href;
         const kind = usageKindOf(url);
         if (kind) void result.then(response => { if (response.ok) void response.clone().text().then(text => post(kind, text)).catch(() => {}); }).catch(() => {});
+        // Claude reports its usage inside each reply's stream. Only the message_limit event is passed on, never the reply.
+        else if (isClaudeReplyStream(url)) void result.then(response => { if (response.ok && response.body) void scanClaudeStream(response.clone().body!); }).catch(() => {});
       } catch { /* Never get in the page's way. */ }
       return result;
     } as typeof fetch;

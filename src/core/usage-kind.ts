@@ -15,3 +15,8 @@ export function usageKindOf(url: string): UsageKind | undefined {
 }
 
 export const GEMINI_QUOTA_RPC = 'qpEbW';
+
+/** Claude's reply stream (completion / retry_completion): its message_limit event carries the 5-hour and weekly use. */
+export function isClaudeReplyStream(url: string): boolean {
+  try { const parsed = new URL(url); return parsed.hostname === 'claude.ai' && /^\/api\/.+\/(?:retry_)?completion\/?$/.test(parsed.pathname); } catch { return false; }
+}

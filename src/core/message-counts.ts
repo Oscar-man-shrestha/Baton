@@ -22,7 +22,7 @@ export function recordLimitHit(hits: LimitHit[], sends: number[], provider: Prov
 export type MessageSummary = { count: number; hours: number; learnedLimit?: number; left?: number; text: string; uncapped?: boolean };
 /** Services whose free text chat has no published cap (ChatGPT since Aug 2026): count per day, not per window. */
 export const uncappedChat = (provider: ProviderId) => provider === 'chatgpt';
-const sentToday = (sends: number[], now: number) => { const start = new Date(now); start.setHours(0, 0, 0, 0); return sends.filter(time => time >= start.getTime() && time <= now).length; };
+export const sentToday = (sends: number[], now: number) => { const start = new Date(now); start.setHours(0, 0, 0, 0); return sends.filter(time => time >= start.getTime() && time <= now).length; };
 /**
  * “4 of 20 msgs in last 2 h · ≈16 left (limit stated by Grok)” when the service stated its limit, else
  * “12 msgs in last 2 h · limit hit after ~20 last time · ≈8 left (learned)”; without either, only the count.

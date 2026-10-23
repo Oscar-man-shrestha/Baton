@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isClaudeReplyStream } from '../src/core/usage-kind';
 import { parseChatGptFeatures, parseChatGptWham, parseClaudeUsageResponse, parseGeminiQuota, parseUsageResponse, usageKindOf } from '../src/core/usage-api';
 import { activeWindows } from '../src/core/usage-windows';
 
@@ -53,6 +54,13 @@ describe('usage the AI sites send to the browser', () => {
     expect(parseGeminiQuota(`)]}'\n${JSON.stringify([['wrb.fr', 'other', '[]']])}`, now)).toEqual([]);
   });
 
+  it('reads Claude’s message_limit event from a reply stream as session and weekly', () => {
+    expect(isClaudeReplyStream('https://claude.ai/api/organizations/o1/chat_conversations/c9/completion')).toBe(true);
+    expect(isClaudeReplyStream('https://claude.ai/api/organizations/o1/chat_conversations/c9/retry_completion')).toBe(true);
+    expect(isClaudeReplyStream('https://claude.ai/api/organizations/o1/chat_conversations/c9')).toBe(false);
+    const event = { message_limit: { type: 'within_limit', windows: { '5h': { status: 'within_limit', utilization: 0.34, resets_at: Math.floor((now + 2 * h) / 1000) }, '7d': { status: 'within_limit', utilization: 0.54, resets_at: Math.floor((now + 46 * h) / 1000) } } } };
+    expect(parseUsageResponse('claude-usage', JSON.stringify(event), now).map(win => [win.key, win.percent, (win.resetAt! - now) / h])).toEqual([['claude:Session', 34, 2], ['claude:Weekly', 54, 46]]);
+  });
   it('never throws on junk', () => {
     for (const kind of ['chatgpt-features', 'chatgpt-wham', 'claude-usage', 'gemini-quota'] as const) for (const text of ['', 'not json', 'null', '[]', '{"limits_progress":7}'])
       expect(parseUsageResponse(kind, text, now)).toEqual([]);

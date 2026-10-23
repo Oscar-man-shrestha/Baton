@@ -40,5 +40,7 @@ describe('usage bar under the composer', () => {
     expect(countSegments([thinking(0, { percent: 100 })], now)[0].level).toBe('low');
     expect(chatSegments([thinking(1, { percent: 90, remainingPercent: 10 })], now)).toEqual([]);
     expect(countSegments([win('Session', 20)], now)).toEqual([]);
+    const allowance = (feature: string, remaining: number, days: number) => ({ ...thinking(remaining), feature, key: `chatgpt:${feature}`, resetAt: now + days * 24 * 60 * min });
+    expect(countSegments([thinking(3), allowance('Image generation', 10, 1), allowance('Deep research', 5, 30), allowance('Paste text to file', 1, 1), allowance('File uploads', 8, 1)], now).map(seg => [seg.label, seg.value, seg.note])).toEqual([['Thinking', '3 left', '4h 46m'], ['Research', '5 left', '30d 0h']]);
   });
 });

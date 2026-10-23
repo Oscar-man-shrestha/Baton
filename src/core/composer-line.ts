@@ -36,12 +36,21 @@ export function workSegments(windows: DisplayWindow[], now = Date.now()): Segmen
   });
 }
 
-/** ChatGPT's Thinking allowance, as the site reports it: “Thinking 3 left · 4h 46m” (a ring when the maximum is known). */
-export function countSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
-  const win = windows.find(candidate => candidate.feature === 'Thinking' && candidate.remainingCount !== undefined);
-  if (!win) return [];
+// The feature allowances worth a place in the bar, with short names; the rest stay in Baton's usage list.
+const allowanceLabels: Record<string, string> = { 'Deep research': 'Research', 'Image generation': 'Images', 'File uploads': 'Uploads', Agent: 'Agent', Video: 'Video' };
+const countSegment = (win: DisplayWindow, label: string, now: number): Segment => {
   const count = win.remainingCount!;
   const reset = resetCountdown(win.resetAt, now);
   const left = win.percent !== undefined ? Math.max(0, Math.round(100 - win.percent)) : undefined;
-  return [{ label: 'Thinking', value: `${count} left`, ...(left !== undefined ? { left } : {}), level: count === 0 ? 'low' : count <= 2 ? 'mid' : 'ok', ...(reset ? { note: reset } : {}) }];
+  return { label, value: `${count} left`, ...(left !== undefined ? { left } : {}), level: count === 0 ? 'low' : count <= 2 ? 'mid' : 'ok', ...(reset ? { note: reset } : {}) };
+};
+/**
+ * ChatGPT's allowances as the site reports them: Thinking (“Thinking 3 left · 4h 46m”), then the one feature allowance
+ * closest to running out (“Research 5 left · 30d 0h”). A ring shows when the maximum is known.
+ */
+export function countSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
+  const counted = windows.filter(win => win.remainingCount !== undefined && win.source === 'provider-response');
+  const thinking = counted.find(win => win.feature === 'Thinking');
+  const scarcest = counted.filter(win => allowanceLabels[win.feature]).sort((a, b) => a.remainingCount! - b.remainingCount! || (a.resetAt ?? Infinity) - (b.resetAt ?? Infinity))[0];
+  return [...(thinking ? [countSegment(thinking, 'Thinking', now)] : []), ...(scarcest ? [countSegment(scarcest, allowanceLabels[scarcest.feature], now)] : [])];
 }
