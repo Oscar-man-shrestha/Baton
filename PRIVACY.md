@@ -1,6 +1,6 @@
 # Baton Pass privacy policy draft
 
-Baton Pass (shown as “Baton” in the extension) was previously named Handoff.
+Baton Pass (shown as “Baton” in the extension) was previously named Handoff. Baton is an independent extension, not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
 
 **Date:** 2026-10-21. This draft must be published at a stable public URL before a Chrome Web Store submission.
 

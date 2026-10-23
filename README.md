@@ -55,3 +55,5 @@ Open **Usage across AI chats** in the popup to see recent, directly visible limi
 - Historical 0.1.4 status: Google sign-in was not implemented then. Current Google/Supabase backup is configured and live-tested as described above. Google Drive backup is not implemented.
 
 Usage is available from the header button. See [GOOGLE_LOGIN_SETUP.md](GOOGLE_LOGIN_SETUP.md) for the exact Google Console and Supabase fields, including Copy extension callback in the app.
+
+Baton is an independent extension, not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.

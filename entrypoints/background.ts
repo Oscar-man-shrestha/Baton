@@ -108,22 +108,32 @@ export default defineBackground(() => {
     const saved = ((await chrome.storage.local.get(key))[key] || []) as UsageWindow[];
     await chrome.storage.local.set({ [key]: mergeUsageWindows(saved, readings) });
   });
-  // Baton's own usage refresh (ChatGPT, Claude, Gemini) with the browser's sign-in: at most once a minute per service.
+  // Baton's own usage refresh (ChatGPT, Claude, Gemini) with the browser's sign-in, kept gentle: off with one switch,
+  // at most once a minute per service, and backing off (2, 4, 8… up to 60 minutes) while a service gives nothing back,
+  // e.g. signed out or refusing; one good answer resets it.
   const apiRunAt = new Map<ProviderId, number>();
+  const apiBackoff = new Map<ProviderId, { fails: number; until: number }>();
   const refreshApi = async (provider: ProviderId) => {
     if (!apiProviders.includes(provider) || Date.now() - (apiRunAt.get(provider) || 0) < 60000) return false;
+    if (Date.now() < (apiBackoff.get(provider)?.until || 0)) return false;
+    if ((await chrome.storage.local.get('usageApiRefresh')).usageApiRefresh === false) return false;
     apiRunAt.set(provider, Date.now());
     const readings = await fetchUsage(provider).catch(() => [] as UsageWindow[]);
-    if (readings.length) await saveReadings(provider, readings);
-    return readings.length > 0;
+    if (readings.length) { apiBackoff.delete(provider); await saveReadings(provider, readings); return true; }
+    const fails = (apiBackoff.get(provider)?.fails || 0) + 1;
+    apiBackoff.set(provider, { fails, until: Date.now() + Math.min(60, 2 ** fails) * 60000 });
+    return false;
   };
-  // Every 5 minutes for the services the user has on, so the bar stays current without reloading a chat page.
+  // Every 5 minutes, only for services the user is using: one with a tab open, or messages sent in the last 3 days.
   void chrome.alarms.create('baton-usage-api', { periodInMinutes: 5 });
   chrome.alarms.onAlarm.addListener(alarm => {
     if (alarm.name !== 'baton-usage-api') return;
     void (async () => {
-      const enabled = ((await chrome.storage.local.get('enabledProviders')).enabledProviders || {}) as Record<string, boolean>;
-      await Promise.all(apiProviders.filter(id => providerEnabled(id, enabled)).map(refreshApi));
+      const saved = await chrome.storage.local.get(['enabledProviders', ...apiProviders.map(id => `usageSends:${id}`)]);
+      const enabled = (saved.enabledProviders || {}) as Record<string, boolean>;
+      const open = (await chrome.tabs.query({})).map(tab => { try { return new URL(tab.url || '').hostname; } catch { return ''; } });
+      const inUse = (id: ProviderId) => bundledSelectors.providers[id].hosts.some(host => open.includes(host)) || Math.max(0, ...((saved[`usageSends:${id}`] || []) as number[])) > Date.now() - 3 * 86400000;
+      await Promise.all(apiProviders.filter(id => providerEnabled(id, enabled) && inUse(id)).map(refreshApi));
     })().catch(() => {});
   });
   // After a send, refresh that service's usage 30 s later (the reply's usage is then counted): its usage response

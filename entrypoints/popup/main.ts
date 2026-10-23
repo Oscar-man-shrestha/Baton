@@ -882,6 +882,10 @@ document.querySelector('#backup-all')?.addEventListener('click', async () => {
 const afterSend = document.querySelector('#refresh-after-send') as HTMLInputElement;
 afterSend.checked = (await chrome.storage.local.get('refreshAfterSend')).refreshAfterSend !== false;
 afterSend.addEventListener('change', () => { void chrome.storage.local.set({ refreshAfterSend: afterSend.checked }); });
+// On by default: Baton's own usage requests with the user's sign-in (the page's own usage responses are read either way).
+const usageApi = document.querySelector('#refresh-usage-api') as HTMLInputElement;
+usageApi.checked = (await chrome.storage.local.get('usageApiRefresh')).usageApiRefresh !== false;
+usageApi.addEventListener('change', () => { void chrome.storage.local.set({ usageApiRefresh: usageApi.checked }); });
 const autoRefresh = document.querySelector('#auto-refresh-usage') as HTMLInputElement;
 const autoSettings = await chrome.storage.local.get(['autoRefreshUsage', 'lastAutoUsageRefresh']);
 autoRefresh.checked = autoSettings.autoRefreshUsage !== false;
