@@ -357,11 +357,12 @@ function renderActiveUsage(saved: Record<string, any>) {
     const details = document.createElement('details'); details.className = 'usage-details';
     details.open = usageDetailsOpen; details.addEventListener('toggle', () => { usageDetailsOpen = details.open; });
     details.append(element('summary', '', 'Details'));
+    // One plain sentence; the service's field names (useful only when debugging a changed format) stay in the tooltip.
     const fieldRow = (fields: CheckField[]) => {
       const empty = fields.filter(field => !field.filled).length;
-      const text = !fields.length ? 'Nothing readable' : empty === fields.length ? `${fields.length} usage fields, all empty` : `${fields.length - empty} of ${fields.length} usage fields filled, none Baton can read`;
-      const chips = element('span', 'field-chips', ...fields.map(field => { const chip = element('code', field.filled ? 'filled' : '', field.name); chip.title = field.filled ? 'Has a value' : 'Empty'; return chip; }));
-      return [element('dt', '', 'Answer'), element('dd', '', element('span', '', text), chips)];
+      const answer = element('dd', 'usage-answer', !fields.length ? `${name} sent nothing Baton could read.` : empty === fields.length ? `${name} replied, but without any usage numbers.` : `${name} replied in a form Baton can’t read yet.`);
+      if (fields.length) answer.title = `Fields ${name} sent: ${fields.map(field => `${field.name}${field.filled ? '' : ' (empty)'}`).join(', ')}`;
+      return [element('dt', '', 'Answer'), answer];
     };
     const block = (title: string, at: number, rows: HTMLElement[]) => {
       const head = element('div', 'check-head', element('b', '', title), element('time', '', time(at)));
@@ -380,7 +381,7 @@ function renderActiveUsage(saved: Record<string, any>) {
     if (tap && showTap) {
       const fields = tap.kind === 'claude-stream' ? [] : readFields(tap.fields);
       const same = check && JSON.stringify(fields) === JSON.stringify(readCheckSteps(check.steps).fields) && fields.length;
-      block('From the page', tap.at, tap.kind === 'claude-stream' ? [element('dt', '', 'Reply note'), element('dd', '', tap.fields)] : same ? [element('dt', '', 'Answer'), element('dd', '', 'The same empty fields as above')] : fieldRow(fields));
+      block('From the page', tap.at, tap.kind === 'claude-stream' ? [element('dt', '', 'Reply note'), element('dd', '', tap.fields)] : same ? [element('dt', '', 'Answer'), element('dd', '', 'The same as above.')] : fieldRow(fields));
     }
     container.append(details);
   }
