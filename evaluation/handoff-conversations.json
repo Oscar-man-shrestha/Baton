@@ -448,7 +448,7 @@
   },
   {
     "id": "marathon",
-    "kind": "long: the middle discussion repeated four times, well over the draft budget",
+    "kind": "long: the middle discussion repeated fourteen times, well over the draft limit",
     "turns": [
       [
         "user",
@@ -697,6 +697,566 @@
       [
         "assistant",
         "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 4: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 5, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 5: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 6, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 6: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 7, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 7: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 8, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 8: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 9, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 9: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 10, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 10: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 11, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 11: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 12, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 12: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 13, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 13: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how should the config file look? I want people to set their own folder names (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "A small TOML file at ~/.config/tidy/config.toml works well: a `[folders]` table mapping patterns to names, like `pdf = 'Documents'` and `jpg = 'Pictures'`. Load it with tomllib (built into Python 3.11), fall back to defaults when the file is missing, and validate it at startup so a typo shows a clear message instead of a stack trace. Keep the defaults in code so the tool works with no config at all. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "what python version should I target (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "3.11 or newer: tomllib is built in, error messages are much clearer, and it's what most current Linux distributions and Homebrew ship. Declare `requires-python = '>=3.11'` in pyproject.toml so pip refuses older interpreters with a clear message rather than failing later on an import. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I package it so I can install it with pipx (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Use a pyproject.toml with hatchling as the build backend and a `[project.scripts]` entry `tidy = 'tidy.cli:app'`. Then `pipx install .` from the project folder installs it in its own environment, and `pipx install git+https://github.com/you/tidy` works once it's on GitHub. Keep the package in `src/tidy/` so tests import the installed package, not the working tree, which catches missing files in the build. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "the move is slow on my external drive (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Moves within one drive are just renames and are instant; across drives, shutil.move copies then deletes, which is slow for big files. Group moves by destination drive, show a progress bar with rich.progress for large batches, and check free space first with shutil.disk_usage so a full drive fails before anything moves. For the never-delete rule this also matters: if a copy fails halfway, shutil.move leaves the source in place, which is the safe outcome. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "can it run automatically every day (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "On macOS use a launchd agent (a plist in ~/Library/LaunchAgents with StartCalendarInterval), on Linux a systemd user timer, on Windows Task Scheduler. I'd add a `tidy schedule` command later that writes the right file for the platform, but start by documenting the three manual setups in the README so people can choose. Always run scheduled jobs without --dry-run only after a first manual dry run. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "how do I show what it would do in a nice table (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "rich.table.Table with three columns: file, from, to. Sort by destination folder so related moves sit together, and truncate long paths in the middle (keeping the file name) so the table stays readable in a normal terminal. Print a one-line summary at the end: 42 files, 5 folders, 1.2 GB, nothing deleted. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
+      ],
+      [
+        "user",
+        "some files have no modified date that makes sense (asking again, round 14, with more detail please)"
+      ],
+      [
+        "assistant",
+        "Downloaded files keep the server's timestamp sometimes, so a file downloaded today can claim 2009. Prefer the macOS `kMDItemDateAdded` attribute (via `mdls`) when it exists, then the creation time (st_birthtime), then the modification time. Put that in one function, `added_date(path)`, so the rule is in one place and easy to test with fake timestamps. To add to that, round 14: the same advice holds; keep the change small, test it with tmp_path, and keep the never-delete rule intact."
       ],
       [
         "user",

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdom');
 import { bundledSelectors } from '../src/core/selectors';
-import { extract, makeAdapter } from '../src/core/adapter';
+import { extract, makeAdapter, sameDraft } from '../src/core/adapter';
 import { estimateMeter } from '../src/core/limits';
 
 describe('adapter fixtures', () => {
@@ -126,5 +126,12 @@ describe('adapter fixtures', () => {
     expect(makeAdapter('claude', bundledSelectors).injectDraft(doc, 'Reviewed draft')).toBe(true);
     expect(doc.querySelector('[contenteditable]')?.textContent).toBe('Reviewed draft');
     expect(submits).toBe(0);
+  });
+  it('accepts a draft whose line breaks and spaces a rich editor changed, and nothing else', () => {
+    const draft = 'Goal: plan a trip\n\nDecisions:\n- Kyoto  4 nights';
+    expect(sameDraft('Goal: plan a tripDecisions:- Kyoto 4 nights', draft)).toBe(true);
+    expect(sameDraft('Goal: plan a trip\u00a0 Decisions: - Kyoto 4 nights\u200b', draft)).toBe(true);
+    expect(sameDraft('Goal: plan a trip Decisions: - Kyoto 4 nights Goal: plan a trip', draft)).toBe(false);
+    expect(sameDraft('', draft)).toBe(false);
   });
 });

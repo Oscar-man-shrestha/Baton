@@ -76,3 +76,14 @@ export function archiveWindow(previous: TurnArchive | undefined, visible: Turn[]
   if (length > ARCHIVE_CHAR_CAP && turns.length) { turns[0] = { ...turns[0], text: turns[0].text.slice(-ARCHIVE_CHAR_CAP) }; truncated = true; }
   return { turns: turns.map((turn, index) => ({ ...turn, index })), incomplete: (previous?.incomplete || false) || joined.gap, truncated, savedAt: now };
 }
+
+/**
+ * Whether a capture looks whole, shown wherever a chat is saved: how many messages from each side, and where two in a
+ * row come from the same side (a reply or a question that didn't load, the most common capture failure).
+ */
+export function captureCheck(turns: Turn[]): { messages: number; yours: number; replies: number; gaps: number; text: string } {
+  const yours = turns.filter(turn => turn.role === 'user').length;
+  const gaps = turns.filter((turn, index) => index > 0 && turns[index - 1].role === turn.role).length;
+  const counts = `${turns.length} ${turns.length === 1 ? 'message' : 'messages'} (${yours} yours, ${turns.length - yours} ${turns.length - yours === 1 ? 'reply' : 'replies'})`;
+  return { messages: turns.length, yours, replies: turns.length - yours, gaps, text: !turns.length ? 'No messages captured' : gaps ? `${counts}, ${gaps} ${gaps === 1 ? 'place' : 'places'} where a message may be missing` : `${counts}, in order` };
+}

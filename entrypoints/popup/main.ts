@@ -6,7 +6,7 @@ import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/s
 import { iconSvg, type IconName } from './icons';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder, moveToFolder } from '../../src/core/projects';
 import { briefSchema, type Brief } from '../../src/core/brief';
-import type { TurnArchive } from '../../src/core/capture';
+import { captureCheck, type TurnArchive } from '../../src/core/capture';
 import { isCurrentReading, isUsagePageUrl, usagePageUrl, windowLabel, type UsageWindow } from '../../src/core/usage-windows';
 import { displayLabel, displayWindows, estimable, type DisplayWindow, type UsageHistory } from '../../src/core/usage-estimate';
 import { messageSummary, type LimitHit } from '../../src/core/message-counts';
@@ -404,7 +404,8 @@ desktopAlerts.addEventListener('change', async () => {
 });
 let reviewed = false;
 const showDraftBudget = () => {
-  const budget = draftBudget(draft.value);
+  // The limit of the AI chosen below (how much its chat box takes in one go).
+  const budget = draftBudget(draft.value, destination.value as ProviderId);
   (document.querySelector('#use-compact') as HTMLButtonElement).hidden = budget.fits || contextMode.value !== 'full';
   saveBrief.disabled = !draft.value.trim();
   openDraft.disabled = !draft.value.trim() || (reviewed && !budget.fits);
@@ -417,7 +418,7 @@ const showDraftBudget = () => {
   copyDraft.disabled = !draft.value.trim();
   draftBudgetLabel.dataset.state = !draft.value.trim() ? 'empty' : budget.fits ? 'ready' : 'over';
   draft.setAttribute('aria-invalid', draft.value.trim() && !budget.fits ? 'true' : 'false');
-  draftBudgetLabel.textContent = draft.value.trim() ? `Whole draft: about ${budget.approximateTokens}/1,500 tokens. ${budget.fits ? 'Ready for review.' : 'Copy or download the full context, or choose a compact handoff for insertion.'}` : 'Draft is empty.';
+  draftBudgetLabel.textContent = draft.value.trim() ? `Whole draft: about ${budget.approximateTokens.toLocaleString('en-US')}/${budget.limit.toLocaleString('en-US')} tokens. ${budget.fits ? 'Ready for review.' : 'Copy or download the full context, or choose a compact handoff for insertion.'}` : 'Draft is empty.';
   draftPreview.textContent = !draft.value.trim() ? 'Paste a brief to continue.' : !budget.fits ? 'All captured text is retained. This is too long for automatic insertion; copy or download it, or choose the compact handoff.' : reviewed ? 'Draft ready. You can open it in a new chat.' : 'Draft ready. Open it below to review before continuing.';
 };
 draft.addEventListener('input', () => { saveBrief.disabled = !draft.value.trim(); showDraftBudget(); });
@@ -445,7 +446,7 @@ const refreshContext = async () => {
   (document.querySelector('#summary-progress') as HTMLElement).textContent = currentBrief?.status || currentBrief?.last_exchange.assistant || 'Review the context before continuing.';
   (document.querySelector('#summary-next') as HTMLElement).textContent = currentBrief?.next_step || 'Choose your next step in the destination chat.';
   (document.querySelector('#capture-summary') as HTMLElement).textContent = archive?.turns.length
-    ? `${archive.turns.length} messages saved · ${archive.truncated ? 'earlier text trimmed at storage cap' : archive.incomplete ? 'possible gaps — review full text' : 'rendered text only'}`
+    ? `${captureCheck(archive.turns).text}${archive.truncated ? ' · earlier text trimmed at storage cap' : archive.incomplete ? ' · possible gaps, review the full text' : ''}`
     : currentBrief ? 'Project brief loaded · full transcript unavailable' : 'Manual context · save it to a project to keep it';
   showDraftBudget();
 };
@@ -752,7 +753,7 @@ for (const option of Array.from(destination.options)) {
   const id = option.value;
   option.disabled = !providerEnabled(id as ProviderId, enabled);
 }
-destination.addEventListener('change', () => { recommendation.textContent = `Selected ${destination.selectedOptions[0].text}. Check availability in that service.`; showAccountHelp(); });
+destination.addEventListener('change', () => { recommendation.textContent = `Selected ${destination.selectedOptions[0].text}. Check availability in that service.`; showAccountHelp(); showDraftBudget(); });
 
 captureButton.addEventListener('click', async () => {
   captureStarted = true;
@@ -848,10 +849,13 @@ document.querySelector('#open')?.addEventListener('click', async () => {
   if (!reviewed) { reviewPanel.open = true; reviewPanel.scrollIntoView({ block: 'start' }); draft.focus(); return; }
   const safe = redact(draft.value);
   if (safe.text !== draft.value) { draft.value = safe.text; reviewed = false; reviewPanel.open = true; showDraftBudget(); status.textContent = 'Sensitive patterns were redacted. Review the updated draft before opening it.'; return; }
-  if (!draftBudget(draft.value).fits) { status.textContent = 'Shorten the reviewed draft to 1,500 approximate tokens before opening a destination.'; return; }
   const target = destination.value as ProviderId;
+  const budget = draftBudget(draft.value, target);
+  if (!budget.fits) { status.textContent = `Shorten the reviewed draft to about ${budget.limit.toLocaleString('en-US')} tokens before opening ${providerNames[target]}, or copy it instead.`; return; }
+  // Copied first, so a page that doesn't take the text (or a sign-in screen) never loses the draft.
+  await navigator.clipboard.writeText(draft.value).catch(() => {});
   const response = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: urls[target], text: draft.value });
-  status.textContent = response?.ok ? `Opened ${target}. Check the destination editor before sending.` : 'Could not open destination.';
+  status.textContent = response?.ok ? `Opened ${providerNames[target]}. Check the draft before sending; it is also copied, in case the page doesn't show it.` : 'Could not open destination. The draft is copied: paste it into any AI chat.';
 });
 document.querySelector('#copy')?.addEventListener('click', async () => { const safe = redact(draft.value); draft.value = safe.text; showDraftBudget(); await navigator.clipboard.writeText(safe.text); status.textContent = safe.kinds.length ? 'Draft copied with sensitive patterns redacted.' : 'Draft copied.'; });
 copyTranscript.addEventListener('click', async () => {

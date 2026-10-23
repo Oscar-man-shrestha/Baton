@@ -58,7 +58,7 @@ describe('brief', () => {
     const brief = briefSchema.parse({ goal: 'Keep the source intact', preferences: ['Never auto-send'], open_tasks: ['Review all lines'], next_step: 'Continue', artifacts: [{ name: 'source', kind: 'code', content_verbatim: artifact, version: 1 }] });
     const rendered = renderBrief(brief);
     expect(rendered.text).toContain('line_2499');
-    expect(rendered.receipt.warnings).toContain('Required content exceeds the 1,500-token budget. Review or shorten it manually; latest artifact and constraints were retained.');
+    expect(rendered.receipt.warnings).toContain('Required content exceeds the 3,000-token budget. Review or shorten it manually; latest artifact and constraints were retained.');
     expect(draftBudget(wrapHandoff(rendered.text)).fits).toBe(false);
     expect(draftBudget('Reviewed short draft').fits).toBe(true);
   });
@@ -73,7 +73,7 @@ describe('brief', () => {
     expect(brief.open_questions).toHaveLength(5);
     expect(draft).toContain('What features do you want?');
     expect(draft).toContain('Do you need persistence (saving data)?');
-    expect(draft).toContain('Continue the conversation naturally');
+    expect(draft).toContain('Pick up the work where it stopped');
     expect(draft).not.toContain('Reply only with Ready');
     expect(draftBudget(draft).fits).toBe(true);
   });

@@ -1,6 +1,6 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
-import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, questionBefore, selectedTurns } from '../src/core/adapter';
+import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, questionBefore, sameDraft, selectedTurns } from '../src/core/adapter';
 import { draftBudget, updateBrief } from '../src/core/brief';
 import { saveCapturedCapsule, saveSelectionCapsule } from '../src/core/capsules';
 import { handoffDraft } from '../src/core/context-export';
@@ -14,7 +14,7 @@ import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
-import { archiveWindow, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
+import { archiveWindow, captureCheck, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import type { Extraction } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
@@ -115,9 +115,9 @@ export default defineContentScript({
       const model = known || (!chosen && asked && promptTopic(asked) === 'general' ? await modelGuess(asked) : undefined);
       return { asked, model, ...suggest(asked, id, saved, Date.now(), chosen, model) };
     };
-    const rescueDraft = async () => (await saveVisibleChat()).draft;
+    const rescueDraft = async (target?: ProviderId) => (await saveVisibleChat(target)).draft;
     // Saves the chat as Baton has seen it so far (no scrolling back); the draft plus how many messages it holds.
-    const saveVisibleChat = async () => {
+    const saveVisibleChat = async (target?: ProviderId) => {
       const data = extract(document, id, bundledSelectors);
       const { archiveKey } = storageKeys();
       const previous = genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
@@ -125,24 +125,27 @@ export default defineContentScript({
       if (!archive.turns.length) throw new Error('There is no conversation on this page to carry over yet.');
       const brief = updateBrief(undefined, archive.turns, data.artifacts);
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
-      return { draft: handoffDraft(archive, brief, pageUrl()).draft, messages: archive.turns.length };
+      return { draft: handoffDraft(archive, brief, pageUrl(), target).draft, messages: archive.turns.length, check: captureCheck(archive.turns) };
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
     const openDraftIn = async (target: ProviderId, draft: string) => {
+      // Copied first, so a page that doesn't take the text (or a sign-in screen) never loses the draft.
+      await navigator.clipboard.writeText(draft).catch(() => {});
       const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
       void chrome.storage.local.get('passCount').then(saved => chrome.storage.local.set({ passCount: (Number(saved.passCount) || 0) + 1 })).catch(() => {});
     };
     const passTo = async (target: ProviderId, next?: string) => {
-      const draft = withNextStep(await rescueDraft(), next);
-      if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
+      const saved = await saveVisibleChat(target);
+      const draft = withNextStep(saved.draft, next);
+      if (!draftBudget(draft, target).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
       await openDraftIn(target, draft);
-      return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
+      return `Opened ${providerNames[target]} with your project as an unsent draft (${saved.check.text}). Also saved as a baton and copied, in case the page doesn't show it.`;
     };
     // A saved selection goes exactly as saved. Too long to type in for you: it is copied and the AI opens to paste it.
     const passSaved = async (saved: Project, target: ProviderId, next?: string) => {
       const draft = withNextStep(saved.draft || '', next);
-      if (!draftBudget(draft).fits) {
+      if (!draftBudget(draft, target).fits) {
         await navigator.clipboard.writeText(draft);
         window.open(newChatUrls[target], '_blank', 'noopener');
         return `It’s longer than Baton types in for you, so it’s copied: paste it into ${providerNames[target]} (${onMac(navigator) ? '⌘V' : 'Ctrl+V'}), then press Send.`;
@@ -153,7 +156,7 @@ export default defineContentScript({
     // Same AI, another account: save the project, show where to switch (Google's chooser for Gemini), and offer it
     // as a draft on the next fresh chat here. The user signs in and out in the service's own screens.
     const sameAiOtherAccount = async (next?: string) => {
-      const draft = withNextStep(await rescueDraft(), next);
+      const draft = withNextStep(await rescueDraft(id), next);
       const pending: PendingProject = { provider: id, draft, at: Date.now(), from: pageUrl(), title: document.title.slice(0, 120) };
       await chrome.storage.local.set({ [pendingKey(id)]: pending });
       const help = switchHelp(id);
@@ -1130,7 +1133,7 @@ export default defineContentScript({
       }
       if (command === 'capture-chat') {
         showToast('Saving this chat as a baton…');
-        void saveVisibleChat().then(({ messages }) => showToast(`Saved this chat as a baton (${messages} ${messages === 1 ? 'message' : 'messages'}). For older messages too, use Capture in Baton.`), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Capture in Baton.'));
+        void saveVisibleChat().then(({ check }) => showToast(`Saved this chat as a baton: ${check.text}.${check.gaps ? ' Scroll through the chat, then save again.' : ''} For older messages too, use Capture in Baton.`), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Capture in Baton.'));
         return;
       }
       if (command === 'open-pass-menu') {
@@ -1197,11 +1200,12 @@ export default defineContentScript({
         return true;
       }
       if (message?.type === 'INJECT_DRAFT' && typeof message.text === 'string') {
-        if (!makeAdapter(id, bundledSelectors).injectDraft(document, message.text)) { sendResponse({ ok: false }); return; }
+        // Some editors (Perplexity's) show the text a moment later, so judge by the box after a pause, not right away.
+        if (!makeAdapter(id, bundledSelectors).injectDraft(document, message.text) && !findEditor(document, bundledSelectors.providers[id].editor)) { sendResponse({ ok: false }); return; }
         setTimeout(() => {
           const editor = findEditor(document, bundledSelectors.providers[id].editor);
           const actual = editor instanceof HTMLTextAreaElement ? editor.value : editor?.textContent;
-          sendResponse({ ok: actual === message.text });
+          sendResponse({ ok: sameDraft(actual, message.text) });
         }, 400);
         return true;
       }

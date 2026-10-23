@@ -1,5 +1,6 @@
-import type { TurnArchive } from './capture';
-import { draftBudget, redact, renderBrief, wrapHandoff, type Brief } from './brief';
+import { captureCheck, type TurnArchive } from './capture';
+import { BRIEF_TOKENS, draftBudget, redact, renderBrief, wrapHandoff, type Brief } from './brief';
+import type { ProviderId } from './selectors';
 import { encode } from 'gpt-tokenizer';
 
 /**
@@ -13,7 +14,7 @@ export function fullContext(archive: TurnArchive, sourceUrl: string, selection?:
     selection ? '# Selected part of a conversation' : '# Captured conversation',
     `Source: ${source}`,
     `Saved: ${new Date(archive.savedAt).toISOString()}`,
-    `Messages: ${archive.turns.length}`,
+    `Messages: ${captureCheck(archive.turns).text}`,
     `Coverage: ${selection ? `Only the part the user selected${selection.question ? ', after the question it answers (message 1)' : ''}; the rest of the chat is left out.` : archive.truncated ? 'Storage cap reached; earlier text was trimmed.' : archive.incomplete ? 'Some rendered windows may be missing or out of order.' : 'Collected rendered text; history never rendered by the service may be missing.'}`,
     ...archive.turns.map((turn, index) => `## ${index + 1}. ${turn.role === 'user' ? 'You' : 'Assistant'}\n\n${turn.text}`)
   ];
@@ -23,11 +24,11 @@ export function fullContext(archive: TurnArchive, sourceUrl: string, selection?:
 }
 
 /**
- * The one-click handoff: the whole conversation when it fits the draft budget (nothing lost), otherwise the compact
+ * The one-click handoff: the whole conversation when it fits the destination's draft limit (nothing lost), otherwise the compact
  * brief, which keeps the goal, everything the user said, decisions, the latest code and where the chat stopped.
  */
-export function handoffDraft(archive: TurnArchive, brief: Brief, sourceUrl: string): { draft: string; mode: 'full' | 'compact' } {
+export function handoffDraft(archive: TurnArchive, brief: Brief, sourceUrl: string, target?: ProviderId): { draft: string; mode: 'full' | 'compact' } {
   const full = fullContext(archive, sourceUrl).draft;
-  if (draftBudget(full).fits) return { draft: full, mode: 'full' };
-  return { draft: redact(wrapHandoff(renderBrief(brief, 1400).text)).text, mode: 'compact' };
+  if (draftBudget(full, target).fits) return { draft: full, mode: 'full' };
+  return { draft: redact(wrapHandoff(renderBrief(brief, BRIEF_TOKENS).text)).text, mode: 'compact' };
 }

@@ -53,6 +53,16 @@ export function findEditor(doc: Document, selectors: string[], target?: Node | n
   return shown.find(element => element.getClientRects().length > 0) || shown[0] || all[0];
 }
 
+/**
+ * Whether the chat box holds the draft. Rich editors keep line breaks as paragraphs and may change spaces, so their text
+ * never equals the draft exactly; the words in order are what count (a strict check made Baton re-insert 12 times).
+ */
+export function sameDraft(actual: string | null | undefined, draft: string): boolean {
+  // Paragraphs join with no space at all in an editor's text (“tripDecisions”), so whitespace is left out entirely.
+  const words = (text: string) => text.replace(/[\s\u00A0\u200B-\u200D\u2060\uFEFF]+/g, '');
+  return !!actual && words(actual) === words(draft);
+}
+
 export function cleanNode(node: Element): string {
   return messageMarkdown(visibleClone(node));
 }
@@ -178,6 +188,9 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
       const editor = findEditor(doc, s.editor);
       if (!editor) return false;
       (editor as HTMLElement).focus();
+      // Typing the text in (execCommand) already tells the editor; a second, synthetic input event carrying the text makes
+      // some editors insert it again (Perplexity's Lexical editor doubled every draft).
+      let typed = false;
       if (editor.tagName === 'TEXTAREA') {
         const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(editor), 'value')?.set;
         if (setter) setter.call(editor, text);
@@ -188,13 +201,14 @@ export function makeAdapter(id: ProviderId, bundle: SelectorBundle): ProviderAda
         range.selectNodeContents(editor);
         selection?.removeAllRanges();
         selection?.addRange(range);
-        const inserted = typeof doc.execCommand === 'function' && doc.execCommand('insertText', false, text);
-        if (!inserted) editor.textContent = text;
+        typed = typeof doc.execCommand === 'function' && doc.execCommand('insertText', false, text);
+        if (!typed) editor.textContent = text;
       } else return false;
-      const EventClass = (doc.defaultView as (Window & typeof globalThis) | null)?.InputEvent ?? InputEvent;
-      const event = new EventClass('input', { bubbles: true, inputType: 'insertText', data: text });
-      editor.dispatchEvent(event);
-      return (editor.tagName === 'TEXTAREA' ? (editor as HTMLTextAreaElement).value : editor.textContent) === text;
+      if (!typed) {
+        const EventClass = (doc.defaultView as (Window & typeof globalThis) | null)?.InputEvent ?? InputEvent;
+        editor.dispatchEvent(new EventClass('input', { bubbles: true, inputType: 'insertText', data: text }));
+      }
+      return sameDraft(editor.tagName === 'TEXTAREA' ? (editor as HTMLTextAreaElement).value : editor.textContent, text);
     },
     detectLimit(doc) {
       const notices = Array.from(doc.querySelectorAll('[role="alert"], [aria-live="assertive"], [data-testid*="limit" i], [class*="usage-limit" i], [role="progressbar"]'));

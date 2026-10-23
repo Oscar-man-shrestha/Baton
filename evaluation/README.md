@@ -4,7 +4,7 @@
 
 This is the test the offline benchmark can't do: does a real AI actually continue well from Baton's draft? It takes about 20 minutes.
 
-1. **The drafts.** `evaluation/live/drafts/` holds the one-click draft Baton sends for each of the six benchmark conversations (`npm run eval:drafts` rebuilds them after a handoff change). Five fit the draft budget and go as the whole chat; `marathon` is long and goes as the compact brief.
+1. **The drafts.** `evaluation/live/drafts/` holds the one-click draft Baton sends for each of the six benchmark conversations (`npm run eval:drafts` rebuilds them after a handoff change). Five fit the draft limit and go as the whole chat; `marathon` (15,800 tokens) goes as the compact brief.
 2. **Pick two AIs** you don't normally get these chats from, e.g. Claude and Gemini. Use a **new chat for every draft**, so nothing carries over between tests.
 3. **For each draft:** copy it (`pbcopy < evaluation/live/drafts/todo-app.txt` on a Mac), paste it into the new chat, press Send, and copy the AI's whole first reply.
 4. **Save the reply** as `evaluation/live/replies/ai-1/todo-app.txt` for the first AI and `…/ai-2/todo-app.txt` for the second (same file names as the drafts). Rename the folders to the AI's name if you like, and note the model and date in `about.txt`.
@@ -27,4 +27,4 @@ No target-model replies have been generated in this workspace. The harness there
 
 What it shows: what survives into the draft. What it does not show: how well a given AI then continues; that needs the live replies above. The checks are exact phrases, so a correct paraphrase can count as missing.
 
-Results on 2026-10-23 (1.1.0): one-click 98% (before 1.1.0: 80%), compact brief 95%, full context 100% but 4,980 tokens on the long chat, last exchange 38%, first 3,000 page characters 96% (on the long chat it loses where the chat stopped).
+Results on 2026-10-24 (1.1.0): one-click 100% (before 1.1.0: 80%), compact brief 99%, full context 100% but 15,800 tokens on the long chat, last exchange 38%, first 3,000 page characters 96% (on the long chat it loses where the chat stopped).
