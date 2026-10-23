@@ -1,8 +1,9 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
 import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, questionBefore, sameDraft, selectedTurns } from '../src/core/adapter';
-import { draftBudget, updateBrief } from '../src/core/brief';
-import { saveCapturedCapsule, saveSelectionCapsule } from '../src/core/capsules';
+import { draftBudget, exactDetails, updateBrief } from '../src/core/brief';
+import { saveCapturedCapsule, saveSelectionCapsule, saveWrittenBrief } from '../src/core/capsules';
+import { briefPrompt, checkSummary, checkWrittenBrief, completeWrittenBrief, findWrittenBrief, withoutHandoffRequests } from '../src/core/written-brief';
 import { handoffDraft } from '../src/core/context-export';
 import { listFolders, type Project } from '../src/core/projects';
 import { selectionName, selectionSummary } from '../src/core/selection';
@@ -15,7 +16,7 @@ import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
 import { archiveWindow, captureCheck, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
-import type { Extraction } from '../src/core/adapter';
+import type { Extraction, Turn } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
@@ -117,12 +118,17 @@ export default defineContentScript({
     };
     const rescueDraft = async (target?: ProviderId) => (await saveVisibleChat(target)).draft;
     // Saves the chat as Baton has seen it so far (no scrolling back); the draft plus how many messages it holds.
-    const saveVisibleChat = async (target?: ProviderId) => {
+    // The chat as Baton has seen it so far: what is on the page joined with the stored transcript of this chat.
+    const chatArchive = async () => {
       const data = extract(document, id, bundledSelectors);
       const { archiveKey } = storageKeys();
       const previous = genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
       const archive = archiveWindow(previous?.selectorsVersion === bundledSelectors.version ? previous : undefined, data.turns);
       if (!archive.turns.length) throw new Error('There is no conversation on this page to carry over yet.');
+      return { data, archive };
+    };
+    const saveVisibleChat = async (target?: ProviderId) => {
+      const { data, archive } = await chatArchive();
       const brief = updateBrief(undefined, archive.turns, data.artifacts);
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
       return { draft: handoffDraft(archive, brief, pageUrl(), target).draft, messages: archive.turns.length, check: captureCheck(archive.turns) };
@@ -274,6 +280,14 @@ export default defineContentScript({
         });
         passMenu.append(item);
       }
+      // Opt-in: this AI writes the handoff (it knows the chat best), Baton checks it before it goes anywhere.
+      const write = document.createElement('button'); write.type = 'button'; write.className = 'opt account'; write.setAttribute('role', 'menuitem');
+      const writeIcon = document.createElement('i'); writeIcon.className = 'swap'; writeIcon.textContent = '✎'; writeIcon.setAttribute('aria-hidden', 'true');
+      const writeText = document.createElement('span'); const writeName = document.createElement('b'); writeName.textContent = `Have ${providerNames[id]} write the handoff`;
+      const writeHint = document.createElement('small'); writeHint.textContent = 'You send the request; Baton checks the reply, then you pick the next AI'; writeText.append(writeName, writeHint);
+      write.append(writeIcon, writeText);
+      write.addEventListener('click', () => { closePassMenu(); void startWrittenHandoff(); });
+      passMenu.append(write);
       const other = document.createElement('button'); other.type = 'button'; other.className = 'opt account'; other.setAttribute('role', 'menuitem');
       const otherIcon = document.createElement('i'); otherIcon.className = 'swap'; otherIcon.textContent = '↻'; otherIcon.setAttribute('aria-hidden', 'true');
       const otherText = document.createElement('span'); const otherName = document.createElement('b'); otherName.textContent = `${providerNames[id]}, another account`;
@@ -977,7 +991,7 @@ export default defineContentScript({
     const toast = document.createElement('div'); toast.className = 'toast'; toast.setAttribute('role', 'status'); toast.hidden = true;
     selectShadow.append(selectStyle, selectChip, selectCard, toast);
     document.body.append(selectHost);
-    ctx.onInvalidated(() => selectHost.remove());
+    ctx.onInvalidated(() => { selectHost.remove(); stopWriting(); });
     // The keys the browser assigned (shown on the chip, in the Baton button's tooltip and in tips), from the background.
     const keys: Partial<Record<ShortcutCommand, string>> = {};
     void chrome.runtime.sendMessage({ type: 'SHORTCUT_KEYS' }).then(reply => {
@@ -1028,7 +1042,7 @@ export default defineContentScript({
       if (type === 'keydown' && (event as KeyboardEvent).key === 'Escape') { event.preventDefault(); closeSaveCard(); }
     });
     // Step 2, once saved: pass the selection on, ranked like the Pass menu for what it is about.
-    const showPassOptions = async (saved: Project, asked: string) => {
+    const showPassOptions = async (saved: Project, asked: string, text = { heading: '✓ Saved as a baton', note: '' }) => {
       const { topic, options, reason } = suggest(asked, id, await chrome.storage.local.get(suggestionKeys()), Date.now());
       const suggested = options.find(option => option.status !== 'limited');
       selectCard.replaceChildren();
@@ -1038,7 +1052,7 @@ export default defineContentScript({
       const nextInput = document.createElement('input'); nextInput.type = 'text'; nextInput.maxLength = 300; nextInput.placeholder = 'e.g. turn this into a checklist';
       next.append(cardText('span', 'What’s next? (optional)'), nextInput);
       nextInput.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing && suggested) { event.preventDefault(); void run(() => passSaved(saved, suggested.provider, nextInput.value)); } });
-      selectCard.append(cardText('h2', '✓ Saved as a baton'), cardText('p', `“${saved.name.slice(0, 60)}”${saved.folder ? ` · in ${saved.folder}` : ''}. It’s in Baton with your other batons.`), next, cardText('small', 'Pass it to…', 'label'));
+      selectCard.append(cardText('h2', text.heading), cardText('p', text.note || `“${saved.name.slice(0, 60)}”${saved.folder ? ` · in ${saved.folder}` : ''}. It’s in Baton with your other batons.`), next, cardText('small', 'Pass it to…', 'label'));
       for (const option of options) {
         const item = document.createElement('button'); item.type = 'button'; item.className = 'opt';
         const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', laneColor[option.provider]);
@@ -1123,8 +1137,68 @@ export default defineContentScript({
     ctx.addEventListener(document, 'scroll', () => { if (chipRange && !selectChip.hidden) { const chip = selectChip.getBoundingClientRect(); placeBySelection(selectChip, chipRange, chip.width, chip.height); } }, { capture: true });
     ctx.addEventListener(document, 'pointerdown', event => { if (!selectCard.hidden && !fromBaton(event)) closeSaveCard(); }, { capture: true });
     ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Escape' && !selectChip.hidden) hideChip(); }, { capture: true });
+    // “Have this AI write the handoff” (opt-in, from the Pass menu): Baton types a brief-writing prompt into this chat, you
+    // send it, and when the reply is complete Baton checks it against the exact names and figures it collected from the
+    // chat, adds back any that are missing, saves it as a baton and offers the next AI. Nothing is sent by Baton.
+    let writing: { details: string[]; latest: string; turns: Turn[]; before: Set<string>; poll?: number; seen: string; stable: number; until: number } | undefined;
+    const stopWriting = () => { if (writing?.poll) clearInterval(writing.poll); writing = undefined; };
+    const writingCard = (heading: string, text: string, actions: [string, string, () => void][] = []) => {
+      selectCard.replaceChildren(cardText('h2', heading), cardText('p', text));
+      const row = document.createElement('div'); row.className = 'row';
+      for (const [label, kind, action] of actions) { const button = document.createElement('button'); button.type = 'button'; button.className = kind; button.textContent = label; button.addEventListener('click', action); row.append(button); }
+      if (actions.length) selectCard.append(row);
+      selectCard.hidden = false;
+      // Above the Baton button, or the bottom-right corner when it isn't shown.
+      const anchor = passHost.style.display === 'block' ? passHost.getBoundingClientRect() : undefined;
+      const card = selectCard.getBoundingClientRect();
+      selectCard.style.left = `${Math.max(8, Math.min((anchor ? anchor.right : innerWidth - 16) - card.width, innerWidth - card.width - 8))}px`;
+      selectCard.style.top = `${Math.max(8, (anchor ? anchor.top : innerHeight - 16) - card.height - 12)}px`;
+    };
+    const cancelWriting = () => { stopWriting(); closeSaveCard(); };
+    const finishWriting = async (reply: string) => {
+      const job = writing; stopWriting();
+      if (!job) return;
+      const check = checkWrittenBrief(reply, job.details, job.latest);
+      const handoff = completeWrittenBrief(reply, check, job.latest);
+      try {
+        const saved = await saveWrittenBrief(handoff, job.turns, pageUrl(), document.title);
+        await showPassOptions(saved, job.latest, { heading: '✓ Handoff written and checked', note: `${checkSummary(check, providerNames[id])} Saved as a baton.` });
+      } catch { writingCard('Could not save the handoff', 'Try again, or copy the reply yourself.', [['Close', 'cancel', closeSaveCard]]); }
+    };
+    const watchForHandoff = () => {
+      if (!writing || ctx.isInvalid) { stopWriting(); return; }
+      if (Date.now() > writing.until) { stopWriting(); writingCard('No handoff reply yet', 'Baton stopped waiting after 10 minutes. Start again from the Baton menu when you’re ready.', [['Close', 'cancel', closeSaveCard]]); return; }
+      const latest = [...extract(document, id, bundledSelectors).turns].reverse().find(turn => turn.role === 'assistant');
+      const found = latest && !writing.before.has(latest.text) ? findWrittenBrief(latest.text) : undefined;
+      if (!found) return;
+      // Finished when the end line is there and the reply has stopped changing for two checks.
+      writing.stable = found.complete && found.text === writing.seen ? writing.stable + 1 : 0;
+      writing.seen = found.text;
+      if (writing.stable >= 2) { void finishWriting(found.text); return; }
+      writingCard('Reading the reply…', `${providerNames[id]} is writing the handoff. Baton checks it when it’s done.`, [['Cancel', 'cancel', cancelWriting]]);
+    };
+    const startWrittenHandoff = async () => {
+      stopWriting(); hideChip();
+      let archive: TurnArchive;
+      try { archive = (await chatArchive()).archive; } catch (error) { showToast(error instanceof Error ? error.message : 'There is no conversation to hand off yet.'); return; }
+      const turns = withoutHandoffRequests(archive.turns);
+      const details = exactDetails(turns);
+      const latest = [...turns].reverse().find(turn => turn.role === 'user')?.text || '';
+      const prompt = briefPrompt(details);
+      const before = new Set(extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'assistant').map(turn => turn.text));
+      writing = { details, latest, turns, before, seen: '', stable: 0, until: Date.now() + 600000 };
+      writing.poll = ctx.setInterval(watchForHandoff, 1500);
+      // Your own unsent text in the chat box is never replaced: then the prompt is copied for you to paste.
+      const typed = !!composerText();
+      const placed = !typed && makeAdapter(id, bundledSelectors).injectDraft(document, prompt);
+      if (!placed) await navigator.clipboard.writeText(prompt).catch(() => {});
+      writingCard(`Ask ${providerNames[id]} to write the handoff`, placed
+        ? `The request is in the chat box. Read it and press Send. When the reply is done, Baton checks it against ${details.length} exact names and figures from this chat, then offers the next AI.`
+        : `${typed ? 'Your chat box has text, so the request' : 'The request'} is copied: paste it into the chat box and press Send. Baton checks the reply when it’s done.`, [['Cancel', 'cancel', cancelWriting]]);
+    };
     // Keyboard shortcuts (and the right-click menu) arrive from the background as commands for this page.
     const runCommand = (command: string) => {
+      if (command === 'write-handoff') { void startWrittenHandoff(); return; }
       if (command === 'save-selection') {
         const current = pageSelection();
         if (!current) { showToast(`Select part of the conversation first, then press ${keys['save-selection'] || 'the shortcut'} again (or right-click → Save selection as a baton).`); return; }

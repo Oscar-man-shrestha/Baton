@@ -1,6 +1,7 @@
 import { captureCheck, type TurnArchive } from './capture';
 import { BRIEF_TOKENS, draftBudget, redact, renderBrief, wrapHandoff, type Brief } from './brief';
 import type { ProviderId } from './selectors';
+import { withoutHandoffRequests } from './written-brief';
 import { encode } from 'gpt-tokenizer';
 
 /**
@@ -16,7 +17,7 @@ export function fullContext(archive: TurnArchive, sourceUrl: string, selection?:
     `Saved: ${new Date(archive.savedAt).toISOString()}`,
     `Messages: ${captureCheck(archive.turns).text}`,
     `Coverage: ${selection ? `Only the part the user selected${selection.question ? ', after the question it answers (message 1)' : ''}; the rest of the chat is left out.` : archive.truncated ? 'Storage cap reached; earlier text was trimmed.' : archive.incomplete ? 'Some rendered windows may be missing or out of order.' : 'Collected rendered text; history never rendered by the service may be missing.'}`,
-    ...archive.turns.map((turn, index) => `## ${index + 1}. ${turn.role === 'user' ? 'You' : 'Assistant'}\n\n${turn.text}`)
+    ...withoutHandoffRequests(archive.turns).map((turn, index) => `## ${index + 1}. ${turn.role === 'user' ? 'You' : 'Assistant'}\n\n${turn.text}`)
   ];
   const safe = redact(notes.join('\n\n'));
   const draft = wrapHandoff(safe.text);

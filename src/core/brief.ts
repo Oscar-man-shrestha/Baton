@@ -3,6 +3,7 @@ import { encode } from 'gpt-tokenizer';
 import type { Artifact, Turn } from './adapter';
 import type { ProviderId } from './selectors';
 import { selectEvidence, fencedCode } from './extractive';
+import { withoutHandoffRequests } from './written-brief';
 
 const decision = z.object({ text: z.string(), rationale: z.string().default(''), status: z.enum(['ratified_by_user', 'proposed_by_ai', 'superseded']), source_turn: z.number(), confidence: z.number().min(0).max(1) });
 export const briefSchema = z.object({
@@ -82,7 +83,7 @@ function unansweredQuestions(text: string): string[] {
 
 export function updateBrief(previous: Brief | undefined, turns: Turn[], artifacts: Artifact[]): Brief {
   const base = previous ? structuredClone(previous) : briefSchema.parse({});
-  const safeTurns = turns.map(t => ({ ...t, text: redact(t.text).text }));
+  const safeTurns = withoutHandoffRequests(turns).map(t => ({ ...t, text: redact(t.text).text }));
   const safeArtifacts = artifacts.map(a => ({ ...a, content: redact(a.content).text }));
   const lastUser = [...safeTurns].reverse().find(t => t.role === 'user');
   const lastAssistant = [...safeTurns].reverse().find(t => t.role === 'assistant');
@@ -144,7 +145,8 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
 /** Names and figures to carry verbatim: from your messages, every kind; from replies, names in `code` and file names or links. */
 export function exactDetails(turns: Turn[], max = 60): string[] {
   const found: string[] = [];
-  const add = (value: string) => { const item = value.trim().replace(/[.,;:)]+$/, ''); if (item.length >= 3 && item.length <= 80 && !found.some(seen => seen.toLowerCase() === item.toLowerCase())) found.push(item); };
+  // Trailing punctuation goes, and a “)” only when it doesn't close a bracket of the name (“unique_target(path)” stays whole).
+  const add = (value: string) => { let item = value.trim().replace(/[.,;:]+$/, ''); while (item.endsWith(')') && (item.match(/\(/g) || []).length < (item.match(/\)/g) || []).length) item = item.slice(0, -1).replace(/[.,;:]+$/, ''); if (item.length >= 3 && item.length <= 80 && !found.some(seen => seen.toLowerCase() === item.toLowerCase())) found.push(item); };
   const code = /`([^`\n]{2,60})`/g, link = /https?:\/\/[^\s)>\]"']+/g;
   const file = /(?:~|\.{1,2})?\/?\b[\w.-]+(?:\/[\w.-]+)+|\b[\w-]+\.(?:py|ts|tsx|js|jsx|mjs|json|md|txt|log|toml|ya?ml|html|css|csv|pdf|sh|rs|go|java|kt|swift|sql|env)\b/g;
   const figure = /[$€£¥]\s?\d[\d,]*(?:\.\d+)?\b|\b\d[\d,]*(?:\.\d+)?\s?(?:%|ms|MB|GB|KB|TB|px|words|nights|days|hours|minutes|tokens|users|items)\b|\bv?\d+\.\d+(?:\.\d+)+\b/gi;

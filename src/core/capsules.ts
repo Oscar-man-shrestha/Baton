@@ -1,4 +1,4 @@
-import { updateBrief, type Brief } from './brief';
+import { redact, updateBrief, wrapHandoff, type Brief } from './brief';
 import { archiveWindow, type TurnArchive } from './capture';
 import type { Turn } from './adapter';
 import { fullContext } from './context-export';
@@ -30,6 +30,18 @@ export async function saveSelectionCapsule(selection: { turns: Turn[]; question?
   const context = fullContext(archive, sourceUrl, { question: !!selection.question });
   const filed = resolveFolder(folder || '', await listFolders());
   const capsule: Project = { id, name: name.trim().slice(0, 160) || brief.goal.slice(0, 160) || 'Selected part of a chat', ...(filed ? { folder: filed } : {}), updatedAt: Date.now(), threads: [sourceUrl], brief, draft: context.draft, draftMode: 'full', snapshotText: context.text };
+  await saveProject(capsule);
+  return capsule;
+}
+
+/**
+ * A handoff the source AI wrote (and Baton checked), saved as a baton for the whole chat. Its draft is that handoff;
+ * the brief is Baton's own, kept for the library and as a fallback. Saving the same handoff again updates it.
+ */
+export async function saveWrittenBrief(handoff: string, turns: Turn[], sourceUrl: string, title: string): Promise<Project> {
+  const id = `written:${await digest([sourceUrl, handoff])}`;
+  const brief = updateBrief(undefined, archiveWindow(undefined, turns).turns, []);
+  const capsule: Project = { id, name: title.trim().slice(0, 160) || brief.goal.slice(0, 160) || 'Handoff', updatedAt: Date.now(), threads: [sourceUrl], brief, draft: redact(wrapHandoff(handoff)).text, draftMode: 'compact', snapshotText: redact(handoff).text };
   await saveProject(capsule);
   return capsule;
 }
