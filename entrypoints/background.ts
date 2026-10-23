@@ -219,6 +219,7 @@ export default defineBackground(() => {
       const provider = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(host));
       const kind = message.kind as UsageKind;
       if (!provider || kindProvider[kind] !== provider || typeof message.text !== 'string') return;
+      if (kind === 'claude-stream') { void chrome.storage.local.set({ [`usageTapCheck:${provider}`]: { at: Date.now(), kind, fields: message.text.slice(0, 300) } }).catch(() => {}); return; }
       const readings = parseUsageResponse(kind, message.text);
       if (readings.length) void saveReadings(provider, readings).catch(() => {});
       // A usage answer the page got but Baton couldn't read: keep its field names (never values) for the usage panel.

@@ -344,7 +344,7 @@ function renderActiveUsage(saved: Record<string, any>) {
     const tap = saved[`usageTapCheck:${activeProvider}`] as { at: number; kind: string; fields: string } | undefined;
     if (tap && (!check || tap.at > check.at - 600000)) {
       const seen = document.createElement('p'); seen.className = 'usage-unavailable usage-check';
-      seen.textContent = `From the page · ${new Date(tap.at).toLocaleTimeString()} · ${tap.kind} not readable (fields: ${tap.fields}).`;
+      seen.textContent = tap.kind === 'claude-stream' ? `From the page · ${new Date(tap.at).toLocaleTimeString()} · Claude stream seen: ${tap.fields}.` : `From the page · ${new Date(tap.at).toLocaleTimeString()} · ${tap.kind} not readable (fields: ${tap.fields}).`;
       container.append(seen);
     }
   }

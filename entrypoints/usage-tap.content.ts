@@ -1,5 +1,5 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import { connectFrames, isClaudeTimelineStream, timelineUsage, timelineUsageJson } from '../src/core/claude-timeline';
+import { connectFrames, frameShape, isClaudeTimelineStream, timelineUsage, timelineUsageJson } from '../src/core/claude-timeline';
 import { isClaudeReplyStream, usageKindOf } from '../src/core/usage-kind';
 
 // Usage tap: runs in the page's own context on ChatGPT, Claude and Gemini, before their scripts. When the site fetches
@@ -18,6 +18,7 @@ export default defineContentScript({
     const post = (kind: string, text: string) => { if (text && text.length <= limit) window.postMessage({ source: 'baton-usage-tap', kind, text }, location.origin); };
 
     const scanClaudeStream = async (body: ReadableStream<Uint8Array>) => {
+      let sseEvents = 0, sseLimits = 0;
       const reader = body.getReader(); const decoder = new TextDecoder(); let buffer = '';
       try {
         for (;;) {
@@ -27,16 +28,23 @@ export default defineContentScript({
           for (let cut = buffer.indexOf('\n\n'); cut !== -1; cut = buffer.indexOf('\n\n')) {
             const data = buffer.slice(0, cut).split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trim()).join('\n');
             buffer = buffer.slice(cut + 2);
+            sseEvents++;
             if (!data.includes('message_limit')) continue;
+            sseLimits++;
             try { const event = JSON.parse(data); if (event && event.message_limit) post('claude-usage', JSON.stringify({ message_limit: event.message_limit })); } catch { /* partial */ }
           }
         }
       } catch { /* stream closed */ }
+      post('claude-stream', JSON.stringify({ stream: 'reply', events: sseEvents, limitEvents: sseLimits }));
     };
     // Claude's newer transport: Connect frames on StreamTimeline, open for long stretches. Only usage reports are kept.
     const gunzip = async (data: Uint8Array) => new Uint8Array(await new Response(new Blob([data.slice() as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+    // What a Claude stream carried, for Baton's usage panel: counts and field numbers only, never content.
+    let reportedAt = 0;
+    const report = (stats: Record<string, unknown>, force = false) => { if (force || Date.now() - reportedAt > 5000) { reportedAt = Date.now(); post('claude-stream', JSON.stringify(stats)); } };
     const scanClaudeTimeline = async (body: ReadableStream<Uint8Array>, json: boolean) => {
       const reader = body.getReader(); let buffer = new Uint8Array();
+      const stats = { stream: 'timeline', json, frames: 0, usage: 0, shapes: [] as string[] };
       try {
         for (;;) {
           const { done, value } = await reader.read();
@@ -50,10 +58,15 @@ export default defineContentScript({
             const payload = frame.flags & 1 ? await gunzip(frame.payload).catch(() => undefined) : frame.payload;
             if (!payload) continue;
             const usage = json ? timelineUsageJson(new TextDecoder().decode(payload)) : timelineUsage(payload);
-            if (usage) post('claude-usage', JSON.stringify(usage));
+            stats.frames++;
+            if (usage) { stats.usage++; post('claude-usage', JSON.stringify(usage)); }
+            const shape = json ? 'json' : frameShape(payload);
+            if (stats.shapes.length < 6 && !stats.shapes.includes(shape)) stats.shapes.push(shape);
           }
+          report(stats);
         }
       } catch { /* stream closed */ }
+      report(stats, true);
     };
     const originalFetch = window.fetch;
     window.fetch = function (this: unknown, input: RequestInfo | URL, init?: RequestInit) {

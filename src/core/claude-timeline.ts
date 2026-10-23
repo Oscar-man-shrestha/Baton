@@ -86,3 +86,13 @@ export function connectFrames(buffer: Uint8Array): { frames: { flags: number; pa
   }
   return { frames, rest: buffer.subarray(offset), tooBig: false };
 }
+
+/** A frame's layout as field numbers only (“1(4)” = field 1 holding a message with field 4), for the usage panel. */
+export function frameShape(payload: Uint8Array): string {
+  try {
+    return protoFields(payload).map(top => {
+      if (top.wt !== 2) return String(top.no);
+      try { return `${top.no}(${[...new Set(protoFields(top.v as Uint8Array).map(inner => inner.no))].slice(0, 6).join(',')})`; } catch { return `${top.no}(?)`; }
+    }).slice(0, 6).join(' ');
+  } catch { return 'not protobuf'; }
+}

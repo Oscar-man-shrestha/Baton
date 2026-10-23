@@ -1,8 +1,8 @@
 // Which usage responses Baton reads, by address. No imports: the usage tap that runs in every AI page bundles this alone.
 
 /** What a response is, named by where it came from. */
-export type UsageKind = 'chatgpt-features' | 'chatgpt-wham' | 'claude-usage' | 'gemini-quota';
-export const kindProvider: Record<UsageKind, 'chatgpt' | 'claude' | 'gemini'> = { 'chatgpt-features': 'chatgpt', 'chatgpt-wham': 'chatgpt', 'claude-usage': 'claude', 'gemini-quota': 'gemini' };
+export type UsageKind = 'chatgpt-features' | 'chatgpt-wham' | 'claude-usage' | 'gemini-quota' | 'claude-stream';
+export const kindProvider: Record<UsageKind, 'chatgpt' | 'claude' | 'gemini'> = { 'chatgpt-features': 'chatgpt', 'chatgpt-wham': 'chatgpt', 'claude-usage': 'claude', 'gemini-quota': 'gemini', 'claude-stream': 'claude' };
 
 /** Which response a request URL is, or undefined for everything else (only these few addresses are ever read). */
 export function usageKindOf(url: string): UsageKind | undefined {
