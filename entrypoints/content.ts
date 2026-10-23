@@ -17,6 +17,7 @@ import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
 import { archiveWindow, captureCheck, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import { fetchStoredChat } from '../src/core/lossless';
+import { chatTokens, longChat, stillDismissed, type LongChat } from '../src/core/long-chat';
 import type { Extraction, Turn } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
@@ -184,9 +185,10 @@ export default defineContentScript({
       const saved = await chrome.storage.local.get(suggestionKeys());
       const limit = reachedLimit(saved, id);
       const signature = limit ? `${limit.feature}:${limit.resetAt ?? ''}` : '';
-      if (!limit || signature === dismissedRescue) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); rescueSignature = ''; return; }
+      if (!limit || signature === dismissedRescue) { if (!longChatShown) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); } rescueSignature = ''; return; }
       if (signature === rescueSignature) return;
       rescueSignature = signature;
+      longChatShown = '';
       const name = providerNames[id];
       // Ranked for what this chat is about, the same as the Baton menu.
       const card = buildRescueCard(document, limit, (await suggestNow()).options, {
@@ -205,7 +207,62 @@ export default defineContentScript({
       rescueHost.style.display = 'block';
       positionRescue();
     };
+    // Long-chat tip: when this chat is long enough that answers tend to slip, suggest a fresh chat that starts from a
+    // handoff. Measured on the whole stored chat (the page may show only the messages near the screen), at most once a
+    // minute and only after the chat changed; shown in the limit card's place, and never over a limit card.
+    let longChatEnabled = true, longChatShown = '', longChatMeasured = { url: '', at: 0, pageSize: -1 };
+    const longDismissKey = () => `longChatDismissed:${pageUrl()}`;
+    const showLongChat = async (advice: LongChat) => {
+      const signature = `${pageUrl()}:${advice.level}`;
+      if (signature === longChatShown && rescueHost.style.display === 'block') return;
+      longChatShown = signature;
+      const card = document.createElement('section'); card.className = 'card'; card.setAttribute('aria-label', advice.heading);
+      const top = document.createElement('div'); top.className = 'top';
+      const title = document.createElement('strong'); title.textContent = advice.heading;
+      const sub = document.createElement('small'); sub.textContent = advice.text; title.append(sub);
+      const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
+      const notNow = async () => { await chrome.storage.local.set({ [longDismissKey()]: { tokens: advice.tokens, level: advice.level } }); rescueHost.style.display = 'none'; card.remove(); longChatShown = ''; };
+      const close = document.createElement('button'); close.type = 'button'; close.className = 'close'; close.textContent = '×'; close.setAttribute('aria-label', 'Not now');
+      close.addEventListener('click', () => { void notNow(); });
+      top.append(title, close);
+      const list = document.createElement('div'); list.className = 'options';
+      const option = (label: string, detail: string, action: () => Promise<string | void>) => {
+        const button = document.createElement('button'); button.type = 'button';
+        const name = document.createElement('strong'); name.textContent = label;
+        const hint = document.createElement('span'); hint.textContent = detail; button.append(name, hint);
+        button.addEventListener('click', async () => {
+          status.textContent = 'Working…';
+          try { status.textContent = (await action()) || ''; } catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Try again from the Baton menu.'; }
+        });
+        list.append(button);
+      };
+      option(`Fresh chat in ${providerNames[id]}`, 'Same AI, new chat, starting from a handoff of this one', () => passTo(id));
+      option('Pass to another AI', 'Pick where to continue, ranked for this chat', async () => { rescueHost.style.display = 'none'; await openPassMenu(); });
+      option('Not now', 'Ask again when the chat is half as long again', notNow);
+      card.append(top, list, status);
+      rescueShadow.querySelector('.card')?.remove();
+      rescueShadow.append(card);
+      rescueHost.style.display = 'block';
+      positionRescue();
+    };
+    const checkLongChat = async () => {
+      if (ctx.isInvalid || !longChatEnabled || rescueSignature || genericNewChat()) return;
+      const url = pageUrl(), pageSize = chatSize();
+      const due = url !== longChatMeasured.url || (Date.now() - longChatMeasured.at > 60000 && pageSize !== longChatMeasured.pageSize);
+      if (!due) return;
+      longChatMeasured = { url, at: Date.now(), pageSize };
+      const stored = await fetchStoredChat(id, location).catch(() => undefined);
+      const turns = stored?.length ? stored : extract(document, id, bundledSelectors).turns;
+      const advice = longChat(stored?.length ? chatTokens(turns) : pageSize, turns.length);
+      if (!advice) { if (longChatShown) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); longChatShown = ''; } return; }
+      const dismissed = (await chrome.storage.local.get(longDismissKey()))[longDismissKey()] as { tokens: number; level: LongChat["level"] } | undefined;
+      if (!stillDismissed(dismissed, advice) && !rescueSignature && pageUrl() === url) await showLongChat(advice);
+    };
+    void chrome.storage.local.get('longChatTipEnabled').then(saved => { longChatEnabled = saved.longChatTipEnabled !== false; });
+    ctx.setInterval(() => { void checkLongChat().catch(() => {}); }, 20000);
+    ctx.setTimeout(() => { void checkLongChat().catch(() => {}); }, 4000);
     const rescueChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (changes.longChatTipEnabled) { longChatEnabled = changes.longChatTipEnabled.newValue !== false; if (!longChatEnabled && longChatShown) { rescueHost.style.display = 'none'; longChatShown = ''; } }
       if (Object.keys(changes).some(key => key.startsWith('usageWindows:') || key.startsWith('meter:') || key === 'enabledProviders')) void updateRescue().catch(() => {});
     };
     chrome.storage.onChanged.addListener(rescueChanged);

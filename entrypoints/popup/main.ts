@@ -1017,7 +1017,7 @@ document.querySelector('#replay-tour')?.addEventListener('click', async event =>
   (event.currentTarget as HTMLButtonElement).textContent = activeProvider ? `Starting on ${providerNames[activeProvider]}…` : 'Open any AI chat and the tour starts there.';
 });
 // Always-visible switches for what Baton adds to chat pages; the × on the bar and “Hide” in the Baton menu turn them off.
-const chatSwitches = { composerUsageEnabled: document.querySelector('#toggle-bar') as HTMLInputElement | null, passButtonEnabled: document.querySelector('#toggle-pass') as HTMLInputElement | null, selectionButtonEnabled: document.querySelector('#toggle-selection') as HTMLInputElement | null };
+const chatSwitches = { composerUsageEnabled: document.querySelector('#toggle-bar') as HTMLInputElement | null, passButtonEnabled: document.querySelector('#toggle-pass') as HTMLInputElement | null, selectionButtonEnabled: document.querySelector('#toggle-selection') as HTMLInputElement | null, longChatTipEnabled: document.querySelector('#toggle-longchat') as HTMLInputElement | null };
 const switchState = await chrome.storage.local.get(Object.keys(chatSwitches));
 for (const [key, input] of Object.entries(chatSwitches)) {
   if (!input) continue;
