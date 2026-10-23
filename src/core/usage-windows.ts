@@ -64,6 +64,9 @@ export function mergeUsageWindows(previous: UsageWindow[], incoming: UsageWindow
     // An unchanged relative reset label is the same observation, not a new window.
     const next = prior?.evidenceKey && prior.evidenceKey === win.evidenceKey && prior.resetAt !== undefined
       ? { ...win, resetAt: prior.resetAt } : win;
+    // An out-of-date reading from elsewhere (e.g. Claude's usage page on a Free account) never wipes a current figure
+    // the service reported itself (Claude's session and weekly from the last reply).
+    if (!isCurrentReading(next, now) && prior && prior.source !== next.source && isCurrentReading(prior, now)) continue;
     if (isCurrentReading(next, now) || (next.evidenceKey && next.resetAt !== undefined && Number.isFinite(next.resetAt) && next.resetAt <= now)) merged.set(win.key, next); else merged.delete(win.key);
   }
   return [...merged.values()];

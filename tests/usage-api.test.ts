@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isClaudeReplyStream } from '../src/core/usage-kind';
 import { parseChatGptFeatures, parseChatGptWham, parseClaudeUsageResponse, parseGeminiQuota, parseUsageResponse, usageKindOf } from '../src/core/usage-api';
-import { activeWindows, isCurrentReading } from '../src/core/usage-windows';
+import { activeWindows, isCurrentReading, mergeUsageWindows } from '../src/core/usage-windows';
 
 const now = Date.UTC(2026, 9, 23, 3);
 const h = 3600000;
@@ -81,6 +81,13 @@ describe('usage the AI sites send to the browser', () => {
     expect(isCurrentReading(session, now + 4 * h + 1)).toBe(false);
     expect(isCurrentReading({ ...session, source: 'provider-page' } as typeof session, now + 2 * h)).toBe(false);
     expect(isCurrentReading({ ...session, resetAt: undefined }, now + 2 * h)).toBe(false);
+  });
+  it('an out-of-date page reading never wipes the session figure Claude reported with its last reply', () => {
+    const reported = parseClaudeUsageResponse({ five_hour: { utilization: 2, resets_at: new Date(now + 4 * h).toISOString() } }, now);
+    const stalePage = { ...reported[0], source: 'provider-page' as const, percent: 40, remainingPercent: 60, at: now + h, resetAt: now + h - 1, evidenceKey: 'x' };
+    expect(mergeUsageWindows(reported, [stalePage], now + h).map(win => [win.key, win.percent, win.source])).toEqual([['claude:Session', 2, 'provider-response']]);
+    const freshPage = { ...stalePage, resetAt: now + 3 * h };
+    expect(mergeUsageWindows(reported, [freshPage], now + h).map(win => win.percent)).toEqual([40]);
   });
   it('never throws on junk', () => {
     for (const kind of ['chatgpt-features', 'chatgpt-wham', 'claude-usage', 'gemini-quota'] as const) for (const text of ['', 'not json', 'null', '[]', '{"limits_progress":7}'])
