@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { chatgptTurns, claudeTurns } from '../src/core/lossless';
+import { chatgptTurns, claudeTurns, deepseekTurns, geminiTurns, grokTurns, perplexityTurns } from '../src/core/lossless';
 import { extract } from '../src/core/adapter';
 import { bundledSelectors } from '../src/core/selectors';
 import { exactDetails } from '../src/core/brief';
@@ -57,5 +57,35 @@ describe('lossless capture from the stored chat', () => {
     const { fullContext } = await import('../src/core/context-export');
     const text = fullContext({ turns: [{ role: 'user', text: 'Build it', index: 0 }, { role: 'assistant', text: 'Done.\n\n[Files: cinematic-portfolio-m1.zip]', index: 1 }], incomplete: false, truncated: false, savedAt: 0 }, 'https://claude.ai/chat/1').text;
     expect(text).toContain('Files in the chat (not attached here; ask the user to share any you need): cinematic-portfolio-m1.zip');
+  });
+  it('DeepSeek: the current branch, request and response only, files named', () => {
+    const turns = deepseekTurns({ chat_session: { current_message_id: 5 }, chat_messages: [
+      { message_id: 1, parent_id: null, role: 'USER', fragments: [{ type: 'FILE', files: [{ file_name: 'quiz.txt' }] }, { type: 'REQUEST', content: 'answer these' }] },
+      { message_id: 2, parent_id: 1, role: 'ASSISTANT', fragments: [{ type: 'THINK', content: 'hmm' }, { type: 'SEARCH', content: 'Found 13 web pages' }, { type: 'RESPONSE', content: '1. B' }] },
+      { message_id: 3, parent_id: 2, role: 'USER', fragments: [{ type: 'REQUEST', content: 'edited away' }] },
+      { message_id: 4, parent_id: 2, role: 'USER', fragments: [{ type: 'REQUEST', content: 'and question 2?' }] },
+      { message_id: 5, parent_id: 4, role: 'ASSISTANT', fragments: [{ type: 'RESPONSE', content: '2. C' }] }
+    ] });
+    expect(turns.map(turn => turn.text)).toEqual(['answer these\n\n[Files: quiz.txt]', '1. B', 'and question 2?', '2. C']);
+  });
+  it('Perplexity: each entry is a question and its answer, without plan or search steps', () => {
+    const turns = perplexityTurns([
+      { query_str: 'How many numbers?', blocks: [{ intended_usage: 'plan' }, { intended_usage: 'ask_text', markdown_block: { answer: 'B. 180' } }, { intended_usage: 'pro_search_steps' }] },
+      { query_str: 'Why?', attachments: ['https://files.example/user/Notes%20v2.pdf?sig=1'], blocks: [{ intended_usage: 'ask_text', markdown_block: { answer: 'Because…' } }] }
+    ]);
+    expect(turns.map(turn => turn.text)).toEqual(['How many numbers?', 'B. 180', 'Why?\n\n[Files: Notes v2.pdf]', 'Because…']);
+  });
+  it('Grok: the branch ending in the newest reply; a failed reply is skipped', () => {
+    const turns = grokTurns([
+      { responseId: 'u1', sender: 'human', message: 'Write a script', fileAttachmentsMetadata: [{ fileName: 'Screenshot.png' }], createTime: '2026-03-23T14:50:00Z' },
+      { responseId: 'bad', parentResponseId: 'u1', sender: 'ASSISTANT', message: '', error: { code: 1 }, createTime: '2026-03-23T14:57:09Z' },
+      { responseId: 'a1', parentResponseId: 'u1', sender: 'assistant', message: 'Here is the script.', createTime: '2026-03-23T14:57:43Z' }
+    ]);
+    expect(turns.map(turn => turn.text)).toEqual(['Write a script\n\n[Files: Screenshot.png]', 'Here is the script.']);
+  });
+  it('Gemini: oldest first, and the reply draft that is shown', () => {
+    const turn = (user: string, shown: string, drafts: [string, string][]) => [['c_1', 'r_x'], null, [[user], 1], [drafts.map(([id, text]) => [id, [text]]), null, null, shown]];
+    const turns = geminiTurns([[turn('give me python code', 'rc_1', [['rc_1', 'import pandas']]), turn('review my answers', 'rc_9', [['rc_8', 'other draft'], ['rc_9', 'Q1 is right']])]]);
+    expect(turns.map(turn => turn.text)).toEqual(['review my answers', 'Q1 is right', 'give me python code', 'import pandas']);
   });
 });

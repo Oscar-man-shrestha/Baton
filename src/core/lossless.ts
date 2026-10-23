@@ -60,12 +60,73 @@ export function chatgptTurns(conversation: GptConversation): Turn[] {
   return numbered(turns);
 }
 
+type DeepSeekMessage = { message_id: number; parent_id: number | null; role: string; content?: string; fragments?: { type: string; content?: string; files?: { file_name?: string }[] }[]; files?: { file_name?: string }[] };
+export type DeepSeekChat = { chat_session?: { current_message_id?: number }; chat_messages?: DeepSeekMessage[] };
+/** DeepSeek: the current branch; your text (REQUEST) and the answer (RESPONSE), without thinking or search steps. */
+export function deepseekTurns(chat: DeepSeekChat): Turn[] {
+  const messages = chat.chat_messages || [];
+  const byId = new Map(messages.map(message => [message.message_id, message]));
+  const branch: DeepSeekMessage[] = [];
+  for (let at: DeepSeekMessage | undefined = byId.get(chat.chat_session?.current_message_id ?? -1) || messages[messages.length - 1]; at && !branch.includes(at); at = at.parent_id == null ? undefined : byId.get(at.parent_id)) branch.unshift(at);
+  return numbered(branch.map(message => {
+    const fragments = message.fragments || [];
+    const text = fragments.length ? fragments.filter(part => part.type === 'REQUEST' || part.type === 'RESPONSE').map(part => (part.content || '').trim()).filter(Boolean).join('\n\n') : message.content || '';
+    const files = [...fragments.flatMap(part => part.type === 'FILE' ? part.files || [] : []), ...(message.files || [])].map(file => file.file_name || '');
+    return { role: message.role === 'USER' ? 'user' as const : 'assistant' as const, text: withFiles(text, files) };
+  }));
+}
+
+type PerplexityEntry = { query_str?: string; blocks?: { intended_usage?: string; markdown_block?: { answer?: string } }[]; attachments?: (string | { file_name?: string; name?: string })[] };
+/** Perplexity: each entry is your question and its answer; search steps and sources are left out. */
+export function perplexityTurns(entries: PerplexityEntry[]): Turn[] {
+  return numbered(entries.flatMap(entry => {
+    const files = (entry.attachments || []).map(file => typeof file === 'string' ? decodeURIComponent(baseName(file.split('?')[0])) : file.file_name || file.name || '');
+    const answer = (entry.blocks || []).filter(block => block.intended_usage === 'ask_text').map(block => block.markdown_block?.answer?.trim() || '').filter(Boolean).join('\n\n');
+    return [{ role: 'user' as const, text: withFiles(entry.query_str || '', files) }, { role: 'assistant' as const, text: answer }];
+  }));
+}
+
+type GrokResponse = { responseId: string; parentResponseId?: string; sender: string; message?: string; createTime?: string; error?: unknown; fileAttachmentsMetadata?: { fileName?: string }[] };
+/** Grok: the branch ending in the newest message (a regenerated reply replaces the earlier one); failed replies skipped. */
+export function grokTurns(responses: GrokResponse[]): Turn[] {
+  const byId = new Map(responses.map(response => [response.responseId, response]));
+  const parents = new Set(responses.map(response => response.parentResponseId).filter(Boolean));
+  const leaf = responses.filter(response => !parents.has(response.responseId) && !response.error).sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
+  const branch: GrokResponse[] = [];
+  for (let at: GrokResponse | undefined = leaf; at && !branch.includes(at); at = byId.get(at.parentResponseId || '')) branch.unshift(at);
+  return numbered(branch.filter(response => !response.error).map(response => ({
+    role: response.sender.toLowerCase() === 'human' ? 'user' as const : 'assistant' as const,
+    text: withFiles(response.message || '', (response.fileAttachmentsMetadata || []).map(file => file.fileName || ''))
+  })));
+}
+
+/** Gemini: turns arrive newest first; each holds your message and the reply drafts, with the one shown named at [3][3]. */
+export function geminiTurns(payload: unknown): Turn[] {
+  const turns = (Array.isArray(payload) && Array.isArray(payload[0]) ? payload[0] : []) as unknown[][];
+  const text = (value: unknown) => (typeof value === 'string' ? value : '').trim();
+  return numbered([...turns].reverse().flatMap(turn => {
+    const user = text((turn[2] as unknown[][] | undefined)?.[0]?.[0]);
+    const reply = turn[3] as unknown[] | undefined;
+    const drafts = (reply?.[0] || []) as unknown[][];
+    const shown = drafts.find(draft => draft[0] === reply?.[3]) || drafts[0];
+    return [{ role: 'user' as const, text: user }, { role: 'assistant' as const, text: text((shown?.[1] as unknown[] | undefined)?.[0]) }];
+  }));
+}
+
 /** Reads the stored chat on this page's own site; undefined where the service or the page doesn't offer it. */
-export async function fetchStoredChat(id: ProviderId, location: Location, timeout = 6000): Promise<Turn[] | undefined> {
-  const chat = id === 'claude' ? location.pathname.match(/^\/chat\/([0-9a-f-]{36})/)?.[1] : id === 'chatgpt' ? location.pathname.match(/\/c\/([0-9a-f-]{36})/)?.[1] : undefined;
+export async function fetchStoredChat(id: ProviderId, location: Location, timeout = 6000, doc: Document = document): Promise<Turn[] | undefined> {
+  const path = location.pathname;
+  const chat = {
+    claude: path.match(/^\/chat\/([0-9a-f-]{36})/)?.[1],
+    chatgpt: path.match(/\/c\/([0-9a-f-]{36})/)?.[1],
+    deepseek: path.match(/\/chat\/s\/([0-9a-f-]{36})/)?.[1],
+    grok: path.match(/\/(?:c|chat)\/([0-9a-f-]{36})/)?.[1],
+    perplexity: path.match(/^\/search\/([^/?#]+)/)?.[1],
+    gemini: path.match(/\/app\/([0-9a-f]{12,})/)?.[1]
+  }[id];
   if (!chat) return undefined;
   const signal = AbortSignal.timeout(timeout);
-  const json = async (url: string, headers?: Record<string, string>) => { const response = await fetch(url, { credentials: 'include', headers, signal }); if (!response.ok) throw new Error(String(response.status)); return response.json(); };
+  const json = async (url: string, init: RequestInit = {}) => { const response = await fetch(url, { credentials: 'include', ...init, signal }); if (!response.ok) throw new Error(String(response.status)); return response.json(); };
   if (id === 'claude') {
     const orgs = await json('/api/organizations') as { uuid: string; capabilities?: string[] }[];
     for (const org of [...orgs].sort((a, b) => Number((b.capabilities || []).includes('chat')) - Number((a.capabilities || []).includes('chat')))) {
@@ -73,8 +134,42 @@ export async function fetchStoredChat(id: ProviderId, location: Location, timeou
     }
     return undefined;
   }
-  // The token is the page's own session token, used only for this same-site request and never stored.
-  const session = await json('/api/auth/session') as { accessToken?: string };
-  if (!session.accessToken) return undefined;
-  return chatgptTurns(await json(`/backend-api/conversation/${chat}`, { authorization: `Bearer ${session.accessToken}` }));
+  // Session tokens below are the page's own, used only for these same-site requests and never stored by Baton.
+  if (id === 'chatgpt') {
+    const session = await json('/api/auth/session') as { accessToken?: string };
+    if (!session.accessToken) return undefined;
+    return chatgptTurns(await json(`/backend-api/conversation/${chat}`, { headers: { authorization: `Bearer ${session.accessToken}` } }));
+  }
+  if (id === 'deepseek') {
+    let token: string | undefined;
+    try { token = JSON.parse(localStorage.getItem('userToken') || '{}').value; } catch { /* No session. */ }
+    if (!token) return undefined;
+    return deepseekTurns((await json(`/api/v0/chat/history_messages?chat_session_id=${chat}`, { headers: { authorization: `Bearer ${token}` } })).data?.biz_data || {});
+  }
+  if (id === 'grok') {
+    const nodes = (await json(`/rest/app-chat/conversations/${chat}/response-node?includeThreads=true`)).responseNodes as { responseId: string }[] | undefined;
+    if (!nodes?.length) return undefined;
+    const loaded = await json(`/rest/app-chat/conversations/${chat}/load-responses`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ responseIds: nodes.map(node => node.responseId) }) });
+    return grokTurns(loaded.responses || []);
+  }
+  if (id === 'perplexity') {
+    const entries: PerplexityEntry[] = [];
+    for (let offset = 0; offset < 1000; offset += 100) {
+      const page = await json(`/rest/thread/${chat}?with_schematized_response=true&version=2.18&source=default&limit=100&offset=${offset}&from_first=true`);
+      entries.push(...(page.entries || []));
+      if (!page.has_next_page || !page.entries?.length) break;
+    }
+    return perplexityTurns(entries);
+  }
+  // Gemini has no plain chat address: the page's own data call, with the request token from its page script.
+  const script = Array.from(doc.scripts).map(element => element.textContent || '').find(text => text.includes('"SNlM0e"')) || '';
+  const value = (key: string) => script.match(new RegExp(`"${key}":"([^"]*)"`))?.[1];
+  const at = value('SNlM0e'), build = value('cfb2h'), session = value('FdrFJe');
+  if (!at || !build) return undefined;
+  const body = new URLSearchParams({ 'f.req': JSON.stringify([[['hNvQHb', JSON.stringify([`c_${chat}`, 1000, null, 1, [1], [4], null, 1]), null, 'generic']]]), at });
+  const response = await fetch(`/_/BardChatUi/data/batchexecute?rpcids=hNvQHb&source-path=${encodeURIComponent(path)}&bl=${build}&f.sid=${session || ''}&hl=en&rt=c`, { method: 'POST', body, credentials: 'include', signal, headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' } });
+  if (!response.ok) return undefined;
+  const line = (await response.text()).split('\n').find(row => row.startsWith('[["wrb.fr","hNvQHb"'));
+  const payload = line ? JSON.parse(line)[0][2] : undefined;
+  return payload ? geminiTurns(JSON.parse(payload)) : undefined;
 }
