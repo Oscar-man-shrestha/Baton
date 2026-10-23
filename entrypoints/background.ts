@@ -61,6 +61,12 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus?.removeAll(() => chrome.contextMenus.create({ id: 'baton-save-selection', title: 'Save selection as a baton', contexts: ['selection'], documentUrlPatterns: chatPatterns }, () => void chrome.runtime.lastError));
   });
+  // The chat page shows the keys the browser actually assigned (in its tooltips and the save card).
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'SHORTCUT_KEYS' || !chrome.commands) return;
+    void chrome.commands.getAll().then(commands => sendResponse({ ok: true, commands: commands.map(({ name, shortcut }) => ({ name, shortcut })) }), () => sendResponse({ ok: false }));
+    return true;
+  });
   chrome.contextMenus?.onClicked.addListener((info, tab) => { if (info.menuItemId === 'baton-save-selection') toChatPage(tab, 'save-selection'); });
   chrome.runtime.onStartup.addListener(scheduleRankings);
   chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'baton-rankings') void updateRankings().catch(() => {}); });

@@ -1,10 +1,11 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
-import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, selectedTurns } from '../src/core/adapter';
+import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, questionBefore, selectedTurns } from '../src/core/adapter';
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule, saveSelectionCapsule } from '../src/core/capsules';
-import { listFolders } from '../src/core/projects';
+import { listFolders, type Project } from '../src/core/projects';
 import { selectionName, selectionSummary } from '../src/core/selection';
+import { formatShortcut, onMac, type ShortcutCommand } from '../src/core/shortcuts';
 import { newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
 import { withNextStep } from '../src/core/next-step';
 import { pendingFor, pendingKey, shouldOffer, signInLabel, switchHelp, type PendingProject } from '../src/core/account-continue';
@@ -124,13 +125,27 @@ export default defineContentScript({
       return redact(wrapHandoff(renderBrief(brief, 1400).text)).text;
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
-    const passTo = async (target: ProviderId, next?: string) => {
-      const draft = withNextStep(await rescueDraft(), next);
-      if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
+    const openDraftIn = async (target: ProviderId, draft: string) => {
       const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft });
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
       void chrome.storage.local.get('passCount').then(saved => chrome.storage.local.set({ passCount: (Number(saved.passCount) || 0) + 1 })).catch(() => {});
+    };
+    const passTo = async (target: ProviderId, next?: string) => {
+      const draft = withNextStep(await rescueDraft(), next);
+      if (!draftBudget(draft).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
+      await openDraftIn(target, draft);
       return `Opened ${providerNames[target]} in a new tab with your project as an unsent draft. Also saved as a baton.`;
+    };
+    // A saved selection goes exactly as saved. Too long to type in for you: it is copied and the AI opens to paste it.
+    const passSaved = async (saved: Project, target: ProviderId, next?: string) => {
+      const draft = withNextStep(saved.draft || '', next);
+      if (!draftBudget(draft).fits) {
+        await navigator.clipboard.writeText(draft);
+        window.open(newChatUrls[target], '_blank', 'noopener');
+        return `It’s longer than Baton types in for you, so it’s copied: paste it into ${providerNames[target]} (${onMac(navigator) ? '⌘V' : 'Ctrl+V'}), then press Send.`;
+      }
+      await openDraftIn(target, draft);
+      return `Opened ${providerNames[target]} with this part as an unsent draft. Read it, then press Send.`;
     };
     // Same AI, another account: save the project, show where to switch (Google's chooser for Gemini), and offer it
     // as a draft on the next fresh chat here. The user signs in and out in the service's own screens.
@@ -946,16 +961,25 @@ export default defineContentScript({
     selectHost.style.cssText = 'position:fixed;z-index:2147483005;left:0;top:0;width:0;height:0;overflow:visible;filter:none!important;transform:none!important';
     const selectShadow = selectHost.attachShadow({ mode: 'closed' });
     const selectStyle = document.createElement('style');
-    selectStyle.textContent = ':host{all:initial}.chip{all:unset;position:fixed;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px 0 10px;box-sizing:border-box;border-radius:999px;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.55);box-shadow:0 8px 22px rgba(0,0,0,.34),0 0 12px rgba(139,108,255,.3);color:#f4f3fb;font:600 12px/1 system-ui,-apple-system,sans-serif;white-space:nowrap}.chip:hover{border-color:#b8a5ff}.chip:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.chip[hidden],.card[hidden],.toast[hidden]{display:none}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px)}.card{position:fixed;width:300px;box-sizing:border-box;padding:12px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.99),rgba(24,23,33,.99));border:1px solid rgba(139,108,255,.5);box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 22px rgba(139,108,255,.22);color:#f4f3fb;font:500 12px/1.4 system-ui,-apple-system,sans-serif}.card h2{all:unset;display:block;font-size:13.5px;font-weight:700;margin:0 2px 2px}.card p{margin:0 2px 10px;color:#a3a1ba;font-size:10.5px}label{display:grid;gap:4px;margin:0 0 8px}label span{font-size:11px;font-weight:700;color:#cfcde0}input,select{all:unset;box-sizing:border-box;width:100%;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}select{cursor:pointer}option{color:#1e1d2b}input:focus,select:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.row button{all:unset;cursor:pointer;padding:7px 13px;border-radius:9px;font-weight:700;font-size:12px}.save{background:#b8a5ff;color:#1b1430}.cancel{color:#cfcde0;background:rgba(255,255,255,.07)}.row button:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.row button[disabled]{opacity:.5;cursor:default}.status{margin:8px 2px 0!important;color:#cfcde0!important;font-size:11px!important}.status:empty{display:none}.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:min(420px,calc(100vw - 32px));box-sizing:border-box;padding:9px 14px;border-radius:12px;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.45);box-shadow:0 12px 30px rgba(0,0,0,.4);color:#f4f3fb;font:500 12.5px/1.4 system-ui,-apple-system,sans-serif}@media(prefers-color-scheme:light){.chip,.toast{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.45);box-shadow:0 6px 18px rgba(30,25,70,.16)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px)}.card{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.4);box-shadow:0 18px 40px rgba(30,25,70,.2)}.card p{color:#6d6a86}label span,.status{color:#3d3b52!important}input,select{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.save{background:#6650de;color:#fff}.cancel{color:#3d3b52;background:rgba(30,25,70,.06)}}';
+    selectStyle.textContent = ':host{all:initial}.chip{all:unset;position:fixed;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px 0 10px;box-sizing:border-box;border-radius:999px;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.55);box-shadow:0 8px 22px rgba(0,0,0,.34),0 0 12px rgba(139,108,255,.3);color:#f4f3fb;font:600 12px/1 system-ui,-apple-system,sans-serif;white-space:nowrap}.chip:hover{border-color:#b8a5ff}.chip:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.chip[hidden],.card[hidden],.toast[hidden]{display:none}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px)}.card{position:fixed;width:300px;box-sizing:border-box;padding:12px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.99),rgba(24,23,33,.99));border:1px solid rgba(139,108,255,.5);box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 22px rgba(139,108,255,.22);color:#f4f3fb;font:500 12px/1.4 system-ui,-apple-system,sans-serif}.card h2{all:unset;display:block;font-size:13.5px;font-weight:700;margin:0 2px 2px}.card p{margin:0 2px 10px;color:#a3a1ba;font-size:10.5px}label{display:grid;gap:4px;margin:0 0 8px}label span{font-size:11px;font-weight:700;color:#cfcde0}input,select{all:unset;box-sizing:border-box;width:100%;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}select{cursor:pointer}option{color:#1e1d2b}input:focus,select:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.row button{all:unset;cursor:pointer;padding:7px 13px;border-radius:9px;font-weight:700;font-size:12px}.save{background:#b8a5ff;color:#1b1430}.cancel{color:#cfcde0;background:rgba(255,255,255,.07)}.row button:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.row button[disabled]{opacity:.5;cursor:default}.status{margin:8px 2px 0!important;color:#cfcde0!important;font-size:11px!important}.status:empty{display:none}.card .preview{font-style:italic;color:#cfcde0;font-size:11px;line-height:1.45;overflow-wrap:anywhere}.card .label{display:block;margin:2px 2px 6px;font-size:11px;font-weight:700;color:#cfcde0}.next{margin-bottom:8px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:7px 8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt .name{display:block;font-weight:650;font-size:12px}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.chip kbd{font:600 10px/1 system-ui,sans-serif;color:#a3a1ba;margin-left:2px}.chip kbd:empty{display:none}.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:min(420px,calc(100vw - 32px));box-sizing:border-box;padding:9px 14px;border-radius:12px;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.45);box-shadow:0 12px 30px rgba(0,0,0,.4);color:#f4f3fb;font:500 12.5px/1.4 system-ui,-apple-system,sans-serif}@media(prefers-color-scheme:light){.card .preview,.card .label{color:#3d3b52}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(30,25,70,.06)}.opt small,.chip kbd{color:#6d6a86}.tag{background:#6650de;color:#fff}.chip,.toast{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.45);box-shadow:0 6px 18px rgba(30,25,70,.16)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px)}.card{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.4);box-shadow:0 18px 40px rgba(30,25,70,.2)}.card p{color:#6d6a86}label span,.status{color:#3d3b52!important}input,select{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.save{background:#6650de;color:#fff}.cancel{color:#3d3b52;background:rgba(30,25,70,.06)}}';
     const selectChip = document.createElement('button'); selectChip.type = 'button'; selectChip.className = 'chip'; selectChip.hidden = true;
     selectChip.title = 'Save just this part of the chat as a baton';
     const chipMark = document.createElement('i'); chipMark.className = 'brand'; chipMark.setAttribute('aria-hidden', 'true');
-    selectChip.append(chipMark, 'Save as baton');
+    const chipKey = document.createElement('kbd');
+    selectChip.append(chipMark, 'Save as baton', chipKey);
     const selectCard = document.createElement('div'); selectCard.className = 'card'; selectCard.setAttribute('role', 'dialog'); selectCard.setAttribute('aria-label', 'Save the selection as a baton'); selectCard.hidden = true;
     const toast = document.createElement('div'); toast.className = 'toast'; toast.setAttribute('role', 'status'); toast.hidden = true;
     selectShadow.append(selectStyle, selectChip, selectCard, toast);
     document.body.append(selectHost);
     ctx.onInvalidated(() => selectHost.remove());
+    // The keys the browser assigned (shown on the chip, in the Baton button's tooltip and in tips), from the background.
+    const keys: Partial<Record<ShortcutCommand, string>> = {};
+    void chrome.runtime.sendMessage({ type: 'SHORTCUT_KEYS' }).then(reply => {
+      if (!reply?.ok) return;
+      for (const command of reply.commands as { name: ShortcutCommand; shortcut?: string }[]) keys[command.name] = formatShortcut(command.shortcut, onMac(navigator));
+      chipKey.textContent = keys['save-selection'] || '';
+      if (keys['open-pass-menu']) passButton.title = `Baton: continue this chat in another AI (${keys['open-pass-menu']})`;
+    }).catch(() => {});
     let selectionChipEnabled = true;
     void chrome.storage.local.get('selectionButtonEnabled').then(saved => { selectionChipEnabled = saved.selectionButtonEnabled !== false; });
     let toastTimer: number | undefined;
@@ -990,55 +1014,95 @@ export default defineContentScript({
       placeBySelection(selectChip, chipRange, chip.width || 120, chip.height || 28);
     };
     const closeSaveCard = () => { selectCard.hidden = true; selectCard.replaceChildren(); };
+    const cardText = (tag: 'h2' | 'p' | 'span' | 'small', text: string, className = '') => { const node = document.createElement(tag); node.textContent = text; if (className) node.className = className; return node; };
+    // Keys stay in Baton's card: the chat site must not react to typing here.
+    for (const type of ['keydown', 'keyup', 'keypress'] as const) selectCard.addEventListener(type, event => {
+      event.stopPropagation();
+      if (type === 'keydown' && (event as KeyboardEvent).key === 'Escape') { event.preventDefault(); closeSaveCard(); }
+    });
+    // Step 2, once saved: pass the selection on, ranked like the Pass menu for what it is about.
+    const showPassOptions = async (saved: Project, asked: string) => {
+      const { topic, options, reason } = suggest(asked, id, await chrome.storage.local.get(suggestionKeys()), Date.now());
+      const suggested = options.find(option => option.status !== 'limited');
+      selectCard.replaceChildren();
+      const status = cardText('p', '', 'status'); status.setAttribute('role', 'status');
+      const run = async (action: () => Promise<string>) => { status.textContent = 'Working…'; try { status.textContent = await action(); } catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Open Baton to try again.'; } };
+      const next = document.createElement('label'); next.className = 'next';
+      const nextInput = document.createElement('input'); nextInput.type = 'text'; nextInput.maxLength = 300; nextInput.placeholder = 'e.g. turn this into a checklist';
+      next.append(cardText('span', 'What’s next? (optional)'), nextInput);
+      nextInput.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing && suggested) { event.preventDefault(); void run(() => passSaved(saved, suggested.provider, nextInput.value)); } });
+      selectCard.append(cardText('h2', '✓ Saved as a baton'), cardText('p', `“${saved.name.slice(0, 60)}”${saved.folder ? ` · in ${saved.folder}` : ''}. It’s in Baton with your other batons.`), next, cardText('small', 'Pass it to…', 'label'));
+      for (const option of options) {
+        const item = document.createElement('button'); item.type = 'button'; item.className = 'opt';
+        const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', laneColor[option.provider]);
+        const text = document.createElement('span'); const why = reason(option.provider);
+        text.append(cardText('span', providerNames[option.provider], 'name'), cardText('small', why && option.status !== 'limited' ? `${why} · ${option.detail}` : option.detail));
+        item.append(dot, text);
+        if (option === suggested) item.append(cardText('span', 'Suggested', 'tag'));
+        if (option.status === 'limited') item.setAttribute('aria-disabled', 'true');
+        else item.addEventListener('click', () => {
+          void chrome.storage.local.get('taskPicks').then(stored => chrome.storage.local.set({ taskPicks: addPick(stored.taskPicks as TaskPicks | undefined, topic, option.provider) })).catch(() => {});
+          void run(() => passSaved(saved, option.provider, nextInput.value));
+        });
+        selectCard.append(item);
+      }
+      const row = document.createElement('div'); row.className = 'row';
+      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'cancel'; copy.textContent = 'Copy';
+      copy.addEventListener('click', () => { void run(async () => { await navigator.clipboard.writeText(withNextStep(saved.draft || '', nextInput.value)); return 'Copied. Paste it into any AI chat, then press Send.'; }); });
+      const done = document.createElement('button'); done.type = 'button'; done.className = 'save'; done.textContent = 'Done';
+      done.addEventListener('click', closeSaveCard);
+      row.append(copy, done);
+      selectCard.append(status, row);
+      (selectCard.querySelector('.opt:not([aria-disabled=true])') as HTMLElement | null)?.focus({ preventScroll: true });
+      keepCardOnScreen();
+    };
+    const keepCardOnScreen = () => {
+      const card = selectCard.getBoundingClientRect();
+      if (card.bottom > innerHeight - 8) selectCard.style.top = `${Math.max(8, innerHeight - card.height - 8)}px`;
+      if (card.right > innerWidth - 8) selectCard.style.left = `${Math.max(8, innerWidth - card.width - 8)}px`;
+    };
+    // Step 1: what will be saved, its name and folder.
     const openSaveCard = async (range: Range, text: string) => {
       // Outside the messages Baton recognises (a page change), keep the selected words as they read.
       const found = selectedTurns(document, id, bundledSelectors, range);
       const turns = found.length ? found : [{ role: 'assistant' as const, text, index: 0 }];
+      const question = found.length ? questionBefore(document, id, bundledSelectors, range) : undefined;
       hideChip();
       selectCard.replaceChildren();
-      const title = document.createElement('h2'); title.textContent = 'Save as baton';
-      const summary = document.createElement('p'); summary.textContent = `${selectionSummary(turns)}. Only this part is saved, on this device.`;
-      const nameField = document.createElement('label'); const nameLabel = document.createElement('span'); nameLabel.textContent = 'Name';
-      const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.maxLength = 160; nameInput.value = selectionName(turns);
-      nameField.append(nameLabel, nameInput);
-      selectCard.append(title, summary, nameField);
+      const summary = cardText('p', `${selectionSummary(turns)}${question ? ', with the question it answers' : ''}. Saved on this device only.`);
+      const preview = cardText('p', `“${turns.map(turn => turn.text).join(' ').replace(/\s+/g, ' ').slice(0, 140)}${turns.reduce((sum, turn) => sum + turn.text.length, 0) > 140 ? '…' : ''}”`, 'preview');
+      const nameField = document.createElement('label');
+      const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.maxLength = 160; nameInput.value = selectionName(question ? [question, ...turns] : turns);
+      nameField.append(cardText('span', 'Name'), nameInput);
+      selectCard.append(cardText('h2', 'Save as baton'), summary, preview, nameField);
       const folders = await listFolders().catch(() => [] as string[]);
       const folderSelect = document.createElement('select');
       if (folders.length) {
-        const folderField = document.createElement('label'); const folderLabel = document.createElement('span'); folderLabel.textContent = 'Folder';
+        const folderField = document.createElement('label');
         folderSelect.append(new Option('No folder', ''), ...folders.map(folder => new Option(folder, folder)));
-        folderField.append(folderLabel, folderSelect);
+        folderField.append(cardText('span', 'Folder'), folderSelect);
         selectCard.append(folderField);
       }
       const row = document.createElement('div'); row.className = 'row';
       const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'cancel'; cancel.textContent = 'Cancel';
       const save = document.createElement('button'); save.type = 'button'; save.className = 'save'; save.textContent = 'Save';
-      const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
+      const status = cardText('p', '', 'status'); status.setAttribute('role', 'status');
       row.append(cancel, save);
       selectCard.append(row, status);
       const saveNow = async () => {
         if (save.disabled) return;
         save.disabled = true; status.textContent = 'Saving…';
         try {
-          const saved = await saveSelectionCapsule(turns, pageUrl(), nameInput.value, folderSelect.value || undefined);
-          status.textContent = `Saved “${saved.name.slice(0, 48)}”${saved.folder ? ` in ${saved.folder}` : ''}. Open Baton to pass it to another AI.`;
-          row.remove();
-          ctx.setTimeout(() => { if (selectCard.contains(status)) closeSaveCard(); }, 2600);
+          const saved = await saveSelectionCapsule({ turns, question }, pageUrl(), nameInput.value, folderSelect.value || undefined);
+          await showPassOptions(saved, (question || turns.find(turn => turn.role === 'user') || turns[0]).text);
         } catch (error) { save.disabled = false; status.textContent = error instanceof Error && /quota/i.test(error.message) ? 'Baton’s storage is full. Delete some batons, then try again.' : 'Could not save it. Try again, or capture the whole chat from Baton.'; }
       };
       cancel.addEventListener('click', closeSaveCard);
       save.addEventListener('click', () => { void saveNow(); });
-      // Keys stay in Baton's card: the chat site must not react to typing here.
-      for (const type of ['keydown', 'keyup', 'keypress'] as const) selectCard.addEventListener(type, event => {
-        event.stopPropagation();
-        if (type !== 'keydown') return;
-        const key = (event as KeyboardEvent).key;
-        if (key === 'Escape') { event.preventDefault(); closeSaveCard(); }
-        if (key === 'Enter' && !(event as KeyboardEvent).isComposing && event.composedPath()[0] === nameInput) { event.preventDefault(); void saveNow(); }
-      });
+      nameInput.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); void saveNow(); } });
       selectCard.hidden = false;
       const card = selectCard.getBoundingClientRect();
-      placeBySelection(selectCard, range, card.width || 300, card.height || 200);
+      placeBySelection(selectCard, range, card.width || 300, card.height || 220);
       nameInput.focus({ preventScroll: true }); nameInput.select();
     };
     // Pressing the chip must not clear the selection it belongs to.
@@ -1056,7 +1120,7 @@ export default defineContentScript({
     const runCommand = (command: string) => {
       if (command === 'save-selection') {
         const current = pageSelection();
-        if (!current) { showToast('Select part of the conversation first, then press the shortcut again (or right-click → Save selection as a baton).'); return; }
+        if (!current) { showToast(`Select part of the conversation first, then press ${keys['save-selection'] || 'the shortcut'} again (or right-click → Save selection as a baton).`); return; }
         void openSaveCard(current.range, current.text).catch(() => showToast('Could not read the selection. Try selecting it again.'));
         return;
       }

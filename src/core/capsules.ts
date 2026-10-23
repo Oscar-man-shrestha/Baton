@@ -19,14 +19,15 @@ export async function saveCapturedCapsule(archive: TurnArchive, brief: Brief, so
 
 /**
  * Part of a chat, saved as a baton of its own (one per topic of a long chat). Stored like a captured chat, so it lists,
- * files and passes the same way. “selection:” ids keep the chat it came from listed in Recent.
- * Saving the same selection again renames or refiles it instead of adding a copy.
+ * files and passes the same way. A selection that starts in a reply keeps the question it answers first, so the baton
+ * has its goal. “selection:” ids keep the chat it came from listed in Recent. Saving the same selection again renames
+ * or refiles it instead of adding a copy.
  */
-export async function saveSelectionCapsule(turns: Turn[], sourceUrl: string, name: string, folder?: string): Promise<Project> {
-  const archive = archiveWindow(undefined, turns);
+export async function saveSelectionCapsule(selection: { turns: Turn[]; question?: Turn }, sourceUrl: string, name: string, folder?: string): Promise<Project> {
+  const archive = archiveWindow(undefined, selection.question ? [selection.question, ...selection.turns] : selection.turns);
   const id = `selection:${await digest([sourceUrl, archive.turns.map(turn => [turn.role, turn.text])])}`;
   const brief = updateBrief(undefined, archive.turns, []);
-  const context = fullContext(archive, sourceUrl, 'selection');
+  const context = fullContext(archive, sourceUrl, { question: !!selection.question });
   const filed = resolveFolder(folder || '', await listFolders());
   const capsule: Project = { id, name: name.trim().slice(0, 160) || brief.goal.slice(0, 160) || 'Selected part of a chat', ...(filed ? { folder: filed } : {}), updatedAt: Date.now(), threads: [sourceUrl], brief, draft: context.draft, draftMode: 'full', snapshotText: context.text };
   await saveProject(capsule);

@@ -250,25 +250,44 @@ export function extract(doc: Document, id: ProviderId, bundle: SelectorBundle): 
  * The messages a selection covers, in page order: a fully selected message keeps its whole text, a partly selected one
  * only the selected words (as markdown, without hidden headings or buttons). Text outside the conversation is ignored.
  */
+export function selectedTurns(doc: Document, id: ProviderId, bundle: SelectorBundle, range: Range): Turn[] {
+  return selectedParts(doc, id, bundle, range).turns;
+}
+
+/**
+ * When a selection starts in a reply, the message of yours that reply answers (whole), so a baton made from it says what
+ * was asked. Undefined when the selection starts with your own words or nothing of yours comes before it.
+ */
+export function questionBefore(doc: Document, id: ProviderId, bundle: SelectorBundle, range: Range): Turn | undefined {
+  const { nodes, first } = selectedParts(doc, id, bundle, range);
+  if (first < 0 || turnRole(nodes[first], id) === 'user') return undefined;
+  for (let index = first - 1; index >= 0; index--) {
+    if (turnRole(nodes[index], id) !== 'user') continue;
+    const text = cleanTurn(nodes[index], id);
+    return text ? { role: 'user', text, index: 0 } : undefined;
+  }
+  return undefined;
+}
+
 // Range.START_TO_START and friends, spelled out so this also runs where no global Range exists (tests).
 const START_TO_START = 0, START_TO_END = 1, END_TO_END = 2, END_TO_START = 3;
-export function selectedTurns(doc: Document, id: ProviderId, bundle: SelectorBundle, range: Range): Turn[] {
+function selectedParts(doc: Document, id: ProviderId, bundle: SelectorBundle, range: Range): { nodes: Element[]; first: number; turns: Turn[] } {
+  const nodes = collectTurnNodes(doc, id, bundle);
   const turns: Turn[] = [];
-  for (const node of collectTurnNodes(doc, id, bundle)) {
-    if (!range.intersectsNode(node)) continue;
+  let first = -1;
+  nodes.forEach((node, index) => {
+    if (!range.intersectsNode(node)) return;
     const content = messageContent(node, id);
     const whole = doc.createRange(); whole.selectNodeContents(content);
-    const role = turnRole(node, id);
-    if (range.compareBoundaryPoints(START_TO_START, whole) <= 0 && range.compareBoundaryPoints(END_TO_END, whole) >= 0) {
-      const text = cleanTurn(node, id);
-      if (text) turns.push({ role, text, index: turns.length });
-      continue;
-    }
-    if (range.compareBoundaryPoints(END_TO_START, whole) >= 0 || range.compareBoundaryPoints(START_TO_END, whole) <= 0) continue;
-    const text = selectedText(content, range);
-    if (text) turns.push({ role, text, index: turns.length });
-  }
-  return turns;
+    // Touching the message only outside its text (its hidden heading, or the edge where the selection begins or ends).
+    if (range.compareBoundaryPoints(END_TO_START, whole) >= 0 || range.compareBoundaryPoints(START_TO_END, whole) <= 0) return;
+    const all = range.compareBoundaryPoints(START_TO_START, whole) <= 0 && range.compareBoundaryPoints(END_TO_END, whole) >= 0;
+    const text = all ? cleanTurn(node, id) : selectedText(content, range);
+    if (!text) return;
+    if (first < 0) first = index;
+    turns.push({ role: turnRole(node, id), text, index: turns.length });
+  });
+  return { nodes, first, turns };
 }
 
 /** The selected part of one message: copied from a clone that marks what the page hides, so hidden text stays out. */

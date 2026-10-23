@@ -161,7 +161,7 @@ function userStatementText(text: string, depth = 0): string {
   let quoted = '';
   if (inner.startsWith('PROJECT HANDOFF')) {
     quoted = [...inner.matchAll(/^(?:Preferences and constraints|Open tasks):\n((?:- .*(?:\n|$))+)/gm)].flatMap(match => match[1].split('\n').map(line => line.replace(/^- /, ''))).join('\n');
-  } else if (inner.startsWith('# Captured conversation')) {
+  } else if (inner.startsWith('# Captured conversation') || inner.startsWith('# Selected part of a conversation')) {
     quoted = [...inner.matchAll(/^## \d+\. You\n\n([\s\S]*?)(?=\n\n## \d+\. (?:You|Assistant)\n|(?![\s\S]))/gm)].map(match => userStatementText(match[1], depth + 1)).join('\n');
   }
   return [text.slice(0, start), quoted, after].join('\n');
