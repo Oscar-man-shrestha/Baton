@@ -134,4 +134,12 @@ describe('adapter fixtures', () => {
     expect(sameDraft('Goal: plan a trip Decisions: - Kyoto 4 nights Goal: plan a trip', draft)).toBe(false);
     expect(sameDraft('', draft)).toBe(false);
   });
+  it('reads every text block of a reply that used tools, not only the first, and skips thinking', () => {
+    const claude = new JSDOM(`<div data-testid="user-message">Build milestone 1</div><div class="font-claude-response"><div class="standard-markdown"><p>I’ll scaffold the project first.</p></div><div class="tool-use">Ran 2 commands, read a file</div><div class="standard-markdown"><p>Milestone 1 compiles. To run it: npm run dev.</p></div></div>`).window.document;
+    expect(extract(claude, 'claude', bundledSelectors).turns[1].text).toBe('I’ll scaffold the project first.\n\nMilestone 1 compiles. To run it: npm run dev.');
+    const chatgpt = new JSDOM(`<div data-message-author-role="assistant"><div data-markdown-text-style="assistant-message"><p>Searching first.</p></div><div>Searched 4 sites</div><div data-markdown-text-style="assistant-message"><p>Here is the answer.</p></div></div>`).window.document;
+    expect(extract(chatgpt, 'chatgpt', bundledSelectors).turns[0].text).toBe('Searching first.\n\nHere is the answer.');
+    const deepseek = new JSDOM(`<main><div class="ds-message">Why?</div><div class="ds-message"><div class="ds-think-content"><div class="ds-markdown"><p>Let me think…</p></div></div><div class="ds-markdown"><p>Because of X.</p></div></div></main>`).window.document;
+    expect(extract(deepseek, 'deepseek', bundledSelectors).turns[1].text).toBe('Because of X.');
+  });
 });

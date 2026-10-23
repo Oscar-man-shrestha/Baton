@@ -68,7 +68,6 @@ export function cleanNode(node: Element): string {
 }
 
 function messageContent(node: Element, id: ProviderId): Element {
-  if (id === 'deepseek') return node.querySelector('.ds-markdown') || node;
   if (id === 'gemini') {
     const selectors = node.matches('user-query')
       ? ['.query-text', '[class*="query-text"]', '.query-content', '[class*="query-content"]']
@@ -79,15 +78,31 @@ function messageContent(node: Element, id: ProviderId): Element {
     }
     return node;
   }
-  if (id === 'claude') return node.querySelector('.standard-markdown, .progressive-markdown') || node;
+  const blocks = messageBlocks(node, id);
+  return blocks.length === 1 ? blocks[0] : node;
+}
+
+// Where a reply's text lives. A reply that uses tools or searches is split into several blocks (Claude: text, “Ran 2
+// commands”, more text), so every block counts, in order; reading only the first lost everything after the tools.
+const blockSelectors: Partial<Record<ProviderId, string>> = {
+  claude: '.standard-markdown, .progressive-markdown',
   // ChatGPT units start with a hidden “You said:” / “ChatGPT said:” heading; read the bubble or answer body.
-  if (id === 'chatgpt') return node.querySelector('[data-user-message-bubble], [data-markdown-text-style="assistant-message"]') || node;
-  return node;
+  chatgpt: '[data-user-message-bubble], [data-markdown-text-style="assistant-message"]',
+  deepseek: '.ds-markdown'
+};
+function messageBlocks(node: Element, id: ProviderId): Element[] {
+  const selector = blockSelectors[id];
+  if (!selector) return [node];
+  const all = Array.from(node.querySelectorAll(selector));
+  // Outermost blocks only, and not a model's thinking (shown in its own collapsible section).
+  const blocks = all.filter(block => !all.some(other => other !== block && other.contains(block)) && !block.closest('[class*="think" i], [data-testid*="thinking" i]'));
+  return blocks.length ? blocks : all.length ? all.slice(0, 1) : [node];
 }
 
 function cleanTurn(node: Element, id: ProviderId): string {
   const content = messageContent(node, id);
-  let result = cleanNode(content);
+  const blocks = id === 'gemini' ? [content] : messageBlocks(node, id);
+  let result = blocks.length > 1 ? blocks.map(cleanNode).filter(Boolean).join('\n\n') : cleanNode(content);
   if (id === 'gemini' && node.matches('user-query')) {
     const duplicate = result.match(/^#{1,6}\s+You said\b[ \t]*(.*?)\n+([\s\S]*)$/i);
     if (duplicate && (duplicate[1].trim() === duplicate[2].trim() || repeatsPreview(duplicate[1], duplicate[2]))) return duplicate[2].trim();
