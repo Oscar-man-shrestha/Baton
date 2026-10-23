@@ -37,7 +37,11 @@ export function parseResetTooltip(text: string): number | undefined {
   return new Date(at + offset * 60000).getUTCDate() === Number(m[2]) && hour < 24 && Number(m[5]) < 60 ? at : undefined;
 }
 export function isCurrentReading(meter: Meter | undefined, now = Date.now()): meter is Meter & { at: number } {
-  if (!meter || meter.tier !== 'banner' || meter.confidence !== 'high' || typeof meter.at !== 'number' || !Number.isFinite(meter.at) || meter.at > now || now - meter.at >= 3600000) return false;
+  if (!meter || meter.tier !== 'banner' || meter.confidence !== 'high' || typeof meter.at !== 'number' || !Number.isFinite(meter.at) || meter.at > now) return false;
+  // A figure the service itself reported with its reset time (e.g. Claude's session and weekly, sent with each reply)
+  // holds until that reset, at most 8 days; anything else read from a page is current for an hour.
+  const reported = (meter as { source?: string }).source === 'provider-response' && typeof meter.resetAt === 'number' && meter.resetAt > now;
+  if (now - meter.at >= (reported ? 8 * 86400000 : 3600000)) return false;
   for (const value of [meter.percent, meter.remainingPercent]) if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)) return false;
   if (meter.remainingTokens !== undefined && (!Number.isSafeInteger(meter.remainingTokens) || meter.remainingTokens < 0)) return false;
   if (meter.resetAt !== undefined && (!Number.isFinite(meter.resetAt) || meter.resetAt <= now)) return false;

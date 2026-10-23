@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isClaudeReplyStream } from '../src/core/usage-kind';
 import { parseChatGptFeatures, parseChatGptWham, parseClaudeUsageResponse, parseGeminiQuota, parseUsageResponse, usageKindOf } from '../src/core/usage-api';
-import { activeWindows } from '../src/core/usage-windows';
+import { activeWindows, isCurrentReading } from '../src/core/usage-windows';
 
 const now = Date.UTC(2026, 9, 23, 3);
 const h = 3600000;
@@ -74,6 +74,13 @@ describe('usage the AI sites send to the browser', () => {
     expect(read(0.02, 0.01)).toEqual([2, 1]);
     expect(read(2, 1)).toEqual([2, 1]);
     expect(read(34, 54)).toEqual([34, 54]);
+  });
+  it('keeps a reported reading until its reset, but a page reading only for an hour', () => {
+    const [session] = parseClaudeUsageResponse({ five_hour: { utilization: 2, resets_at: new Date(now + 4 * h).toISOString() } }, now);
+    expect(isCurrentReading(session, now + 3 * h)).toBe(true);
+    expect(isCurrentReading(session, now + 4 * h + 1)).toBe(false);
+    expect(isCurrentReading({ ...session, source: 'provider-page' } as typeof session, now + 2 * h)).toBe(false);
+    expect(isCurrentReading({ ...session, resetAt: undefined }, now + 2 * h)).toBe(false);
   });
   it('never throws on junk', () => {
     for (const kind of ['chatgpt-features', 'chatgpt-wham', 'claude-usage', 'gemini-quota'] as const) for (const text of ['', 'not json', 'null', '[]', '{"limits_progress":7}'])
