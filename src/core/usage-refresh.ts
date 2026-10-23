@@ -56,16 +56,21 @@ export function usageCheckSummary(name: string, check: UsageCheck | undefined, o
 }
 
 export type CheckField = { name: string; filled: boolean };
-export type CheckDetails = { requests: { name: string; ok: boolean; status: string }[]; fields: CheckField[]; notes: string[] };
-/** What a usage check recorded (“usage 200”, “claude-usage fields: five_hour=null, …”), sorted into requests, fields and notes. */
+export type CheckDetails = { requests: { name: string; ok: boolean; status: string; tab?: boolean }[]; fields: CheckField[]; notes: string[] };
+/**
+ * What a usage check recorded (“usage 200”, “claude-usage fields: five_hour=null, …”), sorted into requests, fields and
+ * notes. “tab: …” steps are what the open tab tried before Baton asked from the background; a note said twice shows once.
+ */
 export function readCheckSteps(steps: string[]): CheckDetails {
   const details: CheckDetails = { requests: [], fields: [], notes: [] };
-  for (const step of steps) {
+  for (const raw of steps) {
+    const tab = raw.startsWith('tab: ');
+    const step = tab ? raw.slice(5) : raw;
     const request = step.match(/^(\S+) (\d{3}|failed)$/);
     const fields = step.match(/^\S+ fields: (.*)$/);
-    if (request) details.requests.push({ name: request[1], status: request[2], ok: /^2\d\d$/.test(request[2]) });
+    if (request) details.requests.push({ name: request[1], status: request[2], ok: /^2\d\d$/.test(request[2]), ...(tab ? { tab } : {}) });
     else if (fields) { const parsed = readFields(fields[1]); if (parsed.length) details.fields.push(...parsed); else details.notes.push(fields[1]); }
-    else details.notes.push(step);
+    else if (!details.notes.includes(step)) details.notes.push(step);
   }
   return details;
 }

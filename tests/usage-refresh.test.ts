@@ -72,6 +72,11 @@ describe('usage check status and details', () => {
       notes: ['signed out']
     });
     expect(readCheckSteps(['claude-usage fields: not JSON']).notes).toEqual(['not JSON']);
+    // What the open tab tried first, then the background: tab requests are marked, the repeated note shows once.
+    expect(readCheckSteps(['tab: organizations 403', 'tab: no organization', 'organizations 200', 'no organization'])).toEqual({
+      requests: [{ name: 'organizations', status: '403', ok: false, tab: true }, { name: 'organizations', status: '200', ok: true }],
+      fields: [], notes: ['no organization']
+    });
     expect(readFields('empty')).toEqual([]);
   });
 });

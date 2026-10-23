@@ -370,7 +370,8 @@ function renderActiveUsage(saved: Record<string, any>) {
     if (check) {
       const parts = readCheckSteps(check.steps);
       const rows: HTMLElement[] = [element('dt', '', 'Asked'), element('dd', '', check.route === 'tab' ? `${name}, from your open tab` : check.route === 'background' ? `${name}, from the background` : 'No chat tab to ask from')];
-      if (parts.requests.length) rows.push(element('dt', '', 'Replies'), element('dd', 'request-chips', ...parts.requests.map(request => element('span', request.ok ? 'ok' : 'bad', `${request.ok ? '✓' : '✕'} ${request.name}${request.ok ? '' : ` (${request.status})`}`))));
+      // Only worth showing when something went wrong (an error, or a sign-in the service refused).
+      if (parts.requests.some(request => !request.ok)) rows.push(element('dt', '', 'Replies'), element('dd', 'request-chips', ...parts.requests.map(request => element('span', request.ok ? 'ok' : 'bad', `${request.ok ? '✓' : '✕'} ${request.name}${request.ok && !request.tab ? '' : ` (${[request.ok ? '' : request.status, request.tab ? 'open tab' : ''].filter(Boolean).join(', ')})`}`))));
       if (parts.fields.length || !check.readings) rows.push(...fieldRow(parts.fields));
       if (parts.notes.length) rows.push(element('dt', '', 'Note'), element('dd', '', parts.notes.join(' · ')));
       if (check.retryAt && check.retryAt > Date.now()) rows.push(element('dt', '', 'Next try'), element('dd', '', time(check.retryAt)));
