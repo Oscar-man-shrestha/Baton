@@ -44,6 +44,14 @@ async function fetchInPage(provider: string, geminiRpc: string): Promise<{ bodie
   return { bodies: out, steps };
 }
 
+/** “five_hour(utilization,resets_at), seven_day(…)”: names only, two levels deep, for the usage panel's check line. */
+export function fieldNames(text: string): string {
+  let json: unknown; try { json = JSON.parse(text); } catch { return 'not JSON'; }
+  if (!json || typeof json !== 'object') return typeof json;
+  const keys = (value: object) => Object.keys(value).slice(0, 12);
+  return keys(json).map(key => { const inner = (json as any)[key]; return inner && typeof inner === 'object' && !Array.isArray(inner) ? `${key}(${keys(inner).join(',')})` : inner === null ? `${key}=null` : key; }).join(', ').slice(0, 300) || 'empty';
+}
+
 const origins: Record<string, string> = { chatgpt: 'https://chatgpt.com', claude: 'https://claude.ai', gemini: 'https://gemini.google.com' };
 
 /** Reads usage for one AI: the parsed readings (empty when signed out or nothing came back) and what happened. */
@@ -71,7 +79,13 @@ export async function fetchUsage(provider: ProviderId, now = Date.now()): Promis
     check.route = 'background';
     check.steps = [...tabSteps.map(step => `tab: ${step}`), ...answer.steps];
   }
-  const readings = bodies.flatMap(body => (body.text ? parseUsageResponse(body.kind, body.text, now) : []));
+  const readings = bodies.flatMap(body => {
+    if (!body.text) return [];
+    const parsed = parseUsageResponse(body.kind, body.text, now);
+    // An answer Baton couldn't read: note its field names (never values) so the panel shows what the service sent.
+    if (!parsed.length) check.steps.push(`${body.kind} fields: ${fieldNames(body.text)}`);
+    return parsed;
+  });
   check.readings = readings.length;
   return { readings, check };
 }

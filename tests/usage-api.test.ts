@@ -61,6 +61,13 @@ describe('usage the AI sites send to the browser', () => {
     const event = { message_limit: { type: 'within_limit', windows: { '5h': { status: 'within_limit', utilization: 0.34, resets_at: Math.floor((now + 2 * h) / 1000) }, '7d': { status: 'within_limit', utilization: 0.54, resets_at: Math.floor((now + 46 * h) / 1000) } } } };
     expect(parseUsageResponse('claude-usage', JSON.stringify(event), now).map(win => [win.key, win.percent, (win.resetAt! - now) / h])).toEqual([['claude:Session', 34, 2], ['claude:Weekly', 54, 46]]);
   });
+  it('reads Claude’s usage in the other shapes it sends: strings, used/limit, percent, session/weekly keys', () => {
+    const resets = new Date(now + 4 * h).toISOString();
+    const read = (payload: unknown) => parseUsageResponse('claude-usage', JSON.stringify(payload), now).map(win => [win.feature, win.percent]);
+    expect(read({ five_hour: { utilization: '2.0', resets_at: resets }, seven_day: { utilization: '1', resets_at: resets } })).toEqual([['Session', 2], ['Weekly', 1]]);
+    expect(read({ session: { used: 1, limit: 50, resets_at: resets }, weekly: { percentage: 1 } })).toEqual([['Session', 2], ['Weekly', 1]]);
+    expect(read({ five_hour: { percent: 2 }, seven_day: null, seven_day_opus: { utilization: 0 }, seven_day_oauth_apps: { utilization: 5 } })).toEqual([['Session', 2], ['Opus weekly', 0]]);
+  });
   it('never throws on junk', () => {
     for (const kind of ['chatgpt-features', 'chatgpt-wham', 'claude-usage', 'gemini-quota'] as const) for (const text of ['', 'not json', 'null', '[]', '{"limits_progress":7}'])
       expect(parseUsageResponse(kind, text, now)).toEqual([]);

@@ -222,14 +222,22 @@ export function parseClaudeUsage(payload: unknown, at = Date.now()): UsageWindow
   if (!payload || typeof payload !== 'object') return [];
   const root = payload as Record<string, any>;
   const data = root.message_limit?.windows;
-  const entries = data ? [['Session', data['5h'], true], ['Weekly', data['7d'], true]] as const
-    : [['Session', root.five_hour, false], ['Weekly', root.seven_day, false], ['Sonnet weekly', root.seven_day_sonnet, false], ['Opus weekly', root.seven_day_opus, false]] as const;
+  // The usage endpoint's windows: five_hour (or session), seven_day (or weekly), and per-model weekly ones.
+  const named = (field: string) => field === 'seven_day' || field === 'weekly' ? 'Weekly' : /_sonnet$/.test(field) ? 'Sonnet weekly' : /_opus$/.test(field) ? 'Opus weekly' : '';
+  const entries: (readonly [string, any, boolean])[] = data ? [['Session', data['5h'], true], ['Weekly', data['7d'], true]]
+    : [['Session', root.five_hour ?? root.session, false], ...Object.keys(root).filter(field => /^(seven_day|weekly)/.test(field) && named(field)).map(field => [named(field), root[field], false] as const)];
+  const number = (value: unknown) => { const parsed = typeof value === 'string' && value.trim() ? Number(value) : value; return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined; };
   return entries.flatMap(([feature, value, fraction]) => {
-    if (!value || typeof value.utilization !== 'number' || !Number.isFinite(value.utilization)) return [];
-    const percent = value.status === 'exceeded_limit' ? 100 : value.utilization * (fraction ? 100 : 1);
+    if (!value || typeof value !== 'object') return [];
+    // Used/limit when both are there; else utilization / percent / percentage (0–100 on the usage endpoint).
+    const used = number(value.used), limit = number(value.limit);
+    const share = used !== undefined && limit ? (used / limit) * 100 : undefined;
+    const raw = number(value.utilization) ?? number(value.percent) ?? number(value.percentage);
+    if (share === undefined && raw === undefined) return [];
+    const percent = value.status === 'exceeded_limit' ? 100 : share ?? raw! * (fraction ? 100 : 1);
     if (percent < 0 || percent > 100) return [];
-    const rawReset = value.resets_at;
-    const resetAt = typeof rawReset === 'number' && rawReset > 0 ? rawReset * 1000 : typeof rawReset === 'string' ? Date.parse(rawReset) : undefined;
+    const rawReset = value.resets_at ?? value.reset_at ?? value.reset;
+    const resetAt = typeof rawReset === 'number' && rawReset > 0 ? (rawReset < 1e12 ? rawReset * 1000 : rawReset) : typeof rawReset === 'string' ? Date.parse(rawReset) : undefined;
     return [{ provider: 'claude' as const, tier: 'banner' as const, confidence: 'high' as const, key: `claude:${feature}`, feature, percent, remainingPercent: 100 - percent, at, ...(resetAt && Number.isFinite(resetAt) ? { resetAt } : {}), explanation: 'Claude numeric usage metadata', source: 'provider-response' as const }];
   });
 }
