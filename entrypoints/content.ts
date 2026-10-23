@@ -397,7 +397,9 @@ export default defineContentScript({
         nextBody.append(node);
       };
       // ChatGPT: its Plan limits (Codex/Work, not chat) are the only numbers it publishes, so they follow the chat count.
-      const work = id === 'chatgpt' ? [...countSegments(windows), ...workSegments(extras)] : [];
+      // Same order as ChatGPT's own figures read: Thinking, Codex/Work windows, then the allowance closest to running out.
+      const counts = id === 'chatgpt' ? countSegments(windows) : [];
+      const work = id === 'chatgpt' ? [...counts.slice(0, 1), ...workSegments(extras), ...counts.slice(1)] : [];
       const segments = chatSegments(chat);
       if (segments.length) segments.forEach(addSegment);
       else {
@@ -406,7 +408,8 @@ export default defineContentScript({
         const text = composerStatusText(0, chatMeter);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
         if (!text.endsWith('Usage left: unknown')) addSegment({ label: '', value: text.replace(/^Usage left: /, '') });
-        else if (counted.uncapped) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} ${work.length ? 'today' : 'sent today'}` });
+        // With ChatGPT's own allowances on show, the chat count gives them the room (it stays in the bar's tooltip and Baton's panel).
+        else if (counted.uncapped) { if (!work.length) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} sent today` }); }
         else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
         // Nothing reported and nothing counted yet: say so plainly, with today's count from this browser.
         else addSegment({ label: 'Chat', value: 'No limit shown', note: `${sentToday(latestSends, Date.now())} today` });
