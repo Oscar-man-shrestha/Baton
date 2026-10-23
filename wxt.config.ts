@@ -24,6 +24,8 @@ export default defineConfig({
     // A persistent sidebar has no activeTab grant after switching tabs.
     host_permissions: [...new Set(chatHosts), ...(cloudEnabled ? [`${cloud.url}/*`] : [])]
   },
+  // Build time, shown next to the version so it's clear which build the browser has loaded.
+  vite: () => ({ define: { __BATON_BUILT__: JSON.stringify(new Date().toISOString()) } }),
   hooks: {
     // The WebAssembly engine for the task model ships inside the extension, next to the model.
     'build:publicAssets': (_wxt, files) => { for (const file of ['ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.mjs']) files.push({ absoluteSrc: fileURLToPath(new URL(`./node_modules/onnxruntime-web/dist/${file}`, import.meta.url)), relativeDest: `ort/${file}` }); }

@@ -20,7 +20,9 @@ import { fullContext } from '../../src/core/context-export';
 import { createActiveChatTracker } from '../../src/core/active-chat';
 
 const status = document.querySelector('#status') as HTMLElement;
-(document.querySelector('#build-version') as HTMLElement).textContent = `v${chrome.runtime.getManifest().version}`;
+declare const __BATON_BUILT__: string | undefined;
+const built = typeof __BATON_BUILT__ === 'string' ? new Date(__BATON_BUILT__) : undefined;
+(document.querySelector('#build-version') as HTMLElement).textContent = `v${chrome.runtime.getManifest().version}${built ? ` · built ${built.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${built.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}`;
 const draft = document.querySelector('#draft') as HTMLTextAreaElement;
 const receipt = document.querySelector('#receipt') as HTMLElement;
 const destination = document.querySelector('#destination') as HTMLSelectElement;
