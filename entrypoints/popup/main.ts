@@ -16,7 +16,7 @@ import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
 import { saveCapturedCapsule } from '../../src/core/capsules';
-import { usageCheckSummary, type UsageCheck } from '../../src/core/usage-refresh';
+import { readCheckSteps, readFields, usageCheckSummary, type CheckField, type UsageCheck } from '../../src/core/usage-refresh';
 import { fillShortcutList, onMac, shortcutsPage } from '../../src/core/shortcuts';
 import { fullContext } from '../../src/core/context-export';
 import { createActiveChatTracker } from '../../src/core/active-chat';
@@ -308,6 +308,7 @@ async function readVisibleUsage() {
 }
 // The usage card redraws whenever usage changes; an opened Details stays open.
 let usageDetailsOpen = false;
+const element = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', ...children: (Node | string)[]) => { const node = document.createElement(tag); if (className) node.className = className; node.append(...children); return node; };
 function renderActiveUsage(saved: Record<string, any>) {
   const card = document.querySelector('#active-usage') as HTMLElement;
   card.hidden = !activeProvider;
@@ -340,25 +341,47 @@ function renderActiveUsage(saved: Record<string, any>) {
   // Baton's own usage check with the user's sign-in: when it last ran and what the service answered.
   const check = saved[`usageApiCheck:${activeProvider}`] as UsageCheck | undefined;
   if (['chatgpt', 'claude', 'gemini'].includes(activeProvider)) {
-    // In plain words whether that found anything; what the service actually answered stays under Details.
-    const summary = document.createElement('p'); summary.className = 'usage-unavailable usage-summary';
-    summary.textContent = usageCheckSummary(providerNames[activeProvider], check, { off: saved.usageApiRefresh === false, lastReading: readings.length ? Math.min(...readings.map(reading => reading.at!)) : undefined });
-    const details = document.createElement('details'); details.className = 'usage-details';
-    const detailsLabel = document.createElement('summary'); detailsLabel.textContent = 'Details';
-    details.open = usageDetailsOpen; details.addEventListener('toggle', () => { usageDetailsOpen = details.open; });
-    details.append(detailsLabel);
-    container.append(summary, details);
-    const line = document.createElement('p'); line.className = 'usage-unavailable usage-check';
-    line.textContent = saved.usageApiRefresh === false ? 'Sign-in usage check: off (Usage → Read usage with my sign-in).'
-      : !check ? 'Sign-in usage check: not run yet. It runs when a chat page opens.'
-      : `Sign-in usage check · ${new Date(check.at).toLocaleTimeString()} · ${check.readings ? `${check.readings} figure${check.readings === 1 ? '' : 's'} read` : 'nothing read'} (${check.route === 'tab' ? 'from the open tab' : check.route === 'background' ? 'from the background' : 'no tab'}: ${check.steps.join(', ') || 'no answer'})${check.retryAt && check.retryAt > Date.now() ? ` · tries again ${new Date(check.retryAt).toLocaleTimeString()}` : ''}.`;
-    details.append(line);
+    const name = providerNames[activeProvider];
+    const lastReading = readings.length ? Math.min(...readings.map(reading => reading.at!)) : undefined;
+    // A status box in plain words; what the service actually answered is tidied under Details.
+    const status = usageCheckSummary(name, check, { off: saved.usageApiRefresh === false, lastReading });
+    const box = element('div', 'usage-status'); box.dataset.tone = status.tone;
+    box.append(element('i', 'usage-dot'), element('span', '', element('b', '', status.headline), element('small', '', status.detail)));
+    container.append(box);
+    // The status box already says when the figures are from.
+    if (lastReading && !readings.some(reading => (reading as DisplayWindow).estimate)) note.textContent = '';
+    const time = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const tap = saved[`usageTapCheck:${activeProvider}`] as { at: number; kind: string; fields: string } | undefined;
-    if (tap && (!check || tap.at > check.at - 600000)) {
-      const seen = document.createElement('p'); seen.className = 'usage-unavailable usage-check';
-      seen.textContent = tap.kind === 'claude-stream' ? `From the page · ${new Date(tap.at).toLocaleTimeString()} · Claude stream seen: ${tap.fields}.` : `From the page · ${new Date(tap.at).toLocaleTimeString()} · ${tap.kind} not readable (fields: ${tap.fields}).`;
-      details.append(seen);
+    const showTap = !!tap && (!check || tap.at > check.at - 600000);
+    if (!check && !showTap) return;
+    const details = document.createElement('details'); details.className = 'usage-details';
+    details.open = usageDetailsOpen; details.addEventListener('toggle', () => { usageDetailsOpen = details.open; });
+    details.append(element('summary', '', 'Details'));
+    const fieldRow = (fields: CheckField[]) => {
+      const empty = fields.filter(field => !field.filled).length;
+      const text = !fields.length ? 'Nothing readable' : empty === fields.length ? `${fields.length} usage fields, all empty` : `${fields.length - empty} of ${fields.length} usage fields filled, none Baton can read`;
+      const chips = element('span', 'field-chips', ...fields.map(field => { const chip = element('code', field.filled ? 'filled' : '', field.name); chip.title = field.filled ? 'Has a value' : 'Empty'; return chip; }));
+      return [element('dt', '', 'Answer'), element('dd', '', element('span', '', text), chips)];
+    };
+    const block = (title: string, at: number, rows: HTMLElement[]) => {
+      const head = element('div', 'check-head', element('b', '', title), element('time', '', time(at)));
+      details.append(element('section', 'check-block', head, element('dl', '', ...rows)));
+    };
+    if (check) {
+      const parts = readCheckSteps(check.steps);
+      const rows: HTMLElement[] = [element('dt', '', 'Asked'), element('dd', '', check.route === 'tab' ? `${name}, from your open tab` : check.route === 'background' ? `${name}, from the background` : 'No chat tab to ask from')];
+      if (parts.requests.length) rows.push(element('dt', '', 'Replies'), element('dd', 'request-chips', ...parts.requests.map(request => element('span', request.ok ? 'ok' : 'bad', `${request.ok ? '✓' : '✕'} ${request.name}${request.ok ? '' : ` (${request.status})`}`))));
+      if (parts.fields.length || !check.readings) rows.push(...fieldRow(parts.fields));
+      if (parts.notes.length) rows.push(element('dt', '', 'Note'), element('dd', '', parts.notes.join(' · ')));
+      if (check.retryAt && check.retryAt > Date.now()) rows.push(element('dt', '', 'Next try'), element('dd', '', time(check.retryAt)));
+      block('Sign-in check', check.at, rows);
     }
+    if (tap && showTap) {
+      const fields = tap.kind === 'claude-stream' ? [] : readFields(tap.fields);
+      const same = check && JSON.stringify(fields) === JSON.stringify(readCheckSteps(check.steps).fields) && fields.length;
+      block('From the page', tap.at, tap.kind === 'claude-stream' ? [element('dt', '', 'Reply note'), element('dd', '', tap.fields)] : same ? [element('dt', '', 'Answer'), element('dd', '', 'The same empty fields as above')] : fieldRow(fields));
+    }
+    container.append(details);
   }
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });

@@ -44,12 +44,33 @@ export async function refreshAllUsage(providers: ProviderId[], deps: RefreshDeps
 
 export type UsageCheck = { at: number; route: string; steps: string[]; readings: number; retryAt?: number };
 const clockTime = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-/** The plain line under a usage card: when Baton last checked with your sign-in, and whether that found new figures. */
-export function usageCheckSummary(name: string, check: UsageCheck | undefined, options: { off?: boolean; lastReading?: number; now?: number; time?: (at: number) => string } = {}): string {
+export type CheckStatus = { tone: 'ok' | 'stale' | 'idle' | 'off'; headline: string; detail: string };
+/** The status box under a usage card: whether Baton's last check with your sign-in found new figures, in plain words. */
+export function usageCheckSummary(name: string, check: UsageCheck | undefined, options: { off?: boolean; lastReading?: number; now?: number; time?: (at: number) => string } = {}): CheckStatus {
   const time = options.time || clockTime;
-  if (options.off) return `Baton isn’t checking ${name} usage with your sign-in. Turn it on under Usage → Read usage with my sign-in.`;
-  if (!check) return `Baton checks ${name} for new figures when you open a chat there.`;
-  if (check.readings) return `Checked at ${time(check.at)}: new figures from ${name}.`;
-  const retry = check.retryAt && check.retryAt > (options.now ?? Date.now()) ? ` Baton tries again at ${time(check.retryAt)}.` : '';
-  return `Checked at ${time(check.at)}: ${name} didn’t share new figures${options.lastReading ? `, so these are from ${time(options.lastReading)}` : ''}.${retry}`;
+  if (options.off) return { tone: 'off', headline: 'Sign-in check is off', detail: 'Turn it on under Usage → Read usage with my sign-in.' };
+  if (!check) return { tone: 'idle', headline: 'Not checked yet', detail: `Baton checks when you open a ${name} chat.` };
+  const next = check.retryAt && check.retryAt > (options.now ?? Date.now()) ? ` · next check ${time(check.retryAt)}` : '';
+  if (check.readings) return { tone: 'ok', headline: 'Up to date', detail: `Checked ${time(check.at)}` };
+  return { tone: 'stale', headline: options.lastReading ? `No new figures since ${time(options.lastReading)}` : `${name} shared no figures`, detail: `Checked ${time(check.at)}${next}` };
+}
+
+export type CheckField = { name: string; filled: boolean };
+export type CheckDetails = { requests: { name: string; ok: boolean; status: string }[]; fields: CheckField[]; notes: string[] };
+/** What a usage check recorded (“usage 200”, “claude-usage fields: five_hour=null, …”), sorted into requests, fields and notes. */
+export function readCheckSteps(steps: string[]): CheckDetails {
+  const details: CheckDetails = { requests: [], fields: [], notes: [] };
+  for (const step of steps) {
+    const request = step.match(/^(\S+) (\d{3}|failed)$/);
+    const fields = step.match(/^\S+ fields: (.*)$/);
+    if (request) details.requests.push({ name: request[1], status: request[2], ok: /^2\d\d$/.test(request[2]) });
+    else if (fields) { const parsed = readFields(fields[1]); if (parsed.length) details.fields.push(...parsed); else details.notes.push(fields[1]); }
+    else details.notes.push(step);
+  }
+  return details;
+}
+/** “five_hour=null, limits(a,b), plan” → each field and whether it held anything. Empty for “not JSON” and the like. */
+export function readFields(text: string): CheckField[] {
+  if (/^(?:not JSON|empty|string|number|boolean)$/.test(text.trim())) return [];
+  return text.split(/,\s+/).map(part => part.trim()).filter(Boolean).map(part => ({ name: part.replace(/=null$|\(.*$/, ''), filled: !/=null$/.test(part) }));
 }
