@@ -445,6 +445,9 @@ export default defineContentScript({
         hit = conflict(top);
       }
       if (hit) { top = surfaceRect.top - pillHeight - 6; hit = conflict(top); }
+      // Last resort: over the one-line “can make mistakes” notice, below the box (Claude, when another extension's strip
+      // sits above it) or above it (ChatGPT in a long chat).
+      if (hit) { top = surfaceRect.bottom + 6; hit = conflict(top, true); }
       if (hit) { top = surfaceRect.top - pillHeight - 2; hit = conflict(top, true); }
       if (hit) { statusHost.style.display = 'none'; statusHost.style.visibility = ''; statusPlacement = ''; placePassButton(surface, surfaceRect); return; }
       statusHost.style.top = `${top}px`;
