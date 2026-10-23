@@ -17,6 +17,7 @@ import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
 import { archiveWindow, captureCheck, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
 import { fetchStoredChat, fetchStoredFile } from '../src/core/lossless';
+import { checkReply, correction, handoffPoints, type HandoffPoints, type Miss } from '../src/core/reply-check';
 import { attachFiles, downloadFiles, textFile, transcriptName, type FilePayload } from '../src/core/files';
 import { chatTokens, longChat, stillDismissed, type LongChat } from '../src/core/long-chat';
 import type { Extraction, Turn } from '../src/core/adapter';
@@ -142,13 +143,13 @@ export default defineContentScript({
       const handoff = handoffDraft(archive, brief, pageUrl(), target);
       // Too long to type in whole: the summary is typed, and the complete chat goes along as a Markdown file.
       const transcript = handoff.mode === 'compact' ? textFile(transcriptName(document.title), fullContext(archive, pageUrl()).text, 'text/markdown') : undefined;
-      return { draft: handoff.draft, mode: handoff.mode, transcript, files, messages: archive.turns.length, check: captureCheck(archive.turns) };
+      return { draft: handoff.draft, mode: handoff.mode, transcript, files, points: handoffPoints(brief), messages: archive.turns.length, check: captureCheck(archive.turns) };
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
-    const openDraftIn = async (target: ProviderId, draft: string, files: FilePayload[] = []) => {
+    const openDraftIn = async (target: ProviderId, draft: string, files: FilePayload[] = [], points?: HandoffPoints) => {
       // Copied first, so a page that doesn't take the text (or a sign-in screen) never loses the draft.
       await navigator.clipboard.writeText(draft).catch(() => {});
-      const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft, files });
+      const opened = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: newChatUrls[target], text: draft, files, points });
       if (!opened?.ok) throw new Error(`Could not open ${providerNames[target]}. Your project is saved in Baton.`);
       void chrome.storage.local.get('passCount').then(saved => chrome.storage.local.set({ passCount: (Number(saved.passCount) || 0) + 1 })).catch(() => {});
     };
@@ -160,7 +161,7 @@ export default defineContentScript({
       const uploads = await downloadFiles(saved.files, fetchStoredFile).catch(() => ({ files: [] as FilePayload[], skipped: [] as string[] }));
       const files = [...(saved.transcript ? [saved.transcript] : []), ...uploads.files];
       if (saved.transcript) draft = `${draft}\n\nAttached: “${saved.transcript.name}”, the complete conversation word for word. Check it for anything the summary above leaves out.`;
-      await openDraftIn(target, draft, files);
+      await openDraftIn(target, draft, files, saved.points);
       const carried = files.length ? ` ${files.length === 1 ? 'One file' : `${files.length} files`} will be attached there${saved.transcript ? ', including the full chat' : ''}.` : '';
       return `Opened ${providerNames[target]} with your project as an unsent draft: ${saved.check.text}.${carried}${uploads.skipped.length ? ` Not attached (too big or unavailable): ${uploads.skipped.join(', ')}.` : ''} Also saved as a baton and copied.`;
     };
@@ -194,7 +195,7 @@ export default defineContentScript({
       const saved = await chrome.storage.local.get(suggestionKeys());
       const limit = reachedLimit(saved, id);
       const signature = limit ? `${limit.feature}:${limit.resetAt ?? ''}` : '';
-      if (!limit || signature === dismissedRescue) { if (!longChatShown) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); } rescueSignature = ''; return; }
+      if (!limit || signature === dismissedRescue) { if (!longChatShown && !replyCheckShown) { rescueHost.style.display = 'none'; rescueShadow.querySelector('.card')?.remove(); } rescueSignature = ''; return; }
       if (signature === rescueSignature) return;
       rescueSignature = signature;
       longChatShown = '';
@@ -219,6 +220,7 @@ export default defineContentScript({
     // Long-chat tip: when this chat is long enough that answers tend to slip, suggest a fresh chat that starts from a
     // handoff. Measured on the whole stored chat (the page may show only the messages near the screen), at most once a
     // minute and only after the chat changed; shown in the limit card's place, and never over a limit card.
+    let replyCheckShown = false;
     let longChatEnabled = true, longChatShown = '', longChatMeasured = { url: '', at: 0, pageSize: -1 };
     const longDismissKey = () => `longChatDismissed:${pageUrl()}`;
     const showLongChat = async (advice: LongChat) => {
@@ -255,7 +257,7 @@ export default defineContentScript({
       positionRescue();
     };
     const checkLongChat = async () => {
-      if (ctx.isInvalid || !longChatEnabled || rescueSignature || genericNewChat()) return;
+      if (ctx.isInvalid || !longChatEnabled || rescueSignature || replyCheckShown || genericNewChat()) return;
       const url = pageUrl(), pageSize = chatSize();
       const due = url !== longChatMeasured.url || (Date.now() - longChatMeasured.at > 60000 && pageSize !== longChatMeasured.pageSize);
       if (!due) return;
@@ -270,6 +272,66 @@ export default defineContentScript({
     void chrome.storage.local.get('longChatTipEnabled').then(saved => { longChatEnabled = saved.longChatTipEnabled !== false; });
     ctx.setInterval(() => { void checkLongChat().catch(() => {}); }, 20000);
     ctx.setTimeout(() => { void checkLongChat().catch(() => {}); }, 4000);
+    // Receiving-side check: a page that got a handoff waits for the AI's first reply to it, checks that reply against
+    // the handoff's points (rules, what was turned down, the latest request) and offers a correction for the chat box.
+    // Kept in this tab's session storage, so the new chat's change of address doesn't lose it; given up after 30 min.
+    type ReplyWatch = { points: HandoffPoints; at: number; replies: number; seen: string; stable: number };
+    const watchKey = 'baton:handoffReplyCheck';
+    const readWatch = (): ReplyWatch | undefined => { try { const watch = JSON.parse(sessionStorage.getItem(watchKey) || 'null') as ReplyWatch | null; return watch && Date.now() - watch.at < 1800000 ? watch : undefined; } catch { return undefined; } };
+    const writeWatch = (watch?: ReplyWatch) => { try { if (watch) sessionStorage.setItem(watchKey, JSON.stringify(watch)); else sessionStorage.removeItem(watchKey); } catch { /* Storage blocked: the check is skipped. */ } };
+    const assistantReplies = () => extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'assistant');
+    const expectHandoffReply = (points: HandoffPoints) => writeWatch({ points, at: Date.now(), replies: assistantReplies().length, seen: '', stable: 0 });
+    const showReplyCheck = (misses: Miss[]) => {
+      const card = document.createElement('section'); card.className = 'card'; card.setAttribute('aria-label', 'Baton checked the first reply');
+      const top = document.createElement('div'); top.className = 'top';
+      const title = document.createElement('strong'); title.textContent = `Baton checked ${providerNames[id]}’s first reply`;
+      const sub = document.createElement('small'); sub.textContent = 'Compared with the handoff. These are guesses from the text, so read the reply too.'; title.append(sub);
+      const close = document.createElement('button'); close.type = 'button'; close.className = 'close'; close.textContent = '×'; close.setAttribute('aria-label', 'Close');
+      const hide = () => { rescueHost.style.display = 'none'; card.remove(); replyCheckShown = false; };
+      close.addEventListener('click', hide);
+      top.append(title, close);
+      const list = document.createElement('ul'); list.style.cssText = 'margin:8px 0 4px;padding-left:18px';
+      for (const miss of misses) { const item = document.createElement('li'); item.textContent = miss.text; list.append(item); }
+      const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
+      const options = document.createElement('div'); options.className = 'options';
+      const fix = document.createElement('button'); fix.type = 'button';
+      const fixName = document.createElement('strong'); fixName.textContent = 'Put a correction in the chat box';
+      const fixHint = document.createElement('span'); fixHint.textContent = 'Only what it missed; you read it and press Send'; fix.append(fixName, fixHint);
+      fix.addEventListener('click', async () => {
+        const text = correction(misses);
+        // Your own unsent text is never replaced: then the correction is copied instead.
+        if (composerText() || !makeAdapter(id, bundledSelectors).injectDraft(document, text)) { await navigator.clipboard.writeText(text).catch(() => {}); status.textContent = 'Copied: paste it into the chat box, then press Send.'; return; }
+        hide();
+      });
+      const fine = document.createElement('button'); fine.type = 'button';
+      const fineName = document.createElement('strong'); fineName.textContent = 'Looks fine';
+      const fineHint = document.createElement('span'); fineHint.textContent = 'Close this check'; fine.append(fineName, fineHint);
+      fine.addEventListener('click', hide);
+      options.append(fix, fine);
+      card.append(top, list, options, status);
+      replyCheckShown = true;
+      rescueShadow.querySelector('.card')?.remove();
+      rescueShadow.append(card);
+      rescueHost.style.display = 'block';
+      positionRescue();
+    };
+    const checkHandoffReply = () => {
+      const watch = readWatch();
+      if (!watch || ctx.isInvalid) return;
+      const replies = assistantReplies();
+      const busy = !!document.querySelector('[data-testid="stop-button"], button[aria-label*="Stop" i], [data-is-streaming="true"]');
+      const reply = replies.length > watch.replies ? replies[watch.replies].text : '';
+      if (!reply) return;
+      // Finished when the reply has stopped changing for two checks and the AI isn't still writing.
+      watch.stable = !busy && reply === watch.seen ? watch.stable + 1 : 0;
+      watch.seen = reply;
+      if (watch.stable < 2) { writeWatch(watch); return; }
+      writeWatch();
+      const misses = checkReply(reply, watch.points);
+      if (misses.length && !rescueSignature) showReplyCheck(misses);
+      else if (!misses.length) showToast(`✓ ${providerNames[id]} picked up the handoff: no missed rules, turned-down ideas or requests found.`);
+    };
+    ctx.setInterval(checkHandoffReply, 2000);
     const rescueChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (changes.longChatTipEnabled) { longChatEnabled = changes.longChatTipEnabled.newValue !== false; if (!longChatEnabled && longChatShown) { rescueHost.style.display = 'none'; longChatShown = ''; } }
       if (Object.keys(changes).some(key => key.startsWith('usageWindows:') || key.startsWith('meter:') || key === 'enabledProviders')) void updateRescue().catch(() => {});
@@ -1354,6 +1416,7 @@ export default defineContentScript({
         return true;
       }
       if (message?.type === 'INJECT_DRAFT' && typeof message.text === 'string') {
+        if (message.points) expectHandoffReply(message.points as HandoffPoints);
         // Some editors (Perplexity's) show the text a moment later, so judge by the box after a pause, not right away.
         if (!makeAdapter(id, bundledSelectors).injectDraft(document, message.text) && !findEditor(document, bundledSelectors.providers[id].editor)) { sendResponse({ ok: false }); return; }
         setTimeout(() => {

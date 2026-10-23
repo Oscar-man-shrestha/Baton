@@ -197,10 +197,10 @@ export default defineBackground(() => {
     }
     await chrome.storage.local.set({ lastFileAttach: { at: Date.now(), sent: files.map(file => file.name), attached: [] } });
   };
-  const deliverDraft = async (tabId: number, text: string, files: FilePayload[] = []) => {
+  const deliverDraft = async (tabId: number, text: string, files: FilePayload[] = [], points?: unknown) => {
     for (let attempt = 1; attempt <= 12; attempt++) {
       try {
-        const result = await chrome.tabs.sendMessage(tabId, { type: 'INJECT_DRAFT', text });
+        const result = await chrome.tabs.sendMessage(tabId, { type: 'INJECT_DRAFT', text, points });
         if (result?.ok) {
           await chrome.storage.local.set({ lastDraftInsertion: { at: Date.now(), ok: true, attempts: attempt } });
           if (files.length) await deliverFiles(tabId, files);
@@ -320,7 +320,7 @@ export default defineBackground(() => {
         if (started) return;
         started = true;
         chrome.tabs.onUpdated.removeListener(onUpdated);
-        void deliverDraft(id, message.text, files);
+        void deliverDraft(id, message.text, files, message.points && typeof message.points === 'object' ? message.points : undefined);
       };
       const onUpdated = (updatedId: number, info: { status?: string }) => {
         if (updatedId !== id || info.status !== 'complete') return;
