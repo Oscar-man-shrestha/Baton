@@ -129,8 +129,9 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
   for (const artifact of safeArtifacts) {
     if (!base.artifacts.some(a => a.name === artifact.name && a.version === artifact.version)) base.artifacts.push({ name: artifact.name, kind: artifact.kind, content_verbatim: artifact.content, version: artifact.version });
   }
-  // Only the latest asks are still open; older ones were usually done in the replies that followed.
-  base.open_tasks = base.open_tasks.slice(-3);
+  // Only your latest message's asks are still open; earlier ones were answered by the replies that followed.
+  const latestAsks = lastUser ? userStatementText(lastUser.text).split(/\n+|(?<=[.!?])\s+/).map(line => line.replace(/^[-*]\s*/, '').trim()) : [];
+  base.open_tasks = base.open_tasks.filter(task => latestAsks.includes(task)).slice(-3);
   base.next_step = base.open_questions.length ? 'Continue from the unanswered questions, keeping the user’s original goal in view.' : base.open_tasks.at(-1) || lastUser?.text.slice(0, 180) || base.next_step;
   return briefSchema.parse(base);
 }

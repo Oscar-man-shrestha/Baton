@@ -16,6 +16,7 @@
   - **Everything you said, in order.** The brief lists each of your messages (shortened, oldest trimmed first when space runs out): that's where goals, constraints, choices and rejections live.
   - **Rejections are kept** ("no Redux", "skip the JR pass", "that didn't change anything"), so the next AI doesn't suggest them again.
   - **Earlier replies count too:** the best point of each earlier reply, newest first, favouring names of things built (`unique_target`, `moves.log`); the latest three code blocks of the whole chat; wording you approved ("keep it exactly"), word for word.
-  - Only the latest three open asks are listed (older ones were usually done).
+  - Open tasks are only the asks in your latest message (older ones were answered).
+  - **Live check, ready to run:** `evaluation/live/drafts/` has the six one-click drafts to paste into two AIs; `npm run eval` scores their replies (expected points, plus flags for suggesting rejected approaches, banned words, deleting files, acknowledging only, or asking again for context). See evaluation/README.md, “Live check”.
 - **New permission:** `contextMenus`, for the one right-click item. Chrome shows no install warning for it. STORE_LISTING.md and PRIVACY.md describe it.
 - Tests: selection reading on all six sites, question context, naming, storage format, shortcut keys and formatting, usage-check wording. Checked in Brave (headless, signed out, with an injected test conversation): save from the button, typing a name (no keys leak into the chat box), pass to the next AI, shortcuts and right-click.

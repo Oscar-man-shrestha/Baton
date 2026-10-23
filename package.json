@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "eval": "node evaluation/evaluate.mjs",
-    "eval:handoff": "vitest run tests/handoff-fidelity.test.ts --reporter=verbose"
+    "eval:handoff": "vitest run tests/handoff-fidelity.test.ts --reporter=verbose",
+    "eval:drafts": "jiti scripts/handoff-drafts.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

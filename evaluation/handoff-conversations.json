@@ -57,6 +57,36 @@
         "due dates",
         "reminder"
       ]
+    },
+    "replyChecks": {
+      "task": "Adds due dates with a reminder to the existing React + IndexedDB app, and archives completed tasks.",
+      "mention": [
+        [
+          "due date",
+          "dueDate",
+          "due_date",
+          "dueAt"
+        ],
+        [
+          "reminder",
+          "notification",
+          "notify"
+        ],
+        [
+          "IndexedDB",
+          "idb"
+        ],
+        [
+          "archive"
+        ]
+      ],
+      "avoid": [
+        "Redux",
+        "Firebase",
+        "Supabase",
+        "sign up",
+        "backend server"
+      ]
     }
   },
   {
@@ -115,6 +145,29 @@
       "latest": [
         "tighten the conclusion"
       ]
+    },
+    "replyChecks": {
+      "task": "Tightens the essay's conclusion without the banned words and keeps the bakery story.",
+      "mention": [
+        [
+          "conclusion",
+          "ending"
+        ],
+        [
+          "bakery",
+          "sel roti",
+          "grandmother"
+        ],
+        [
+          "oven"
+        ]
+      ],
+      "avoid": [
+        "passion",
+        "journey",
+        "Can you share your essay",
+        "paste your essay"
+      ]
     }
   },
   {
@@ -165,6 +218,29 @@
       "latest": [
         "ProxyFix",
         "url_for"
+      ]
+    },
+    "replyChecks": {
+      "task": "Adds ProxyFix so url_for builds https links behind nginx.",
+      "mention": [
+        [
+          "ProxyFix"
+        ],
+        [
+          "x_proto",
+          "X-Forwarded-Proto"
+        ],
+        [
+          "url_for"
+        ],
+        [
+          "werkzeug"
+        ]
+      ],
+      "avoid": [
+        "gunicorn timeout",
+        "--timeout",
+        "SESSION_COOKIE_SAMESITE = 'None'"
       ]
     }
   },
@@ -222,6 +298,33 @@
         "Koto no Yume",
         "Hiranoya",
         "onsen or the location"
+      ]
+    },
+    "replyChecks": {
+      "task": "Helps choose the Takayama ryokan (onsen vs location), within the agreed route and budget.",
+      "mention": [
+        [
+          "Koto no Yume",
+          "Hiranoya"
+        ],
+        [
+          "onsen"
+        ],
+        [
+          "location",
+          "old town"
+        ],
+        [
+          "vegetarian",
+          "shojin",
+          "kaiseki"
+        ]
+      ],
+      "avoid": [
+        "JR Pass is worth",
+        "buy a JR Pass",
+        "get the JR Pass",
+        "stay in Tokyo"
       ]
     }
   },
@@ -310,6 +413,36 @@
       ],
       "latest": [
         "undo"
+      ]
+    },
+    "replyChecks": {
+      "task": "Designs the undo command from the move log, never deleting anything.",
+      "mention": [
+        [
+          "undo"
+        ],
+        [
+          "moves.log",
+          "log"
+        ],
+        [
+          "typer",
+          "@app.command"
+        ],
+        [
+          "never delete",
+          "no deletion",
+          "doesn't delete",
+          "does not delete",
+          "never deletes"
+        ]
+      ],
+      "avoid": [
+        "argparse",
+        "os.remove",
+        "unlink(",
+        "rmtree",
+        "shutil.rmtree"
       ]
     }
   },
@@ -622,6 +755,36 @@
       ],
       "latest": [
         "undo"
+      ]
+    },
+    "replyChecks": {
+      "task": "Designs the undo command from the move log, never deleting anything.",
+      "mention": [
+        [
+          "undo"
+        ],
+        [
+          "moves.log",
+          "log"
+        ],
+        [
+          "typer",
+          "@app.command"
+        ],
+        [
+          "never delete",
+          "no deletion",
+          "doesn't delete",
+          "does not delete",
+          "never deletes"
+        ]
+      ],
+      "avoid": [
+        "argparse",
+        "os.remove",
+        "unlink(",
+        "rmtree",
+        "shutil.rmtree"
       ]
     }
   }
