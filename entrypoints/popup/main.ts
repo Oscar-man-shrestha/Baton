@@ -16,6 +16,7 @@ import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
 import { saveCapturedCapsule } from '../../src/core/capsules';
+import { usageCheckSummary, type UsageCheck } from '../../src/core/usage-refresh';
 import { fillShortcutList, onMac, shortcutsPage } from '../../src/core/shortcuts';
 import { fullContext } from '../../src/core/context-export';
 import { createActiveChatTracker } from '../../src/core/active-chat';
@@ -305,6 +306,8 @@ async function readVisibleUsage() {
     note.textContent = 'Could not read this page. Open the service’s usage screen and try again.';
   } finally { button.disabled = false; }
 }
+// The usage card redraws whenever usage changes; an opened Details stays open.
+let usageDetailsOpen = false;
 function renderActiveUsage(saved: Record<string, any>) {
   const card = document.querySelector('#active-usage') as HTMLElement;
   card.hidden = !activeProvider;
@@ -335,18 +338,26 @@ function renderActiveUsage(saved: Record<string, any>) {
   note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Baton shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
   (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
   // Baton's own usage check with the user's sign-in: when it last ran and what the service answered.
-  const check = saved[`usageApiCheck:${activeProvider}`] as { at: number; route: string; steps: string[]; readings: number; retryAt?: number } | undefined;
+  const check = saved[`usageApiCheck:${activeProvider}`] as UsageCheck | undefined;
   if (['chatgpt', 'claude', 'gemini'].includes(activeProvider)) {
+    // In plain words whether that found anything; what the service actually answered stays under Details.
+    const summary = document.createElement('p'); summary.className = 'usage-unavailable usage-summary';
+    summary.textContent = usageCheckSummary(providerNames[activeProvider], check, { off: saved.usageApiRefresh === false, lastReading: readings.length ? Math.min(...readings.map(reading => reading.at!)) : undefined });
+    const details = document.createElement('details'); details.className = 'usage-details';
+    const detailsLabel = document.createElement('summary'); detailsLabel.textContent = 'Details';
+    details.open = usageDetailsOpen; details.addEventListener('toggle', () => { usageDetailsOpen = details.open; });
+    details.append(detailsLabel);
+    container.append(summary, details);
     const line = document.createElement('p'); line.className = 'usage-unavailable usage-check';
     line.textContent = saved.usageApiRefresh === false ? 'Sign-in usage check: off (Usage → Read usage with my sign-in).'
       : !check ? 'Sign-in usage check: not run yet. It runs when a chat page opens.'
       : `Sign-in usage check · ${new Date(check.at).toLocaleTimeString()} · ${check.readings ? `${check.readings} figure${check.readings === 1 ? '' : 's'} read` : 'nothing read'} (${check.route === 'tab' ? 'from the open tab' : check.route === 'background' ? 'from the background' : 'no tab'}: ${check.steps.join(', ') || 'no answer'})${check.retryAt && check.retryAt > Date.now() ? ` · tries again ${new Date(check.retryAt).toLocaleTimeString()}` : ''}.`;
-    container.append(line);
+    details.append(line);
     const tap = saved[`usageTapCheck:${activeProvider}`] as { at: number; kind: string; fields: string } | undefined;
     if (tap && (!check || tap.at > check.at - 600000)) {
       const seen = document.createElement('p'); seen.className = 'usage-unavailable usage-check';
       seen.textContent = tap.kind === 'claude-stream' ? `From the page · ${new Date(tap.at).toLocaleTimeString()} · Claude stream seen: ${tap.fields}.` : `From the page · ${new Date(tap.at).toLocaleTimeString()} · ${tap.kind} not readable (fields: ${tap.fields}).`;
-      container.append(seen);
+      details.append(seen);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refreshAfterSendDue, refreshAllUsage, type RefreshDeps } from '../src/core/usage-refresh';
+import { refreshAfterSendDue, refreshAllUsage, usageCheckSummary, type RefreshDeps } from '../src/core/usage-refresh';
 import type { ProviderId } from '../src/core/selectors';
 
 function fakeBrowser(tabs: { id: number; url: string }[], readsAfter: Partial<Record<ProviderId, number>>) {
@@ -50,5 +50,19 @@ describe('refresh after a send', () => {
     expect(refreshAfterSendDue(now - 4 * 60000, 0, now)).toBe(false);
     expect(refreshAfterSendDue(now - 6 * 60000, now - 10 * 60000, now)).toBe(true);
     expect(refreshAfterSendDue(undefined, now - 60000, now)).toBe(false);
+  });
+});
+
+describe('usage check line', () => {
+  const time = (at: number) => `T${at}`;
+  it('says in plain words whether the last check found new figures', () => {
+    const empty = { at: 100, route: 'tab', steps: ['usage 200', 'five_hour=null'], readings: 0 };
+    expect(usageCheckSummary('Claude', empty, { lastReading: 50, time, now: 100 })).toBe('Checked at T100: Claude didn’t share new figures, so these are from T50.');
+    expect(usageCheckSummary('Claude', { ...empty, retryAt: 300 }, { time, now: 100 })).toBe('Checked at T100: Claude didn’t share new figures. Baton tries again at T300.');
+    expect(usageCheckSummary('Gemini', { ...empty, readings: 2 }, { time })).toBe('Checked at T100: new figures from Gemini.');
+    expect(usageCheckSummary('ChatGPT', undefined, { time })).toBe('Baton checks ChatGPT for new figures when you open a chat there.');
+    expect(usageCheckSummary('Claude', empty, { off: true, time })).toMatch(/^Baton isn’t checking Claude usage/);
+    // The technical detail (field names, status codes) never reaches the plain line.
+    expect(usageCheckSummary('Claude', empty, { lastReading: 50, time })).not.toMatch(/null|200|five_hour/);
   });
 });

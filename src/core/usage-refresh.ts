@@ -41,3 +41,15 @@ export async function refreshAllUsage(providers: ProviderId[], deps: RefreshDeps
     }
   }));
 }
+
+export type UsageCheck = { at: number; route: string; steps: string[]; readings: number; retryAt?: number };
+const clockTime = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+/** The plain line under a usage card: when Baton last checked with your sign-in, and whether that found new figures. */
+export function usageCheckSummary(name: string, check: UsageCheck | undefined, options: { off?: boolean; lastReading?: number; now?: number; time?: (at: number) => string } = {}): string {
+  const time = options.time || clockTime;
+  if (options.off) return `Baton isn’t checking ${name} usage with your sign-in. Turn it on under Usage → Read usage with my sign-in.`;
+  if (!check) return `Baton checks ${name} for new figures when you open a chat there.`;
+  if (check.readings) return `Checked at ${time(check.at)}: new figures from ${name}.`;
+  const retry = check.retryAt && check.retryAt > (options.now ?? Date.now()) ? ` Baton tries again at ${time(check.retryAt)}.` : '';
+  return `Checked at ${time(check.at)}: ${name} didn’t share new figures${options.lastReading ? `, so these are from ${time(options.lastReading)}` : ''}.${retry}`;
+}
