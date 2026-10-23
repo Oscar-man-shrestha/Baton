@@ -5,6 +5,7 @@ import { isSupportedChatUrl } from '../src/core/connection';
 import { currentBadge, updateBadge, usageQueue, type BadgeRecord } from '../src/core/usage-delivery';
 import { isCurrentReading, mergeUsageWindows, type UsageWindow } from '../src/core/usage-windows';
 import { kindProvider, parseUsageResponse, type UsageKind } from '../src/core/usage-api';
+import { apiProviders, fetchUsage } from '../src/core/usage-fetch';
 import { refreshAfterSendDue, refreshAllUsage } from '../src/core/usage-refresh';
 import { usagePageUrl } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
@@ -101,13 +102,40 @@ export default defineBackground(() => {
     sleep: (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
     now: () => Date.now()
   });
-  // After a send, refresh that service's usage page 30 s later (the reply's usage is then counted).
+  // Readings from the sites' usage responses (the page's own, via the usage tap, or Baton's refresh) join the stored ones.
+  const saveReadings = (provider: ProviderId, readings: UsageWindow[]) => enqueueUsage(async () => {
+    const key = `usageWindows:${provider}`;
+    const saved = ((await chrome.storage.local.get(key))[key] || []) as UsageWindow[];
+    await chrome.storage.local.set({ [key]: mergeUsageWindows(saved, readings) });
+  });
+  // Baton's own usage refresh (ChatGPT, Claude, Gemini) with the browser's sign-in: at most once a minute per service.
+  const apiRunAt = new Map<ProviderId, number>();
+  const refreshApi = async (provider: ProviderId) => {
+    if (!apiProviders.includes(provider) || Date.now() - (apiRunAt.get(provider) || 0) < 60000) return false;
+    apiRunAt.set(provider, Date.now());
+    const readings = await fetchUsage(provider).catch(() => [] as UsageWindow[]);
+    if (readings.length) await saveReadings(provider, readings);
+    return readings.length > 0;
+  };
+  // Every 5 minutes for the services the user has on, so the bar stays current without reloading a chat page.
+  void chrome.alarms.create('baton-usage-api', { periodInMinutes: 5 });
+  chrome.alarms.onAlarm.addListener(alarm => {
+    if (alarm.name !== 'baton-usage-api') return;
+    void (async () => {
+      const enabled = ((await chrome.storage.local.get('enabledProviders')).enabledProviders || {}) as Record<string, boolean>;
+      await Promise.all(apiProviders.filter(id => providerEnabled(id, enabled)).map(refreshApi));
+    })().catch(() => {});
+  });
+  // After a send, refresh that service's usage 30 s later (the reply's usage is then counted): its usage response
+  // when it answers, else its usage page in a background tab.
   chrome.alarms.onAlarm.addListener(alarm => {
     if (!alarm.name.startsWith('handoff-usage:')) return;
     const provider = alarm.name.slice('handoff-usage:'.length) as ProviderId;
     if (!providerIds.includes(provider)) return;
     void (async () => {
       await chrome.storage.session.set({ [`refreshAfterSendAt:${provider}`]: Date.now() });
+      apiRunAt.delete(provider);
+      if (await refreshApi(provider)) return;
       await refreshAllUsage([provider], usageDeps());
     })().catch(() => {});
   });
@@ -179,12 +207,15 @@ export default defineBackground(() => {
       const kind = message.kind as UsageKind;
       if (!provider || kindProvider[kind] !== provider || typeof message.text !== 'string') return;
       const readings = parseUsageResponse(kind, message.text);
-      if (!readings.length) return;
-      void enqueueUsage(async () => {
-        const key = `usageWindows:${provider}`;
-        const saved = ((await chrome.storage.local.get(key))[key] || []) as UsageWindow[];
-        await chrome.storage.local.set({ [key]: mergeUsageWindows(saved, readings) });
-      }).catch(() => {});
+      if (readings.length) void saveReadings(provider, readings).catch(() => {});
+      return;
+    }
+    // A chat page of ChatGPT, Claude or Gemini opened: refresh its usage now (throttled to once a minute).
+    if (message?.type === 'API_USAGE_REFRESH') {
+      let host = '';
+      try { host = _sender.url ? new URL(_sender.url).hostname : ''; } catch { return; }
+      const provider = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(host));
+      if (provider) void refreshApi(provider).catch(() => {});
       return;
     }
     if (message?.type === 'REFRESH_ALL_USAGE') {
