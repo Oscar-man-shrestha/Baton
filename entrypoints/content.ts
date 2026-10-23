@@ -1,7 +1,7 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
 import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, questionBefore, sameDraft, selectedTurns } from '../src/core/adapter';
-import { draftBudget, exactDetails, updateBrief } from '../src/core/brief';
+import { draftBudget, exactDetails, goalFromUserText, updateBrief } from '../src/core/brief';
 import { saveCapturedCapsule, saveSelectionCapsule, saveWrittenBrief } from '../src/core/capsules';
 import { briefPrompt, checkSummary, checkWrittenBrief, completeWrittenBrief, findWrittenBrief, withoutHandoffRequests } from '../src/core/written-brief';
 import { handoffDraft } from '../src/core/context-export';
@@ -102,7 +102,8 @@ export default defineContentScript({
       chrome.runtime.sendMessage({ type: 'CLASSIFY', text }).then(reply => reply?.ok ? reply.guess as ModelGuess : undefined, () => undefined),
       new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 4000))
     ]);
-    const lastAsked = (count = 3) => extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-count).map(turn => turn.text).join('\n');
+    // A Baton draft pasted into this chat counts as its goal, not its wrapper text (which ranked AIs for the wrong task).
+    const lastAsked = (count = 3) => extract(document, id, bundledSelectors).turns.filter(turn => turn.role === 'user').slice(-count).map(turn => goalFromUserText(turn.text)).join('\n');
     // What decides the task: the text in the box, else your latest message. Replies and older messages don't.
     const askedNow = () => {
       const editor = findEditor(document, bundledSelectors.providers[id].editor);
@@ -146,7 +147,7 @@ export default defineContentScript({
       const draft = withNextStep(saved.draft, next);
       if (!draftBudget(draft, target).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
       await openDraftIn(target, draft);
-      return `Opened ${providerNames[target]} with your project as an unsent draft (${saved.check.text}). Also saved as a baton and copied, in case the page doesn't show it.`;
+      return `Opened ${providerNames[target]} with your project as an unsent draft: ${saved.check.text}. Also saved as a baton and copied, in case the page doesn't show it.`;
     };
     // A saved selection goes exactly as saved. Too long to type in for you: it is copied and the AI opens to paste it.
     const passSaved = async (saved: Project, target: ProviderId, next?: string) => {

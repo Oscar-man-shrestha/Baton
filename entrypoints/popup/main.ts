@@ -1,4 +1,4 @@
-import { renderBrief, wrapHandoff, draftBudget, redact } from '../../src/core/brief';
+import { renderBrief, wrapHandoff, draftBudget, goalFromUserText, redact } from '../../src/core/brief';
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
@@ -799,7 +799,7 @@ captureButton.addEventListener('click', async () => {
     await showLibrary();
     const meter = data.meter as Meter;
     // Same suggestions as the Baton button: the task's topic, Baton's rankings list, your order and picks, then usage left.
-    const asked = data.pendingPrompt || brief.last_exchange.user;
+    const asked = data.pendingPrompt || goalFromUserText(brief.last_exchange.user);
     // Keywords first; the on-device model only when they can't tell (it answers in well under a second once loaded).
     const guess = promptTopic(asked) === 'general' ? await Promise.race([chrome.runtime.sendMessage({ type: 'CLASSIFY', text: asked }).then(reply => reply?.ok ? reply.guess as ModelGuess : undefined, () => undefined), new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 4000))]) : undefined;
     const suggestion = suggest(asked, source, await chrome.storage.local.get(suggestionKeys()), Date.now(), undefined, guess);
