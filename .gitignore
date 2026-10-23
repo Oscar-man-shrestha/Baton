@@ -3,3 +3,6 @@ node_modules/
 .output/
 coverage/
 *.log
+.DS_Store
+.mcp.json
+research_notes/
