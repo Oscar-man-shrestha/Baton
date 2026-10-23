@@ -444,9 +444,22 @@ export default defineContentScript({
         top = row.getBoundingClientRect().bottom + 6;
         hit = conflict(top);
       }
-      if (hit) { top = surfaceRect.top - pillHeight - 6; hit = conflict(top); }
-      // Last resort: over the one-line “can make mistakes” notice, below the box (Claude, when another extension's strip
-      // sits above it) or above it (ChatGPT in a long chat).
+      if (hit) {
+        const above = surfaceRect.top - pillHeight - 6;
+        const aboveHit = conflict(above);
+        top = above; hit = aboveHit;
+        // Something sits right on top of the box (another extension's usage strip on Claude): stack above that row, so the
+        // bar keeps its place above the box instead of moving under it.
+        if (aboveHit && aboveHit !== true) {
+          let row: Element | undefined;
+          for (let element: Element | null = aboveHit; element && element !== document.body; element = element.parentElement) {
+            const rect = element.getBoundingClientRect();
+            if (rect.bottom <= surfaceRect.top + 2 && rect.bottom >= surfaceRect.top - pillHeight - 24 && rect.height <= 64 && !element.contains(surface)) row = element; else break;
+          }
+          if (row) { const stacked = row.getBoundingClientRect().top - pillHeight - 6; const stackedHit = conflict(stacked); if (!stackedHit) { top = stacked; hit = undefined; } }
+        }
+      }
+      // Last resort: over the one-line “can make mistakes” notice, below the box or above it (ChatGPT in a long chat).
       if (hit) { top = surfaceRect.bottom + 6; hit = conflict(top, true); }
       if (hit) { top = surfaceRect.top - pillHeight - 2; hit = conflict(top, true); }
       if (hit) { statusHost.style.display = 'none'; statusHost.style.visibility = ''; statusPlacement = ''; placePassButton(surface, surfaceRect); return; }
