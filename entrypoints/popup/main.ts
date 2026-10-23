@@ -253,7 +253,7 @@ function renderLanes(saved: Record<string, any>) {
   }), ...(rest.length && used.length ? [more] : []));
 }
 async function showUsage() {
-  const saved = await chrome.storage.local.get([...providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`]), 'enabledProviders']);
+  const saved = await chrome.storage.local.get([...providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`, `usageApiCheck:${id}`]), 'enabledProviders', 'usageApiRefresh']);
   renderLanes(saved);
   usageList.replaceChildren();
   renderActiveUsage(saved);
@@ -331,10 +331,19 @@ function renderActiveUsage(saved: Record<string, any>) {
   if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
   note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Baton shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
   (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
+  // Baton's own usage check with the user's sign-in: when it last ran and what the service answered.
+  const check = saved[`usageApiCheck:${activeProvider}`] as { at: number; route: string; steps: string[]; readings: number; retryAt?: number } | undefined;
+  if (['chatgpt', 'claude', 'gemini'].includes(activeProvider)) {
+    const line = document.createElement('p'); line.className = 'usage-unavailable usage-check';
+    line.textContent = saved.usageApiRefresh === false ? 'Sign-in usage check: off (Usage → Read usage with my sign-in).'
+      : !check ? 'Sign-in usage check: not run yet. It runs when a chat page opens.'
+      : `Sign-in usage check · ${new Date(check.at).toLocaleTimeString()} · ${check.readings ? `${check.readings} figure${check.readings === 1 ? '' : 's'} read` : 'nothing read'} (${check.route === 'tab' ? 'from the open tab' : check.route === 'background' ? 'from the background' : 'no tab'}: ${check.steps.join(', ') || 'no answer'})${check.retryAt && check.retryAt > Date.now() ? ` · tries again ${new Date(check.retryAt).toLocaleTimeString()}` : ''}.`;
+    container.append(line);
+  }
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
 for (const provider of ['claude', 'gemini', 'chatgpt'] as const) document.querySelector(`#check-${provider}-usage`)?.addEventListener('click', () => { void chrome.tabs.create({ url: usagePageUrl(provider)! }); });
-chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`] || changes[`statedLimit:${id}`])) void showUsage(); });
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`] || changes[`statedLimit:${id}`] || changes[`usageApiCheck:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
   if (desktopAlerts.checked) {

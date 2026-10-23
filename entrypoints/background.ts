@@ -118,10 +118,13 @@ export default defineBackground(() => {
     if (Date.now() < (apiBackoff.get(provider)?.until || 0)) return false;
     if ((await chrome.storage.local.get('usageApiRefresh')).usageApiRefresh === false) return false;
     apiRunAt.set(provider, Date.now());
-    const readings = await fetchUsage(provider).catch(() => [] as UsageWindow[]);
+    const { readings, check } = await fetchUsage(provider).catch(error => ({ readings: [] as UsageWindow[], check: { at: Date.now(), route: 'none' as const, steps: [`failed: ${String(error).slice(0, 100)}`], readings: 0 } }));
+    // The last check's outcome, shown in Baton's usage panel so a missing figure can be explained.
+    const retryAt = readings.length ? undefined : Date.now() + Math.min(60, 2 ** ((apiBackoff.get(provider)?.fails || 0) + 1)) * 60000;
+    await chrome.storage.local.set({ [`usageApiCheck:${provider}`]: { ...check, ...(retryAt ? { retryAt } : {}) } });
     if (readings.length) { apiBackoff.delete(provider); await saveReadings(provider, readings); return true; }
     const fails = (apiBackoff.get(provider)?.fails || 0) + 1;
-    apiBackoff.set(provider, { fails, until: Date.now() + Math.min(60, 2 ** fails) * 60000 });
+    apiBackoff.set(provider, { fails, until: retryAt! });
     return false;
   };
   // Every 5 minutes, only for services the user is using: one with a tab open, or messages sent in the last 3 days.

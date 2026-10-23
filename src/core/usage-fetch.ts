@@ -9,74 +9,98 @@ import type { UsageWindow } from './usage-windows';
 
 export const apiProviders: ProviderId[] = ['chatgpt', 'claude', 'gemini'];
 type Body = { kind: UsageKind; text: string };
+/** What the last check did, for Baton's usage panel: which way it went and what each address answered. */
+export type UsageCheck = { at: number; route: 'tab' | 'background' | 'none'; steps: string[]; readings: number };
 
-// Runs inside the AI's page (chrome.scripting, MAIN world): self-contained, returns the raw bodies.
-async function fetchInPage(provider: string, geminiRpc: string): Promise<Body[]> {
+// Runs inside the AI's page (chrome.scripting, MAIN world): self-contained, returns the raw bodies and the answers.
+async function fetchInPage(provider: string, geminiRpc: string): Promise<{ bodies: Body[]; steps: string[] }> {
   const out: Body[] = [];
-  const text = async (response: Response) => (response.ok ? response.text() : '');
+  const steps: string[] = [];
+  const call = async (name: string, request: Promise<Response>) => {
+    try { const response = await request; steps.push(`${name} ${response.status}`); return response.ok ? response : undefined; } catch { steps.push(`${name} failed`); return undefined; }
+  };
+  const text = async (response: Response | undefined) => (response ? response.text().catch(() => '') : '');
   if (provider === 'chatgpt') {
-    const session = await fetch('/api/auth/session', { credentials: 'include', headers: { accept: 'application/json' } }).then(r => r.json()).catch(() => null);
+    const session = await (await call('session', fetch('/api/auth/session', { credentials: 'include', headers: { accept: 'application/json' } })))?.json().catch(() => null);
     const token = session && session.accessToken;
-    if (!token) return out;
+    if (!token) { steps.push('signed out'); return { bodies: out, steps }; }
     const headers = { authorization: `Bearer ${token}`, accept: 'application/json' };
-    out.push({ kind: 'chatgpt-wham', text: await fetch('/backend-api/wham/usage', { credentials: 'include', headers }).then(text).catch(() => '') });
-    out.push({ kind: 'chatgpt-features', text: await fetch('/backend-api/conversation/init', { method: 'POST', credentials: 'include', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ gizmo_id: null, requested_default_model: null, conversation_id: null, timezone_offset_min: new Date().getTimezoneOffset() }) }).then(text).catch(() => '') });
+    out.push({ kind: 'chatgpt-wham', text: await text(await call('wham', fetch('/backend-api/wham/usage', { credentials: 'include', headers }))) });
+    out.push({ kind: 'chatgpt-features', text: await text(await call('init', fetch('/backend-api/conversation/init', { method: 'POST', credentials: 'include', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ gizmo_id: null, requested_default_model: null, conversation_id: null, timezone_offset_min: new Date().getTimezoneOffset() }) }))) });
   } else if (provider === 'claude') {
-    const orgs = await fetch('/api/organizations', { credentials: 'include', headers: { accept: 'application/json' } }).then(r => (r.ok ? r.json() : [])).catch(() => []);
+    const orgs = await (await call('organizations', fetch('/api/organizations', { credentials: 'include', headers: { accept: 'application/json' } })))?.json().catch(() => []);
     const org = Array.isArray(orgs) ? orgs.find((o: any) => Array.isArray(o?.capabilities) && o.capabilities.includes('chat')) || orgs[0] : undefined;
     const id = org && (org.uuid || org.id);
-    if (!id) return out;
-    out.push({ kind: 'claude-usage', text: await fetch(`/api/organizations/${encodeURIComponent(id)}/usage`, { credentials: 'include', headers: { accept: 'application/json' } }).then(text).catch(() => '') });
+    if (!id) { steps.push('no organization'); return { bodies: out, steps }; }
+    out.push({ kind: 'claude-usage', text: await text(await call('usage', fetch(`/api/organizations/${encodeURIComponent(id)}/usage`, { credentials: 'include', headers: { accept: 'application/json' } }))) });
   } else if (provider === 'gemini') {
     const wiz = (window as any).WIZ_global_data || {};
-    if (!wiz.SNlM0e) return out;
+    if (!wiz.SNlM0e) { steps.push('signed out'); return { bodies: out, steps }; }
     const prefix = (location.pathname.match(/^\/u\/\d+(?=\/|$)/) || [''])[0];
     const query = new URLSearchParams({ rpcids: geminiRpc, 'source-path': '/app', bl: wiz.cfb2h || '', 'f.sid': wiz.FdrFJe || '', hl: document.documentElement.lang || 'en', _reqid: String(Math.floor(Math.random() * 900000) + 100000), rt: 'c' });
     const body = new URLSearchParams({ 'f.req': JSON.stringify([[[geminiRpc, JSON.stringify([[[1, 2]]]), null, 'generic']]]), at: wiz.SNlM0e });
-    out.push({ kind: 'gemini-quota', text: await fetch(`${prefix}/_/BardChatUi/data/batchexecute?${query}`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8', 'x-same-domain': '1' }, body }).then(text).catch(() => '') });
+    out.push({ kind: 'gemini-quota', text: await text(await call('quota', fetch(`${prefix}/_/BardChatUi/data/batchexecute?${query}`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8', 'x-same-domain': '1' }, body }))) });
   }
-  return out;
+  return { bodies: out, steps };
 }
 
 const origins: Record<string, string> = { chatgpt: 'https://chatgpt.com', claude: 'https://claude.ai', gemini: 'https://gemini.google.com' };
 
-/** Reads usage for one AI; returns the parsed readings (empty when signed out or nothing came back). */
-export async function fetchUsage(provider: ProviderId, now = Date.now()): Promise<UsageWindow[]> {
-  if (!apiProviders.includes(provider)) return [];
+/** Reads usage for one AI: the parsed readings (empty when signed out or nothing came back) and what happened. */
+export async function fetchUsage(provider: ProviderId, now = Date.now()): Promise<{ readings: UsageWindow[]; check: UsageCheck }> {
+  const check: UsageCheck = { at: now, route: 'none', steps: [], readings: 0 };
+  if (!apiProviders.includes(provider)) return { readings: [], check };
   // Any loaded tab of that AI will do, even one still finishing (the refresh fires as a chat page opens).
   const tabs = await chrome.tabs.query({ url: `${origins[provider]}/*` }).catch(() => [] as chrome.tabs.Tab[]);
   let bodies: Body[] = [];
   for (const tab of tabs.filter(tab => tab.id !== undefined && !tab.discarded).slice(0, 2)) {
+    check.route = 'tab';
     try {
       const [result] = await chrome.scripting.executeScript({ target: { tabId: tab.id! }, world: 'MAIN', func: fetchInPage, args: [provider, GEMINI_QUOTA_RPC] });
-      bodies = (result?.result as Body[] | undefined) || [];
-    } catch { bodies = []; }
+      const answer = result?.result as { bodies: Body[]; steps: string[] } | undefined;
+      bodies = answer?.bodies || [];
+      check.steps = answer?.steps || ['no answer from tab'];
+    } catch (error) { bodies = []; check.steps = [`tab script failed: ${error instanceof Error ? error.message : String(error)}`.slice(0, 120)]; }
     if (bodies.some(body => body.text)) break;
   }
   // No open tab (or it couldn't answer): ChatGPT and Claude also answer the background with the browser's sign-in.
-  if (!bodies.some(body => body.text) && provider !== 'gemini') bodies = await fetchFromBackground(provider);
-  return bodies.flatMap(body => (body.text ? parseUsageResponse(body.kind, body.text, now) : []));
+  if (!bodies.some(body => body.text) && provider !== 'gemini') {
+    const tabSteps = check.steps;
+    const answer = await fetchFromBackground(provider);
+    bodies = answer.bodies;
+    check.route = 'background';
+    check.steps = [...tabSteps.map(step => `tab: ${step}`), ...answer.steps];
+  }
+  const readings = bodies.flatMap(body => (body.text ? parseUsageResponse(body.kind, body.text, now) : []));
+  check.readings = readings.length;
+  return { readings, check };
 }
 
-async function fetchFromBackground(provider: ProviderId): Promise<Body[]> {
+async function fetchFromBackground(provider: ProviderId): Promise<{ bodies: Body[]; steps: string[] }> {
   const base = origins[provider];
-  const get = (path: string, init: RequestInit = {}) => fetch(base + path, { credentials: 'include', cache: 'no-store', ...init, headers: { accept: 'application/json', ...(init.headers || {}) } });
-  try {
-    if (provider === 'chatgpt') {
-      const session = await get('/api/auth/session').then(r => (r.ok ? r.json() : null)).catch(() => null);
-      const token = session?.accessToken;
-      if (typeof token !== 'string' || !token) return [];
-      const auth = { authorization: `Bearer ${token}` };
-      const [wham, init] = await Promise.all([
-        get('/backend-api/wham/usage', { headers: auth }).then(r => (r.ok ? r.text() : '')).catch(() => ''),
-        get('/backend-api/conversation/init', { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ gizmo_id: null, requested_default_model: null, conversation_id: null, timezone_offset_min: new Date().getTimezoneOffset() }) }).then(r => (r.ok ? r.text() : '')).catch(() => '')
-      ]);
-      return [{ kind: 'chatgpt-wham', text: wham }, { kind: 'chatgpt-features', text: init }];
-    }
-    const orgs = await get('/api/organizations').then(r => (r.ok ? r.json() : [])).catch(() => []);
-    const org = Array.isArray(orgs) ? orgs.find((o: any) => Array.isArray(o?.capabilities) && o.capabilities.includes('chat')) || orgs[0] : undefined;
-    const id = org?.uuid || org?.id;
-    if (!id) return [];
-    return [{ kind: 'claude-usage', text: await get(`/api/organizations/${encodeURIComponent(id)}/usage`).then(r => (r.ok ? r.text() : '')).catch(() => '') }];
-  } catch { return []; }
+  const steps: string[] = [];
+  const get = async (name: string, path: string, init: RequestInit = {}) => {
+    try {
+      const response = await fetch(base + path, { credentials: 'include', cache: 'no-store', ...init, headers: { accept: 'application/json', ...(init.headers || {}) } });
+      steps.push(`${name} ${response.status}`);
+      return response.ok ? response : undefined;
+    } catch { steps.push(`${name} failed`); return undefined; }
+  };
+  const text = async (response: Response | undefined) => (response ? response.text().catch(() => '') : '');
+  if (provider === 'chatgpt') {
+    const session = await (await get('session', '/api/auth/session'))?.json().catch(() => null);
+    const token = session?.accessToken;
+    if (typeof token !== 'string' || !token) { steps.push('signed out'); return { bodies: [], steps }; }
+    const auth = { authorization: `Bearer ${token}` };
+    const [wham, init] = await Promise.all([
+      get('wham', '/backend-api/wham/usage', { headers: auth }).then(text),
+      get('init', '/backend-api/conversation/init', { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ gizmo_id: null, requested_default_model: null, conversation_id: null, timezone_offset_min: new Date().getTimezoneOffset() }) }).then(text)
+    ]);
+    return { bodies: [{ kind: 'chatgpt-wham', text: wham }, { kind: 'chatgpt-features', text: init }], steps };
+  }
+  const orgs = await (await get('organizations', '/api/organizations'))?.json().catch(() => []);
+  const org = Array.isArray(orgs) ? orgs.find((o: any) => Array.isArray(o?.capabilities) && o.capabilities.includes('chat')) || orgs[0] : undefined;
+  const id = org?.uuid || org?.id;
+  if (!id) { steps.push('no organization'); return { bodies: [], steps }; }
+  return { bodies: [{ kind: 'claude-usage', text: await get('usage', `/api/organizations/${encodeURIComponent(id)}/usage`).then(text) }], steps };
 }
