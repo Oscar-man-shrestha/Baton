@@ -11,6 +11,7 @@ import { usagePageUrl } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
 import { providerEnabled, providerNames } from '../src/core/rescue';
 import { fetchRankings } from '../src/core/task-fit';
+import { pageCommands, type ShortcutCommand } from '../src/core/shortcuts';
 
 export default defineBackground(() => {
   const enqueueUsage = usageQueue();
@@ -48,6 +49,19 @@ export default defineBackground(() => {
     if (details.reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') }).catch(() => {});
   });
   chrome.runtime.onStartup.addListener(uninstallPage);
+  // Keyboard shortcuts (chrome://extensions/shortcuts) and the right-click “Save selection as a baton”: the chat page does
+  // the work, so its content script gets the command. The side panel opens here, while the key press still counts.
+  const toChatPage = (tab: chrome.tabs.Tab | undefined, command: ShortcutCommand) => { if (tab?.id && isSupportedChatUrl(tab.url)) void chrome.tabs.sendMessage(tab.id, { type: 'BATON_COMMAND', command }).catch(() => {}); };
+  chrome.commands?.onCommand.addListener((command, tab) => {
+    if (command === 'open-side-panel') { if (tab?.windowId !== undefined) void chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {}); return; }
+    const page = pageCommands.find(name => name === command);
+    if (page) toChatPage(tab, page);
+  });
+  const chatPatterns = [...new Set(providerIds.flatMap(id => bundledSelectors.providers[id].hosts.map(host => `https://${host}/*`)))];
+  chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus?.removeAll(() => chrome.contextMenus.create({ id: 'baton-save-selection', title: 'Save selection as a baton', contexts: ['selection'], documentUrlPatterns: chatPatterns }, () => void chrome.runtime.lastError));
+  });
+  chrome.contextMenus?.onClicked.addListener((info, tab) => { if (info.menuItemId === 'baton-save-selection') toChatPage(tab, 'save-selection'); });
   chrome.runtime.onStartup.addListener(scheduleRankings);
   chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'baton-rankings') void updateRankings().catch(() => {}); });
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

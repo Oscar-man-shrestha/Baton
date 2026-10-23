@@ -2,6 +2,7 @@ import { defineConfig } from 'wxt';
 import { fileURLToPath } from 'node:url';
 import cloud from './src/config/cloud.json';
 import selectors from './src/selectors.json';
+import { manifestCommands } from './src/core/shortcuts';
 const cloudEnabled = /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(cloud.url) && !!cloud.publishableKey;
 const chatHosts = Object.values(selectors.providers).flatMap(provider => provider.hosts.map(host => `https://${host}/*`));
 
@@ -16,11 +17,13 @@ export default defineConfig({
     // No “tabs” permission: Baton only reads the addresses of the six AI sites, which its host access already allows,
     // so Chrome doesn't warn about reading browsing history.
     // offscreen: a hidden extension page that runs the on-device task model (Chrome shows no warning for it).
-    permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'alarms', 'offscreen', ...(cloudEnabled ? ['identity'] : [])],
+    permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'alarms', 'offscreen', 'contextMenus', ...(cloudEnabled ? ['identity'] : [])],
     // The task model runs as WebAssembly; this is the narrowest setting that allows it (no remote code, no eval).
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
     optional_permissions: ['notifications'],
     side_panel: { default_path: 'sidepanel.html' },
+    // Keyboard shortcuts, from src/core/shortcuts.ts. (contextMenus above adds “Save selection as a baton” on the chat sites; no install warning.)
+    commands: manifestCommands(),
     // A persistent sidebar has no activeTab grant after switching tabs.
     host_permissions: [...new Set(chatHosts), ...(cloudEnabled ? [`${cloud.url}/*`] : [])]
   },

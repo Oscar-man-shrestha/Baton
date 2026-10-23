@@ -245,3 +245,49 @@ export function extract(doc: Document, id: ProviderId, bundle: SelectorBundle): 
   const warnings = [turns.length === 0 ? 'No visible turns found. Use plain-text fallback; older virtualized turns may be missing.' : '', turns.length && !hasUserTurn ? 'No user message was captured. Choose older-message capture or paste the original request before continuing.' : '', hiddenInstruction ? 'Instruction-like hidden text was removed from the capture. Review the brief.' : ''].filter(Boolean);
   return { provider: id, turns, artifacts: adapter.extractArtifacts(doc), incomplete: turns.length === 0 || !hasUserTurn, warning: warnings.join(' ') || undefined };
 }
+
+/**
+ * The messages a selection covers, in page order: a fully selected message keeps its whole text, a partly selected one
+ * only the selected words (as markdown, without hidden headings or buttons). Text outside the conversation is ignored.
+ */
+// Range.START_TO_START and friends, spelled out so this also runs where no global Range exists (tests).
+const START_TO_START = 0, START_TO_END = 1, END_TO_END = 2, END_TO_START = 3;
+export function selectedTurns(doc: Document, id: ProviderId, bundle: SelectorBundle, range: Range): Turn[] {
+  const turns: Turn[] = [];
+  for (const node of collectTurnNodes(doc, id, bundle)) {
+    if (!range.intersectsNode(node)) continue;
+    const content = messageContent(node, id);
+    const whole = doc.createRange(); whole.selectNodeContents(content);
+    const role = turnRole(node, id);
+    if (range.compareBoundaryPoints(START_TO_START, whole) <= 0 && range.compareBoundaryPoints(END_TO_END, whole) >= 0) {
+      const text = cleanTurn(node, id);
+      if (text) turns.push({ role, text, index: turns.length });
+      continue;
+    }
+    if (range.compareBoundaryPoints(END_TO_START, whole) >= 0 || range.compareBoundaryPoints(START_TO_END, whole) <= 0) continue;
+    const text = selectedText(content, range);
+    if (text) turns.push({ role, text, index: turns.length });
+  }
+  return turns;
+}
+
+/** The selected part of one message: copied from a clone that marks what the page hides, so hidden text stays out. */
+function selectedText(content: Element, range: Range): string {
+  const doc = content.ownerDocument;
+  const clone = content.cloneNode(true) as Element;
+  const copyOf = new Map<Node, Node>();
+  const walk = (original: Node, copy: Node) => { copyOf.set(original, copy); for (let i = 0; i < original.childNodes.length; i++) walk(original.childNodes[i], copy.childNodes[i]); };
+  walk(content, clone);
+  const getStyle = doc.defaultView?.getComputedStyle;
+  for (const element of [content, ...Array.from(content.querySelectorAll('*'))]) {
+    const style = getStyle?.call(doc.defaultView, element);
+    if (style && (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse' || style.opacity === '0')) (copyOf.get(element) as Element).setAttribute('data-baton-hidden', '');
+  }
+  const part = doc.createRange(); part.selectNodeContents(clone);
+  if (content.contains(range.startContainer) && copyOf.has(range.startContainer)) part.setStart(copyOf.get(range.startContainer)!, range.startOffset);
+  if (content.contains(range.endContainer) && copyOf.has(range.endContainer)) part.setEnd(copyOf.get(range.endContainer)!, range.endOffset);
+  const holder = doc.createElement('div');
+  holder.append(part.cloneContents());
+  holder.querySelectorAll('[data-baton-hidden],script,style,button,svg,input,textarea,[hidden],[aria-hidden="true"],[data-no-copy="true"]').forEach(element => element.remove());
+  return messageMarkdown(holder).replace(/[​-‏⁠﻿]/g, '').trim();
+}

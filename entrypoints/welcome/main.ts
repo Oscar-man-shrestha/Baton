@@ -1,6 +1,7 @@
 import { newChatUrls, providerNames } from '../../src/core/rescue';
 import { providerIds } from '../../src/core/selectors';
 import { startMotion } from './motion';
+import { fillShortcutList, onMac, shortcutsPage } from '../../src/core/shortcuts';
 
 // Opens once after install, and from the ? button in Baton (welcome.html#guide), where it reads as the guide.
 const guideMode = () => { const guide = location.hash === '#guide'; document.title = guide ? 'How to use Baton' : 'Welcome to Baton'; (document.querySelector('#eyebrow') as HTMLElement).textContent = guide ? 'Baton guide' : 'Baton Pass is installed'; };
@@ -30,6 +31,10 @@ setInterval(() => { if (!document.hidden) void checkPinned(); }, 1500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkPinned(); });
 
 document.querySelector('#open-settings')?.addEventListener('click', () => { void chrome.runtime.openOptionsPage(); });
+// The keys the browser actually assigned (another extension may hold one); changed on the browser's shortcuts page.
+const shortcutList = document.querySelector('#shortcut-list') as HTMLElement | null;
+if (shortcutList) void chrome.commands?.getAll().then(commands => fillShortcutList(shortcutList, commands, onMac(navigator))).catch(() => {});
+document.querySelector('#change-shortcuts')?.addEventListener('click', () => { void chrome.tabs.create({ url: shortcutsPage }); });
 
 // The quick tour runs on a chat page, where the glowing button and usage bar are: queue it for the next one.
 document.querySelector('#start-tour')?.addEventListener('click', () => {

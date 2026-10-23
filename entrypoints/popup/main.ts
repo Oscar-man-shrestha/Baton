@@ -16,6 +16,7 @@ import { meterSummary } from '../../src/core/usage-alerts';
 import { isSupportedChatUrl, sendWithBootstrap } from '../../src/core/connection';
 import { listRecentCaptures } from '../../src/core/recent';
 import { saveCapturedCapsule } from '../../src/core/capsules';
+import { fillShortcutList, onMac, shortcutsPage } from '../../src/core/shortcuts';
 import { fullContext } from '../../src/core/context-export';
 import { createActiveChatTracker } from '../../src/core/active-chat';
 
@@ -595,8 +596,8 @@ const showLibrary = async () => {
   const dismissed = (await chrome.storage.local.get('dismissedRecentUrls')).dismissedRecentUrls;
   const dismissedUrls: string[] = Array.isArray(dismissed) ? dismissed.filter((url): url is string => typeof url === 'string') : [];
   const items = [
-    ...projects.map(project => ({ id: project.id, folder: project.folder, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', variants: undefined as string[] | undefined, draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}` })),
-    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => project.threads.includes(capture.url))).map(capture => ({ id: '', folder: undefined as string | undefined, snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, variants: capture.variants, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
+    ...projects.map(project => ({ id: project.id, folder: project.folder, snapshotText: project.snapshotText, draftMode: project.draftMode, name: project.name, brief: project.brief, url: project.threads.at(-1) || '', variants: undefined as string[] | undefined, draft: project.draft, detail: `${project.folder ? `${project.folder} · ` : ''}${project.id.startsWith('selection:') ? 'Selected part of a chat' : `Project · ${project.threads.length} chat${project.threads.length === 1 ? '' : 's'}`}` })),
+    ...recent.filter(capture => !dismissedUrls.includes(capture.url) && !projects.some(project => !project.id.startsWith('selection:') && project.threads.includes(capture.url))).map(capture => ({ id: '', folder: undefined as string | undefined, snapshotText: undefined, draftMode: undefined, name: capture.title, brief: capture.brief, url: capture.url, variants: capture.variants, draft: undefined, detail: `Recent chat · ${new Date(capture.savedAt).toLocaleString()}` }))
   ];
   libraryItems = items; libraryDismissed = dismissedUrls;
   for (const key of [...selectedBatons]) if (!items.some(item => batonKey(item) === key)) selectedBatons.delete(key);
@@ -966,13 +967,17 @@ for (const [id, run] of [
 }
 // Help: the guide lives on the welcome page.
 document.querySelector('#help')?.addEventListener('click', () => { void chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html#guide') }); });
+// Keyboard shortcuts: the keys the browser assigned, changed on its own shortcuts page.
+const shortcutList = document.querySelector('#shortcut-list') as HTMLElement | null;
+if (shortcutList) void chrome.commands?.getAll().then(commands => fillShortcutList(shortcutList, commands, onMac(navigator))).catch(() => {});
+document.querySelector('#change-shortcuts')?.addEventListener('click', () => { void chrome.tabs.create({ url: shortcutsPage }); });
 // “Take the quick tour again”: it runs on the AI chat page, so queue it and tell the user where to look.
 document.querySelector('#replay-tour')?.addEventListener('click', async event => {
   await chrome.storage.local.set({ tourReplay: true });
   (event.currentTarget as HTMLButtonElement).textContent = activeProvider ? `Starting on ${providerNames[activeProvider]}…` : 'Open any AI chat and the tour starts there.';
 });
 // Always-visible switches for what Baton adds to chat pages; the × on the bar and “Hide” in the Baton menu turn them off.
-const chatSwitches = { composerUsageEnabled: document.querySelector('#toggle-bar') as HTMLInputElement | null, passButtonEnabled: document.querySelector('#toggle-pass') as HTMLInputElement | null };
+const chatSwitches = { composerUsageEnabled: document.querySelector('#toggle-bar') as HTMLInputElement | null, passButtonEnabled: document.querySelector('#toggle-pass') as HTMLInputElement | null, selectionButtonEnabled: document.querySelector('#toggle-selection') as HTMLInputElement | null };
 const switchState = await chrome.storage.local.get(Object.keys(chatSwitches));
 for (const [key, input] of Object.entries(chatSwitches)) {
   if (!input) continue;

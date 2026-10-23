@@ -150,3 +150,12 @@ footer .legal { flex-basis: 100%; font-size: .78rem; color: var(--mute); opacity
 /* Phones: two segments fit when “left”, the reset times and × step aside (ChatGPT drops its third, Work week). */
 @media (max-width: 480px) { .seg:has(.ring) .n, .seg .u, .pill .x, .segs:has(.seg:nth-child(3)) .seg .n, .seg:nth-child(3) { display: none; } .pill { gap: 8px; padding-right: 10px; } .segs { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pass::before { animation: none; } .menu { transition: none; } .hero-canvas { transition: none; } }
+
+/* Keyboard shortcuts in the guide: the keys the browser assigned, and a link to change them. */
+.guide .keys { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 6px; color: var(--mute); }
+.guide .keys li { display: flex; gap: 10px; align-items: center; }
+.guide .keys kbd { flex: none; min-width: 6.5em; text-align: center; padding: 2px 8px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 7px; background: var(--ink-2); color: var(--chalk); font: 600 .82rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.guide .keys kbd.unset { font-family: var(--body); font-weight: 500; color: var(--mute); }
+.guide button.link { all: unset; cursor: pointer; color: var(--violet-soft); font-weight: 700; }
+.guide button.link:hover { text-decoration: underline; }
+.guide button.link:focus-visible { outline: 2px solid var(--violet-soft); outline-offset: 2px; border-radius: 4px; }

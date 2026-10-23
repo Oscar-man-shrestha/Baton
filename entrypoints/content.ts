@@ -1,8 +1,10 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
-import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/adapter';
+import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, selectedTurns } from '../src/core/adapter';
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
-import { saveCapturedCapsule } from '../src/core/capsules';
+import { saveCapturedCapsule, saveSelectionCapsule } from '../src/core/capsules';
+import { listFolders } from '../src/core/projects';
+import { selectionName, selectionSummary } from '../src/core/selection';
 import { newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
 import { withNextStep } from '../src/core/next-step';
 import { pendingFor, pendingKey, shouldOffer, signInLabel, switchHelp, type PendingProject } from '../src/core/account-continue';
@@ -321,7 +323,8 @@ export default defineContentScript({
       return undefined;
     };
     const placePassButton = (surface: Element, box: DOMRect, pill?: DOMRect) => {
-      if (!passEnabled) { passHost.style.display = 'none'; return; }
+      // Hidden by the user, but a menu opened with the shortcut stays until it closes.
+      if (!passEnabled) { if (passMenu.hidden) passHost.style.display = 'none'; return; }
       const size = 40, compact = 28;
       const overlapsPill = (left: number, top: number, side: number) => !!pill && left < pill.right + 4 && left + side > pill.left - 4 && top < pill.bottom + 4 && top + side > pill.top - 4;
       // Last spot, as for the bar: a compact button in the one-line “can make mistakes” notice right above the box
@@ -739,6 +742,7 @@ export default defineContentScript({
     const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
       if (changes.passButtonEnabled) passEnabled = changes.passButtonEnabled.newValue !== false;
+      if (changes.selectionButtonEnabled) { selectionChipEnabled = changes.selectionButtonEnabled.newValue !== false; if (!selectionChipEnabled) hideChip(); }
       if (changes.tourState) tourState = changes.tourState.newValue as string | undefined;
       if (changes.tourReplay) tourReplay = changes.tourReplay.newValue === true;
       if (changes[pendingKey(id)]) { pendingProject = pendingFor(changes[pendingKey(id)].newValue, id); if (!pendingProject && continueHost.style.display === 'block' && !continueShadow.querySelector('.msg')?.textContent) hideContinue(); }
@@ -934,8 +938,146 @@ export default defineContentScript({
     });
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     void persist().catch(() => {});
+    // Save part of the chat as a baton: select some of the conversation and a small “Save as baton” chip appears by it.
+    // The shortcut and the right-click menu open the same card. A long chat can become one baton per topic; the text
+    // stays in this browser like every baton.
+    const selectHost = document.createElement('div');
+    selectHost.id = 'handoff-selection';
+    selectHost.style.cssText = 'position:fixed;z-index:2147483005;left:0;top:0;width:0;height:0;overflow:visible;filter:none!important;transform:none!important';
+    const selectShadow = selectHost.attachShadow({ mode: 'closed' });
+    const selectStyle = document.createElement('style');
+    selectStyle.textContent = ':host{all:initial}.chip{all:unset;position:fixed;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px 0 10px;box-sizing:border-box;border-radius:999px;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.55);box-shadow:0 8px 22px rgba(0,0,0,.34),0 0 12px rgba(139,108,255,.3);color:#f4f3fb;font:600 12px/1 system-ui,-apple-system,sans-serif;white-space:nowrap}.chip:hover{border-color:#b8a5ff}.chip:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.chip[hidden],.card[hidden],.toast[hidden]{display:none}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px)}.card{position:fixed;width:300px;box-sizing:border-box;padding:12px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.99),rgba(24,23,33,.99));border:1px solid rgba(139,108,255,.5);box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 22px rgba(139,108,255,.22);color:#f4f3fb;font:500 12px/1.4 system-ui,-apple-system,sans-serif}.card h2{all:unset;display:block;font-size:13.5px;font-weight:700;margin:0 2px 2px}.card p{margin:0 2px 10px;color:#a3a1ba;font-size:10.5px}label{display:grid;gap:4px;margin:0 0 8px}label span{font-size:11px;font-weight:700;color:#cfcde0}input,select{all:unset;box-sizing:border-box;width:100%;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}select{cursor:pointer}option{color:#1e1d2b}input:focus,select:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.row button{all:unset;cursor:pointer;padding:7px 13px;border-radius:9px;font-weight:700;font-size:12px}.save{background:#b8a5ff;color:#1b1430}.cancel{color:#cfcde0;background:rgba(255,255,255,.07)}.row button:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.row button[disabled]{opacity:.5;cursor:default}.status{margin:8px 2px 0!important;color:#cfcde0!important;font-size:11px!important}.status:empty{display:none}.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:min(420px,calc(100vw - 32px));box-sizing:border-box;padding:9px 14px;border-radius:12px;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.45);box-shadow:0 12px 30px rgba(0,0,0,.4);color:#f4f3fb;font:500 12.5px/1.4 system-ui,-apple-system,sans-serif}@media(prefers-color-scheme:light){.chip,.toast{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.45);box-shadow:0 6px 18px rgba(30,25,70,.16)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px)}.card{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.4);box-shadow:0 18px 40px rgba(30,25,70,.2)}.card p{color:#6d6a86}label span,.status{color:#3d3b52!important}input,select{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.save{background:#6650de;color:#fff}.cancel{color:#3d3b52;background:rgba(30,25,70,.06)}}';
+    const selectChip = document.createElement('button'); selectChip.type = 'button'; selectChip.className = 'chip'; selectChip.hidden = true;
+    selectChip.title = 'Save just this part of the chat as a baton';
+    const chipMark = document.createElement('i'); chipMark.className = 'brand'; chipMark.setAttribute('aria-hidden', 'true');
+    selectChip.append(chipMark, 'Save as baton');
+    const selectCard = document.createElement('div'); selectCard.className = 'card'; selectCard.setAttribute('role', 'dialog'); selectCard.setAttribute('aria-label', 'Save the selection as a baton'); selectCard.hidden = true;
+    const toast = document.createElement('div'); toast.className = 'toast'; toast.setAttribute('role', 'status'); toast.hidden = true;
+    selectShadow.append(selectStyle, selectChip, selectCard, toast);
+    document.body.append(selectHost);
+    ctx.onInvalidated(() => selectHost.remove());
+    let selectionChipEnabled = true;
+    void chrome.storage.local.get('selectionButtonEnabled').then(saved => { selectionChipEnabled = saved.selectionButtonEnabled !== false; });
+    let toastTimer: number | undefined;
+    const showToast = (text: string) => { toast.textContent = text; toast.hidden = false; clearTimeout(toastTimer); toastTimer = ctx.setTimeout(() => { toast.hidden = true; }, 4200); };
+    // The selection on the page, when it is in the conversation (not the chat box or Baton's own cards).
+    const pageSelection = () => {
+      const selection = document.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount || selection.toString().trim().length < 2) return undefined;
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const element = container instanceof Element ? container : container.parentElement;
+      if (!element || element.closest('[id^="handoff-"]') || inEditor(container) || element.closest('[contenteditable="true"], textarea, input')) return undefined;
+      return { range: range.cloneRange(), text: selection.toString().trim(), inChat: collectTurnNodes(document, id, bundledSelectors).some(node => range.intersectsNode(node)) };
+    };
+    // Below the end of the selection, or above its start when there is no room underneath.
+    const placeBySelection = (element: HTMLElement, range: Range, width: number, height: number) => {
+      const rects = Array.from(range.getClientRects()).filter(rect => rect.width || rect.height);
+      const first = rects[0] || range.getBoundingClientRect(), last = rects.at(-1) || first;
+      const left = Math.max(8, Math.min(last.right - width / 2, innerWidth - width - 8));
+      const top = last.bottom + 8 + height <= innerHeight - 8 ? last.bottom + 8 : Math.max(8, first.top - height - 8);
+      element.style.left = `${left}px`; element.style.top = `${top}px`;
+    };
+    let chipRange: Range | undefined;
+    const hideChip = () => { selectChip.hidden = true; chipRange = undefined; };
+    const updateChip = () => {
+      if (!selectionChipEnabled || !selectCard.hidden) { hideChip(); return; }
+      const current = pageSelection();
+      if (!current?.inChat) { hideChip(); return; }
+      chipRange = current.range;
+      selectChip.hidden = false;
+      const chip = selectChip.getBoundingClientRect();
+      placeBySelection(selectChip, chipRange, chip.width || 120, chip.height || 28);
+    };
+    const closeSaveCard = () => { selectCard.hidden = true; selectCard.replaceChildren(); };
+    const openSaveCard = async (range: Range, text: string) => {
+      // Outside the messages Baton recognises (a page change), keep the selected words as they read.
+      const found = selectedTurns(document, id, bundledSelectors, range);
+      const turns = found.length ? found : [{ role: 'assistant' as const, text, index: 0 }];
+      hideChip();
+      selectCard.replaceChildren();
+      const title = document.createElement('h2'); title.textContent = 'Save as baton';
+      const summary = document.createElement('p'); summary.textContent = `${selectionSummary(turns)}. Only this part is saved, on this device.`;
+      const nameField = document.createElement('label'); const nameLabel = document.createElement('span'); nameLabel.textContent = 'Name';
+      const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.maxLength = 160; nameInput.value = selectionName(turns);
+      nameField.append(nameLabel, nameInput);
+      selectCard.append(title, summary, nameField);
+      const folders = await listFolders().catch(() => [] as string[]);
+      const folderSelect = document.createElement('select');
+      if (folders.length) {
+        const folderField = document.createElement('label'); const folderLabel = document.createElement('span'); folderLabel.textContent = 'Folder';
+        folderSelect.append(new Option('No folder', ''), ...folders.map(folder => new Option(folder, folder)));
+        folderField.append(folderLabel, folderSelect);
+        selectCard.append(folderField);
+      }
+      const row = document.createElement('div'); row.className = 'row';
+      const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'cancel'; cancel.textContent = 'Cancel';
+      const save = document.createElement('button'); save.type = 'button'; save.className = 'save'; save.textContent = 'Save';
+      const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
+      row.append(cancel, save);
+      selectCard.append(row, status);
+      const saveNow = async () => {
+        if (save.disabled) return;
+        save.disabled = true; status.textContent = 'Saving…';
+        try {
+          const saved = await saveSelectionCapsule(turns, pageUrl(), nameInput.value, folderSelect.value || undefined);
+          status.textContent = `Saved “${saved.name.slice(0, 48)}”${saved.folder ? ` in ${saved.folder}` : ''}. Open Baton to pass it to another AI.`;
+          row.remove();
+          ctx.setTimeout(() => { if (selectCard.contains(status)) closeSaveCard(); }, 2600);
+        } catch (error) { save.disabled = false; status.textContent = error instanceof Error && /quota/i.test(error.message) ? 'Baton’s storage is full. Delete some batons, then try again.' : 'Could not save it. Try again, or capture the whole chat from Baton.'; }
+      };
+      cancel.addEventListener('click', closeSaveCard);
+      save.addEventListener('click', () => { void saveNow(); });
+      // Keys stay in Baton's card: the chat site must not react to typing here.
+      for (const type of ['keydown', 'keyup', 'keypress'] as const) selectCard.addEventListener(type, event => {
+        event.stopPropagation();
+        if (type !== 'keydown') return;
+        const key = (event as KeyboardEvent).key;
+        if (key === 'Escape') { event.preventDefault(); closeSaveCard(); }
+        if (key === 'Enter' && !(event as KeyboardEvent).isComposing && event.composedPath()[0] === nameInput) { event.preventDefault(); void saveNow(); }
+      });
+      selectCard.hidden = false;
+      const card = selectCard.getBoundingClientRect();
+      placeBySelection(selectCard, range, card.width || 300, card.height || 200);
+      nameInput.focus({ preventScroll: true }); nameInput.select();
+    };
+    // Pressing the chip must not clear the selection it belongs to.
+    selectChip.addEventListener('pointerdown', event => event.preventDefault());
+    selectChip.addEventListener('mousedown', event => event.preventDefault());
+    selectChip.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); const current = pageSelection(); const range = current?.range || chipRange; if (range) void openSaveCard(range, current?.text || range.toString().trim()).catch(() => {}); });
+    const fromBaton = (event: Event) => event.composedPath().includes(selectHost);
+    ctx.addEventListener(document, 'mouseup', event => { if (!fromBaton(event)) ctx.setTimeout(updateChip, 0); }, { capture: true });
+    ctx.addEventListener(document, 'keyup', event => { if (!fromBaton(event) && (event.shiftKey || event.key === 'Shift' || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a'))) ctx.setTimeout(updateChip, 0); }, { capture: true });
+    ctx.addEventListener(document, 'selectionchange', () => { if (!selectChip.hidden && document.getSelection()?.isCollapsed) hideChip(); });
+    ctx.addEventListener(document, 'scroll', () => { if (chipRange && !selectChip.hidden) { const chip = selectChip.getBoundingClientRect(); placeBySelection(selectChip, chipRange, chip.width, chip.height); } }, { capture: true });
+    ctx.addEventListener(document, 'pointerdown', event => { if (!selectCard.hidden && !fromBaton(event)) closeSaveCard(); }, { capture: true });
+    ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Escape' && !selectChip.hidden) hideChip(); }, { capture: true });
+    // Keyboard shortcuts (and the right-click menu) arrive from the background as commands for this page.
+    const runCommand = (command: string) => {
+      if (command === 'save-selection') {
+        const current = pageSelection();
+        if (!current) { showToast('Select part of the conversation first, then press the shortcut again (or right-click → Save selection as a baton).'); return; }
+        void openSaveCard(current.range, current.text).catch(() => showToast('Could not read the selection. Try selecting it again.'));
+        return;
+      }
+      if (command === 'capture-chat') {
+        showToast('Saving this chat as a baton…');
+        void rescueDraft().then(() => showToast('Saved this chat as a baton. Open Baton to pass it on or put it in a folder.'), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Capture in Baton.'));
+        return;
+      }
+      if (command === 'open-pass-menu') {
+        if (!passMenu.hidden) { closePassMenu(); return; }
+        // The button is hidden or has no room: open the menu from the bottom-right corner instead.
+        if (passHost.style.display !== 'block' || !passHost.getBoundingClientRect().width) {
+          passHost.removeAttribute('data-compact'); passHost.style.width = passHost.style.height = '40px';
+          passHost.style.left = `${innerWidth - 64}px`; passHost.style.top = `${innerHeight - 64}px`; passHost.style.visibility = ''; passHost.style.display = 'block';
+        }
+        void openPassMenu().catch(() => {});
+      }
+    };
     const onMessage: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (message, _sender, sendResponse) => {
       if (message?.type === 'PING') { sendResponse({ ready: true, provider: id }); return; }
+      if (message?.type === 'BATON_COMMAND' && typeof message.command === 'string') { runCommand(message.command); sendResponse({ ok: true }); return; }
       // Baton's side panel asks for this chat's suggestions, and can pass the baton from there.
       if (message?.type === 'SUGGEST') {
         void suggestNow(topics.includes(message.topic) ? message.topic : undefined).then(result => sendResponse({ ok: true, provider: id, asked: result.asked.slice(0, 200), topic: result.topic, options: result.options.map(option => ({ ...option, reason: result.reason(option.provider) })) })).catch(() => sendResponse({ ok: false }));
