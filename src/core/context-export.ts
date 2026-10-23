@@ -1,5 +1,5 @@
 import type { TurnArchive } from './capture';
-import { redact, wrapHandoff } from './brief';
+import { draftBudget, redact, renderBrief, wrapHandoff, type Brief } from './brief';
 import { encode } from 'gpt-tokenizer';
 
 /**
@@ -20,4 +20,14 @@ export function fullContext(archive: TurnArchive, sourceUrl: string, selection?:
   const safe = redact(notes.join('\n\n'));
   const draft = wrapHandoff(safe.text);
   return { text: safe.text, draft, tokens: encode(draft).length, redactions: safe.kinds };
+}
+
+/**
+ * The one-click handoff: the whole conversation when it fits the draft budget (nothing lost), otherwise the compact
+ * brief, which keeps the goal, everything the user said, decisions, the latest code and where the chat stopped.
+ */
+export function handoffDraft(archive: TurnArchive, brief: Brief, sourceUrl: string): { draft: string; mode: 'full' | 'compact' } {
+  const full = fullContext(archive, sourceUrl).draft;
+  if (draftBudget(full).fits) return { draft: full, mode: 'full' };
+  return { draft: redact(wrapHandoff(renderBrief(brief, 1400).text)).text, mode: 'compact' };
 }

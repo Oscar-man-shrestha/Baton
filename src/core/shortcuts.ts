@@ -50,7 +50,7 @@ export function fillShortcutList(list: HTMLElement, assigned: { name?: string; s
   list.replaceChildren(...shortcutRows(assigned, mac).map(row => {
     const item = doc.createElement('li');
     const keys = doc.createElement('span'); keys.className = 'keys-cell';
-    if (row.keys === 'Not set') { keys.className += ' unset'; keys.textContent = 'Not set'; }
+    if (row.keys === 'Not set') { keys.className += ' unset'; keys.textContent = 'Not set'; keys.title = 'Set a key under Change shortcuts'; }
     else {
       const caps = keyCaps(row.keys);
       keys.title = caps.map(key => key.word).join(' + ');

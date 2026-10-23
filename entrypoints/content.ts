@@ -1,8 +1,9 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
 import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, questionBefore, selectedTurns } from '../src/core/adapter';
-import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
+import { draftBudget, updateBrief } from '../src/core/brief';
 import { saveCapturedCapsule, saveSelectionCapsule } from '../src/core/capsules';
+import { handoffDraft } from '../src/core/context-export';
 import { listFolders, type Project } from '../src/core/projects';
 import { selectionName, selectionSummary } from '../src/core/selection';
 import { formatShortcut, onMac, type ShortcutCommand } from '../src/core/shortcuts';
@@ -114,7 +115,9 @@ export default defineContentScript({
       const model = known || (!chosen && asked && promptTopic(asked) === 'general' ? await modelGuess(asked) : undefined);
       return { asked, model, ...suggest(asked, id, saved, Date.now(), chosen, model) };
     };
-    const rescueDraft = async () => {
+    const rescueDraft = async () => (await saveVisibleChat()).draft;
+    // Saves the chat as Baton has seen it so far (no scrolling back); the draft plus how many messages it holds.
+    const saveVisibleChat = async () => {
       const data = extract(document, id, bundledSelectors);
       const { archiveKey } = storageKeys();
       const previous = genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
@@ -122,7 +125,7 @@ export default defineContentScript({
       if (!archive.turns.length) throw new Error('There is no conversation on this page to carry over yet.');
       const brief = updateBrief(undefined, archive.turns, data.artifacts);
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
-      return redact(wrapHandoff(renderBrief(brief, 1400).text)).text;
+      return { draft: handoffDraft(archive, brief, pageUrl()).draft, messages: archive.turns.length };
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
     const openDraftIn = async (target: ProviderId, draft: string) => {
@@ -1007,7 +1010,8 @@ export default defineContentScript({
     const updateChip = () => {
       if (!selectionChipEnabled || !selectCard.hidden) { hideChip(); return; }
       const current = pageSelection();
-      if (!current?.inChat) { hideChip(); return; }
+      // A few words at least: double-clicking a single word to look it up shouldn't offer a baton (the shortcut still can).
+      if (!current?.inChat || current.text.split(/\s+/).length < 3) { hideChip(); return; }
       chipRange = current.range;
       selectChip.hidden = false;
       const chip = selectChip.getBoundingClientRect();
@@ -1126,7 +1130,7 @@ export default defineContentScript({
       }
       if (command === 'capture-chat') {
         showToast('Saving this chat as a baton…');
-        void rescueDraft().then(() => showToast('Saved this chat as a baton. Open Baton to pass it on or put it in a folder.'), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Capture in Baton.'));
+        void saveVisibleChat().then(({ messages }) => showToast(`Saved this chat as a baton (${messages} ${messages === 1 ? 'message' : 'messages'}). For older messages too, use Capture in Baton.`), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Capture in Baton.'));
         return;
       }
       if (command === 'open-pass-menu') {

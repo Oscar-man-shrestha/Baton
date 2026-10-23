@@ -26,6 +26,8 @@ export function selectEvidence(text: string, query: string, tokenBudget = 520): 
       const termSet = terms(sentence);
       const score = overlap(termSet, queryTerms) * 2 + (bullet ? 0.45 : 0)
         + (/\b(must|never|failed|error|fix|tested|decision|implement|solution|next|result)\b/i.test(sentence) ? 0.3 : 0)
+        // Names of things built (`unique_target`, `moves.log`) are what a continuation most needs to reuse.
+        + (/`[^`\n]{2,60}`/.test(sentence) ? 0.3 : 0)
         + Math.min(0.2, termSet.size / 150);
       const output = section ? `${section}: ${sentence}` : sentence;
       candidates.push({ text: output, section, terms: termSet, score, order: candidates.length, tokens: encode(output).length });

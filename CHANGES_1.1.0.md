@@ -1,0 +1,21 @@
+# Baton 1.1.0 — save part of a chat, keyboard shortcuts, a calmer usage card
+
+- **Save just the part you need.** Select some of a conversation on any of the six AI sites and a small **Save as baton** button appears by it (for a few words or more). A long chat can become one baton per topic.
+  - The card shows what will be saved (messages, characters, a short preview), a name you can edit and, if you have folders, a folder.
+  - A selection that starts in a reply also keeps the question it answers, so the baton is named after it, has a goal, and the next AI knows what was asked.
+  - After **Save**, the card lists the other AIs, ranked like the Pass menu, with an optional **What's next?**. Picking one opens it with the part as an unsent draft; you press Send. Too long to type in for you, it is copied and the AI opens for you to paste it.
+  - Also from the right-click menu (**Save selection as a baton**) and the keyboard. Turn the button off under **Show on AI chat pages → Save selection**.
+  - Saved like captured chats (same format): it lists, files into folders and passes like any baton. The chat it came from stays in Recent.
+- **Keyboard shortcuts.** ⌘⇧U / Ctrl+Shift+U opens the Pass menu, ⌘⇧K / Ctrl+Shift+K keeps the chat as a baton (the toast says how many messages), ⌘⇧X / Ctrl+Shift+X saves the selection, ⌘⇧E / Ctrl+Shift+E opens Baton. The side panel has no default key; set one under **Change shortcuts**.
+  - Letters chosen to avoid the browser's and the chat sites' own keys; checked in Brave on macOS, which refuses ⌘⇧P, F, H and J.
+  - Listed with one keycap per key in Baton (**Keyboard shortcuts**) and in the guide, with a **Change shortcuts** button. The chat page shows the keys the browser actually assigned.
+  - Browsers apply suggested keys only on a fresh install. An existing install keeps its keys; set them at chrome://extensions/shortcuts.
+- **Usage card.** A status box says in plain words whether Baton's last check found new figures ("No new figures since 16:21 · next check 20:22"). **Details** lists each check as rows: asked from where, replies (only when one failed), what came back in one sentence (the service's field names in a tooltip) and the next try.
+- **Better handoffs, measured.** A new offline benchmark (`npm run eval:handoff`, see evaluation/README.md) checks which must-keep facts of six conversations reach the draft. Baton's one-click draft went from 80% to 98%:
+  - **The whole chat when it fits.** One click (the Pass menu, the rescue card, ⌘⇧K) now sends every message when the chat fits the 1,500-token draft budget, and the compact brief only when it doesn't. The popup already did this.
+  - **Everything you said, in order.** The brief lists each of your messages (shortened, oldest trimmed first when space runs out): that's where goals, constraints, choices and rejections live.
+  - **Rejections are kept** ("no Redux", "skip the JR pass", "that didn't change anything"), so the next AI doesn't suggest them again.
+  - **Earlier replies count too:** the best point of each earlier reply, newest first, favouring names of things built (`unique_target`, `moves.log`); the latest three code blocks of the whole chat; wording you approved ("keep it exactly"), word for word.
+  - Only the latest three open asks are listed (older ones were usually done).
+- **New permission:** `contextMenus`, for the one right-click item. Chrome shows no install warning for it. STORE_LISTING.md and PRIVACY.md describe it.
+- Tests: selection reading on all six sites, question context, naming, storage format, shortcut keys and formatting, usage-check wording. Checked in Brave (headless, signed out, with an injected test conversation): save from the button, typing a name (no keys leak into the chat box), pass to the next AI, shortcuts and right-click.

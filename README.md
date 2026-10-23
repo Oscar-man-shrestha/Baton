@@ -18,7 +18,7 @@ See [LIVE_VALIDATION_2026-10-21.md](LIVE_VALIDATION_2026-10-21.md) for the insta
 
 # Baton browser extension
 
-Local Chrome MV3 prototype for carrying a compact project brief between distinct AI chat services. The user reviews the text and chooses when to send it. A Gemini shortcut opens the service for manual choice in Google’s own account menu. Baton never changes accounts itself, reads credentials or cookies, calls internal provider APIs, or submits messages automatically.
+Local Chrome MV3 prototype for carrying a compact project brief between distinct AI chat services. The user reviews the text and chooses when to send it. A Gemini shortcut opens the service for manual choice in Google’s own account menu. Baton never changes accounts itself, reads passwords or cookies, or submits messages automatically. Apart from what pages show, it requests only the services' own usage addresses with the user's existing sign-in (see PRIVACY.md).
 
 ## Try the local build
 

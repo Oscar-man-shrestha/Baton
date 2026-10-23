@@ -10,6 +10,10 @@ export const briefSchema = z.object({
   weak_spots: z.array(z.string()).default([]), artifacts: z.array(z.object({ name: z.string(), kind: z.string(), content_verbatim: z.string(), version: z.number() })).default([]),
   open_tasks: z.array(z.string()).default([]), open_questions: z.array(z.string()).default([]), rejected_approaches: z.array(z.string()).default([]),
   key_findings: z.array(z.string()).default([]),
+  // Everything the user wrote, in order (each message shortened): where goals, constraints, choices and rejections live.
+  user_messages: z.array(z.string()).default([]),
+  // Key points from the replies before the latest one, which the latest reply's findings alone would lose.
+  earlier_findings: z.array(z.string()).default([]),
   last_exchange: z.object({ user: z.string(), assistant: z.string() }).default({ user: '', assistant: '' }),
   next_step: z.string().default(''), recommended_target: z.string().default('')
 });
@@ -84,6 +88,19 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
   base.status = base.open_questions.length ? 'The assistant asked questions; the user has not answered yet.' : base.status === 'The assistant asked questions; the user has not answered yet.' ? '' : base.status;
   base.last_exchange = { user: lastUser?.text.slice(0, 600) || '', assistant: assistantOverview(lastAssistant?.text || '') };
   base.key_findings = assistantIsLatest ? selectEvidence(lastAssistant?.text || '', `${base.goal} ${lastUser?.text || ''}`) : [];
+  base.user_messages = safeTurns.filter(turn => turn.role === 'user').map(turn => userStatementText(turn.text).replace(/\s+/g, ' ').trim()).filter(Boolean).map(text => text.length > 400 ? `${text.slice(0, 399)}…` : text);
+  // The best point of each earlier reply, newest first (later replies build on earlier ones), repeats skipped.
+  const query = `${base.goal} ${base.user_messages.join(' ')}`;
+  const picked: { text: string; order: number }[] = [];
+  let spent = 0;
+  for (const turn of safeTurns.filter(turn => turn.role === 'assistant' && turn !== lastAssistant).reverse()) {
+    const point = selectEvidence(turn.text, query, 90)[0];
+    if (!point || picked.some(item => item.text === point)) continue;
+    const tokens = encode(point).length;
+    if (spent + tokens > 300) break;
+    picked.push({ text: point, order: turn.index }); spent += tokens;
+  }
+  base.earlier_findings = picked.sort((a, b) => a.order - b.order).map(item => item.text);
   for (const turn of safeTurns) {
     if (turn.role !== 'user') continue;
     const statements = userStatementText(turn.text).split(/\n+|(?<=[.!?])\s+/).map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
@@ -91,14 +108,29 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
       if (/\b(must|always|never|do not|don't|only|prefer)\b/i.test(statement) && !base.preferences.includes(statement)) base.preferences.push(statement);
       if (!statement.endsWith('?') && !/\b(never|do not|don't|should|might|could)\b/i.test(statement) && /\b(?:(?:we|i) (?:decided|choose|chose|agreed)|will use)\b|^(?:let'?s )?use\b/i.test(statement) && !base.decisions.some(d => d.text === statement)) base.decisions.push({ text: statement, rationale: '', status: 'ratified_by_user', source_turn: turn.index, confidence: 0.8 });
       if (/\b(todo|next|please|need to)\b/i.test(statement) && !base.open_tasks.includes(statement)) base.open_tasks.push(statement);
+      // What the user turned down or found didn't work, so the next AI doesn't suggest it again.
+      if (!statement.endsWith('?') && /\b(?:no|not|skip|avoid|instead of|hated?|didn[’']?t (?:work|change|help)|doesn[’']?t work)\b/i.test(statement) && !base.rejected_approaches.includes(statement)) base.rejected_approaches.push(statement);
     }
   }
-  if (lastAssistant) for (const [index, code] of fencedCode(lastAssistant.text).entries()) {
-    if (!safeArtifacts.some(artifact => artifact.content.trim() === code.content.trim())) safeArtifacts.push({ name: `Latest reply code block ${index + 1}`, kind: code.language, content: code.content, version: lastAssistant.index + 1 });
+  // Wording the user approved (“I like that opening, keep it exactly”) is kept word for word: the quoted lines of the
+  // reply they were answering.
+  safeTurns.forEach((turn, index) => {
+    const reply = safeTurns[index + 1];
+    if (turn.role !== 'assistant' || reply?.role !== 'user' || !/\b(?:keep (?:it|that|this)|(?:i|we) (?:like|love) (?:it|that|this)|perfect|exactly|that'?s (?:it|great|perfect))\b/i.test(reply.text)) return;
+    const quoted = turn.text.split('\n').filter(line => /^\s*>/.test(line)).map(line => line.replace(/^\s*>\s?/, '')).join('\n').trim();
+    if (quoted && !safeArtifacts.some(artifact => artifact.content === quoted)) safeArtifacts.push({ name: 'Wording the user approved', kind: 'text', content: quoted, version: turn.index + 1 });
+  });
+  // The latest three code blocks of the whole chat, not only of the last reply (it often only says what changed).
+  const blocks = safeTurns.filter(turn => turn.role === 'assistant').flatMap(turn => fencedCode(turn.text).map((code, index) => ({ turn, code, index })));
+  for (const { turn, code, index } of blocks.slice(-3)) {
+    const name = turn === lastAssistant ? `Latest reply code block ${index + 1}` : `Code block ${index + 1} from reply ${turn.index + 1}`;
+    if (!safeArtifacts.some(artifact => artifact.content.trim() === code.content.trim())) safeArtifacts.push({ name, kind: code.language, content: code.content, version: turn.index + 1 });
   }
   for (const artifact of safeArtifacts) {
     if (!base.artifacts.some(a => a.name === artifact.name && a.version === artifact.version)) base.artifacts.push({ name: artifact.name, kind: artifact.kind, content_verbatim: artifact.content, version: artifact.version });
   }
+  // Only the latest asks are still open; older ones were usually done in the replies that followed.
+  base.open_tasks = base.open_tasks.slice(-3);
   base.next_step = base.open_questions.length ? 'Continue from the unanswered questions, keeping the user’s original goal in view.' : base.open_tasks.at(-1) || lastUser?.text.slice(0, 180) || base.next_step;
   return briefSchema.parse(base);
 }
@@ -116,6 +148,14 @@ export function renderBrief(brief: Brief, cap = 1500): { text: string; receipt: 
     b.artifacts.splice(oldest, 1);
     dropped.push('older artifact version');
   }
+  // Your first message (the goal) and your last two stay whole; the ones in between shorten, then go, oldest first.
+  // Their constraints, choices and rejections are already listed above, so they go before earlier findings.
+  for (const middle = () => b.user_messages.slice(1, -2); count() > cap && middle().some(text => text.length > 160);) {
+    const index = 1 + middle().findIndex(text => text.length > 160);
+    b.user_messages[index] = `${b.user_messages[index].slice(0, 159)}…`; dropped.push('longer earlier message of yours');
+  }
+  while (count() > cap && b.user_messages.length > 3) { b.user_messages.splice(1, 1); dropped.push('earlier message of yours'); }
+  while (count() > cap && b.earlier_findings.length) { b.earlier_findings.shift(); dropped.push('earlier reply detail'); }
   while (count() > cap && b.key_findings.length > 4) { b.key_findings.pop(); dropped.push('lower priority assistant detail'); }
   while (count() > cap && b.last_exchange.assistant.length > 80) { b.last_exchange.assistant = b.last_exchange.assistant.slice(0, -80); dropped.push('older assistant detail'); }
   while (count() > cap && b.last_exchange.user.length > 80) { b.last_exchange.user = b.last_exchange.user.slice(0, -80); dropped.push('older user detail'); }
@@ -131,6 +171,8 @@ export function renderBrief(brief: Brief, cap = 1500): { text: string; receipt: 
   list('Known weak spots', b.weak_spots);
   list('Artifacts', b.artifacts.map(a => `${a.name} (${a.kind}, version ${a.version}):\n${a.content_verbatim}`));
   list('Open tasks', b.open_tasks);
+  list('What the user said, in order', b.user_messages);
+  list('Earlier findings', b.earlier_findings);
   list('Useful work from the latest reply', b.key_findings);
   list('Unanswered questions', b.open_questions);
   list('Approaches to avoid', b.rejected_approaches);
