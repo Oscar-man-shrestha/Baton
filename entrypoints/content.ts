@@ -344,7 +344,9 @@ export default defineContentScript({
     const chatSize = () => {
       if (Date.now() - chatSizeAt < 3000) return chatSizeTokens;
       chatSizeAt = Date.now();
-      const text = collectTurnNodes(document, id, bundledSelectors).map(node => { try { return cleanNode(node); } catch { return node.textContent || ''; } }).join('\n');
+      // A reply's container and an inner element can both match: count each message once (outermost only).
+      const turns = collectTurnNodes(document, id, bundledSelectors);
+      const text = turns.filter(node => !turns.some(other => other !== node && other.contains(node))).map(node => { try { return cleanNode(node); } catch { return node.textContent || ''; } }).join('\n');
       chatSizeTokens = !text.trim() ? 0 : text.length > 60000 ? Math.round(text.length / 4) : encode(text).length;
       return chatSizeTokens;
     };
@@ -412,6 +414,8 @@ export default defineContentScript({
       const counts = id === 'chatgpt' ? countSegments(windows) : [];
       const work = id === 'chatgpt' ? [...counts.slice(0, 1), ...workSegments(extras), ...counts.slice(1)] : [];
       const segments = chatSegments(chat);
+      // Claude reports the 5-hour session only with a reply: once it resets, hold its place until the next message.
+      if (id === 'claude' && segments.some(segment => segment.label === 'Weekly') && !segments.some(segment => segment.label === 'Session')) addSegment({ label: 'Session', value: '—', note: 'after your next message' });
       if (segments.length) segments.forEach(addSegment);
       else {
         // Only a chat notice may stand in: ChatGPT's “latest reading” is often its Work allowance.
