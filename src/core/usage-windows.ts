@@ -234,7 +234,8 @@ export function parseClaudeUsage(payload: unknown, at = Date.now()): UsageWindow
     const share = used !== undefined && limit ? (used / limit) * 100 : undefined;
     const raw = number(value.utilization) ?? number(value.percent) ?? number(value.percentage);
     if (share === undefined && raw === undefined) return [];
-    const percent = value.status === 'exceeded_limit' ? 100 : share ?? raw! * (fraction ? 100 : 1);
+    // A reply's message_limit may give 0.02 or 2 for 2%: below 1 is a fraction, 1 and above already a percent.
+    const percent = value.status === 'exceeded_limit' ? 100 : share ?? (fraction && raw! < 1 ? raw! * 100 : raw!);
     if (percent < 0 || percent > 100) return [];
     const rawReset = value.resets_at ?? value.reset_at ?? value.reset;
     const resetAt = typeof rawReset === 'number' && rawReset > 0 ? (rawReset < 1e12 ? rawReset * 1000 : rawReset) : typeof rawReset === 'string' ? Date.parse(rawReset) : undefined;

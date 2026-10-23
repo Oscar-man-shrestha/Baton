@@ -255,7 +255,7 @@ function renderLanes(saved: Record<string, any>) {
   }), ...(rest.length && used.length ? [more] : []));
 }
 async function showUsage() {
-  const saved = await chrome.storage.local.get([...providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`, `usageApiCheck:${id}`]), 'enabledProviders', 'usageApiRefresh']);
+  const saved = await chrome.storage.local.get([...providerIds.flatMap(id => [`meter:${id}`, `usageWindows:${id}`, `usageHistory:${id}`, `usageSends:${id}`, `limitHits:${id}`, `statedLimit:${id}`, `usageApiCheck:${id}`, `usageTapCheck:${id}`]), 'enabledProviders', 'usageApiRefresh']);
   renderLanes(saved);
   usageList.replaceChildren();
   renderActiveUsage(saved);
@@ -341,11 +341,17 @@ function renderActiveUsage(saved: Record<string, any>) {
       : !check ? 'Sign-in usage check: not run yet. It runs when a chat page opens.'
       : `Sign-in usage check · ${new Date(check.at).toLocaleTimeString()} · ${check.readings ? `${check.readings} figure${check.readings === 1 ? '' : 's'} read` : 'nothing read'} (${check.route === 'tab' ? 'from the open tab' : check.route === 'background' ? 'from the background' : 'no tab'}: ${check.steps.join(', ') || 'no answer'})${check.retryAt && check.retryAt > Date.now() ? ` · tries again ${new Date(check.retryAt).toLocaleTimeString()}` : ''}.`;
     container.append(line);
+    const tap = saved[`usageTapCheck:${activeProvider}`] as { at: number; kind: string; fields: string } | undefined;
+    if (tap && (!check || tap.at > check.at - 600000)) {
+      const seen = document.createElement('p'); seen.className = 'usage-unavailable usage-check';
+      seen.textContent = `From the page · ${new Date(tap.at).toLocaleTimeString()} · ${tap.kind} not readable (fields: ${tap.fields}).`;
+      container.append(seen);
+    }
   }
 }
 document.querySelector('#read-active-usage')?.addEventListener('click', () => { void readVisibleUsage(); });
 for (const provider of ['claude', 'gemini', 'chatgpt'] as const) document.querySelector(`#check-${provider}-usage`)?.addEventListener('click', () => { void chrome.tabs.create({ url: usagePageUrl(provider)! }); });
-chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`] || changes[`statedLimit:${id}`] || changes[`usageApiCheck:${id}`])) void showUsage(); });
+chrome.storage.onChanged.addListener(changes => { if (providerIds.some(id => changes[`meter:${id}`] || changes[`usageWindows:${id}`] || changes[`usageSends:${id}`] || changes[`usageHistory:${id}`] || changes[`limitHits:${id}`] || changes[`statedLimit:${id}`] || changes[`usageApiCheck:${id}`] || changes[`usageTapCheck:${id}`])) void showUsage(); });
 desktopAlerts.checked = !!(await chrome.storage.local.get('desktopUsageAlerts')).desktopUsageAlerts;
 desktopAlerts.addEventListener('change', async () => {
   if (desktopAlerts.checked) {

@@ -5,7 +5,7 @@ import { isSupportedChatUrl } from '../src/core/connection';
 import { currentBadge, updateBadge, usageQueue, type BadgeRecord } from '../src/core/usage-delivery';
 import { isCurrentReading, mergeUsageWindows, type UsageWindow } from '../src/core/usage-windows';
 import { kindProvider, parseUsageResponse, type UsageKind } from '../src/core/usage-api';
-import { apiProviders, fetchUsage } from '../src/core/usage-fetch';
+import { apiProviders, fetchUsage, fieldNames } from '../src/core/usage-fetch';
 import { refreshAfterSendDue, refreshAllUsage } from '../src/core/usage-refresh';
 import { usagePageUrl } from '../src/core/usage-windows';
 import type { Meter } from '../src/core/limits';
@@ -221,6 +221,8 @@ export default defineBackground(() => {
       if (!provider || kindProvider[kind] !== provider || typeof message.text !== 'string') return;
       const readings = parseUsageResponse(kind, message.text);
       if (readings.length) void saveReadings(provider, readings).catch(() => {});
+      // A usage answer the page got but Baton couldn't read: keep its field names (never values) for the usage panel.
+      else void chrome.storage.local.set({ [`usageTapCheck:${provider}`]: { at: Date.now(), kind, fields: fieldNames(message.text) } }).catch(() => {});
       return;
     }
     // A chat page of ChatGPT, Claude or Gemini opened: refresh its usage now (throttled to once a minute).

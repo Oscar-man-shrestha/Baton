@@ -68,6 +68,13 @@ describe('usage the AI sites send to the browser', () => {
     expect(read({ session: { used: 1, limit: 50, resets_at: resets }, weekly: { percentage: 1 } })).toEqual([['Session', 2], ['Weekly', 1]]);
     expect(read({ five_hour: { percent: 2 }, seven_day: null, seven_day_opus: { utilization: 0 }, seven_day_oauth_apps: { utilization: 5 } })).toEqual([['Session', 2], ['Opus weekly', 0]]);
   });
+  it('reads a reply’s message_limit whether it gives fractions or percents', () => {
+    const resets = Math.floor((now + 4 * h) / 1000);
+    const read = (u5: number, u7: number) => parseUsageResponse('claude-usage', JSON.stringify({ message_limit: { windows: { '5h': { utilization: u5, resets_at: resets }, '7d': { utilization: u7, resets_at: resets } } } }), now).map(win => win.percent);
+    expect(read(0.02, 0.01)).toEqual([2, 1]);
+    expect(read(2, 1)).toEqual([2, 1]);
+    expect(read(34, 54)).toEqual([34, 54]);
+  });
   it('never throws on junk', () => {
     for (const kind of ['chatgpt-features', 'chatgpt-wham', 'claude-usage', 'gemini-quota'] as const) for (const text of ['', 'not json', 'null', '[]', '{"limits_progress":7}'])
       expect(parseUsageResponse(kind, text, now)).toEqual([]);

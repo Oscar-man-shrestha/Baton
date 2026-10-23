@@ -392,7 +392,8 @@ export default defineContentScript({
           const [figure, ...rest] = segment.value.split(' ');
           node.append(piece('v', figure)); if (rest.length) node.append(piece('u', rest.join(' ')));
         } else node.append(piece('v', segment.value));
-        if (segment.note) node.append(piece('n', segment.note));
+        // Reset countdowns (“3h 20m”, “29d 23h”) get ↻ so they read as resets; counts like “1 today” stay plain.
+        if (segment.note) node.append(piece('n', /^\d+[dhm]\b/.test(segment.note) ? `↻ ${segment.note}` : segment.note));
         nextBody.append(node);
       };
       // ChatGPT: its Plan limits (Codex/Work, not chat) are the only numbers it publishes, so they follow the chat count.
