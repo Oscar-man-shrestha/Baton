@@ -41,6 +41,10 @@ describe('usage bar under the composer', () => {
     expect(chatSegments([thinking(1, { percent: 90, remainingPercent: 10 })], now)).toEqual([]);
     expect(countSegments([win('Session', 20)], now)).toEqual([]);
     const allowance = (feature: string, remaining: number, days: number) => ({ ...thinking(remaining), feature, key: `chatgpt:${feature}`, resetAt: now + days * 24 * 60 * min });
-    expect(countSegments([thinking(3), allowance('Image generation', 10, 1), allowance('Deep research', 5, 30), allowance('Paste text to file', 1, 1), allowance('File uploads', 8, 1)], now).map(seg => [seg.label, seg.value, seg.note])).toEqual([['Thinking', '3 left', '4h 46m'], ['Research', '5 left', '30d 0h']]);
+    expect(countSegments([thinking(3), allowance('Image generation', 10, 1), allowance('Deep research', 5, 30), allowance('Paste text to file', 3, 1), allowance('File uploads', 8, 1)], now).map(seg => [seg.label, seg.value, seg.note])).toEqual([['Thinking', '3 left', '4h 46m'], ['Paste', '3 left', '1d 0h']]);
+  });
+  it('adds ChatGPT’s Codex month after its Work windows', () => {
+    const codex = { ...win('Codex monthly', 0), provider: 'chatgpt', key: 'chatgpt:Codex monthly', resetAt: now + 30 * 24 * 60 * min };
+    expect(workSegments([codex], now)).toEqual([{ label: 'Codex month', value: '100% left', left: 100, level: 'ok', note: '30d 0h' }]);
   });
 });

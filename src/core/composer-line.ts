@@ -27,7 +27,8 @@ export function chatSegments(windows: DisplayWindow[], now = Date.now()): Segmen
  * ChatGPT for Excel (chat is not included). They go after the chat count, labelled “Work” so no one reads them as chat.
  */
 export function workSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
-  return [['Work 5-hour', 'Work 5h'], ['Work weekly', 'Work week']].flatMap(([feature, label]) => {
+  // Codex monthly is the one window ChatGPT reports on Free plans.
+  return [['Work 5-hour', 'Work 5h'], ['Work weekly', 'Work week'], ['Codex monthly', 'Codex month']].flatMap(([feature, label]) => {
     const win = windows.find(candidate => candidate.feature === feature && candidate.percent !== undefined);
     if (!win) return [];
     const left = Math.max(0, Math.round(100 - win.percent!));
@@ -37,7 +38,9 @@ export function workSegments(windows: DisplayWindow[], now = Date.now()): Segmen
 }
 
 // The feature allowances worth a place in the bar, with short names; the rest stay in Baton's usage list.
-const allowanceLabels: Record<string, string> = { 'Deep research': 'Research', 'Image generation': 'Images', 'File uploads': 'Uploads', Agent: 'Agent', Video: 'Video' };
+// Short names for the bar; any other allowance ChatGPT reports shows by its first word.
+const allowanceLabels: Record<string, string> = { 'Deep research': 'Research', 'Image generation': 'Images', 'File uploads': 'Uploads', 'Paste text to file': 'Paste', 'Paste to file': 'Paste', Agent: 'Agent', Video: 'Video' };
+const allowanceLabel = (feature: string) => allowanceLabels[feature] ?? feature.split(' ')[0];
 const countSegment = (win: DisplayWindow, label: string, now: number): Segment => {
   const count = win.remainingCount!;
   const reset = resetCountdown(win.resetAt, now);
@@ -45,12 +48,12 @@ const countSegment = (win: DisplayWindow, label: string, now: number): Segment =
   return { label, value: `${count} left`, ...(left !== undefined ? { left } : {}), level: count === 0 ? 'low' : count <= 2 ? 'mid' : 'ok', ...(reset ? { note: reset } : {}) };
 };
 /**
- * ChatGPT's allowances as the site reports them: Thinking (“Thinking 3 left · 4h 46m”), then the one feature allowance
- * closest to running out (“Research 5 left · 30d 0h”). A ring shows when the maximum is known.
+ * ChatGPT's allowances as the site reports them: Thinking (“Thinking 3 left · 4h 46m”), then whichever other allowance
+ * is closest to running out (“Paste 3 left · 1d 0h”). A ring shows when the maximum is known.
  */
 export function countSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
   const counted = windows.filter(win => win.remainingCount !== undefined && win.source === 'provider-response');
   const thinking = counted.find(win => win.feature === 'Thinking');
-  const scarcest = counted.filter(win => allowanceLabels[win.feature]).sort((a, b) => a.remainingCount! - b.remainingCount! || (a.resetAt ?? Infinity) - (b.resetAt ?? Infinity))[0];
-  return [...(thinking ? [countSegment(thinking, 'Thinking', now)] : []), ...(scarcest ? [countSegment(scarcest, allowanceLabels[scarcest.feature], now)] : [])];
+  const scarcest = counted.filter(win => win.feature !== 'Thinking').sort((a, b) => a.remainingCount! - b.remainingCount! || (a.resetAt ?? Infinity) - (b.resetAt ?? Infinity))[0];
+  return [...(thinking ? [countSegment(thinking, 'Thinking', now)] : []), ...(scarcest ? [countSegment(scarcest, allowanceLabel(scarcest.feature), now)] : [])];
 }
