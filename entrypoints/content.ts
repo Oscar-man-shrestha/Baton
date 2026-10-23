@@ -1,6 +1,6 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { bundledSelectors, providerIds, type ProviderId } from '../src/core/selectors';
-import { collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/adapter';
+import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter } from '../src/core/adapter';
 import { draftBudget, redact, renderBrief, updateBrief, wrapHandoff } from '../src/core/brief';
 import { saveCapturedCapsule } from '../src/core/capsules';
 import { newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
@@ -338,12 +338,13 @@ export default defineContentScript({
     let statusFrame = 0;
     let lastPrompt = '';
     let lastPromptTokens = 0;
-    // The whole conversation's size in tokens, recounted at most every 3 s (long chats are estimated at 4 characters a token).
+    // The whole conversation's size in tokens: the messages only (as Baton captures them, without buttons and other page
+    // text), recounted at most every 3 s; long chats are estimated at 4 characters a token.
     let chatSizeAt = 0, chatSizeTokens = 0;
     const chatSize = () => {
       if (Date.now() - chatSizeAt < 3000) return chatSizeTokens;
       chatSizeAt = Date.now();
-      const text = collectTurnNodes(document, id, bundledSelectors).map(node => node.textContent || '').join('\n');
+      const text = collectTurnNodes(document, id, bundledSelectors).map(node => { try { return cleanNode(node); } catch { return node.textContent || ''; } }).join('\n');
       chatSizeTokens = !text.trim() ? 0 : text.length > 60000 ? Math.round(text.length / 4) : encode(text).length;
       return chatSizeTokens;
     };
@@ -402,8 +403,8 @@ export default defineContentScript({
           const [figure, ...rest] = segment.value.split(' ');
           node.append(piece('v', figure)); if (rest.length) node.append(piece('u', rest.join(' ')));
         } else node.append(piece('v', segment.value));
-        // Reset countdowns (“3h 20m”, “29d 23h”) get ↻ so they read as resets; counts like “1 today” stay plain.
-        if (segment.note) node.append(piece('n', /^\d+[dhm]\b/.test(segment.note) ? `↻ ${segment.note}` : segment.note));
+        // Reset countdowns (“3h 20m”, “29d 23h”) read “reset in 3h 20m”; counts like “1 today” stay plain.
+        if (segment.note) node.append(piece('n', /^\d+[dhm]\b/.test(segment.note) ? `reset in ${segment.note}` : segment.note));
         nextBody.append(node);
       };
       // ChatGPT: its Plan limits (Codex/Work, not chat) are the only numbers it publishes, so they follow the chat count.
