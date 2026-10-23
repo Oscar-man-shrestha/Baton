@@ -154,8 +154,9 @@ footer .legal { flex-basis: 100%; font-size: .78rem; color: var(--mute); opacity
 /* Keyboard shortcuts in the guide: the keys the browser assigned, and a link to change them. */
 .guide .keys { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 6px; color: var(--mute); }
 .guide .keys li { display: flex; gap: 10px; align-items: center; }
-.guide .keys kbd { flex: none; min-width: 6.5em; text-align: center; padding: 2px 8px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 7px; background: var(--ink-2); color: var(--chalk); font: 600 .82rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.guide .keys kbd.unset { font-family: var(--body); font-weight: 500; color: var(--mute); }
+.guide .keys-cell { flex: none; min-width: 8.5rem; display: inline-flex; gap: 4px; }
+.guide .keys-cell kbd { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; padding: 0 .4em; box-sizing: border-box; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--ink-2); color: var(--chalk); font: 600 .9rem/1 -apple-system, system-ui, sans-serif; }
+.guide .keys-cell.unset { font-size: .85rem; color: var(--mute); align-items: center; }
 .guide button.link { all: unset; cursor: pointer; color: var(--violet-soft); font-weight: 700; }
 .guide button.link:hover { text-decoration: underline; }
 .guide button.link:focus-visible { outline: 2px solid var(--violet-soft); outline-offset: 2px; border-radius: 4px; }

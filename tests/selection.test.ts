@@ -7,7 +7,7 @@ import { goalFromUserText, wrapHandoff } from '../src/core/brief';
 import { saveSelectionCapsule } from '../src/core/capsules';
 import { listProjects } from '../src/core/projects';
 import { selectionName, selectionSummary } from '../src/core/selection';
-import { fillShortcutList, formatShortcut, manifestCommands, pageCommands, shortcutCommands, shortcutRows } from '../src/core/shortcuts';
+import { fillShortcutList, formatShortcut, keyCaps, manifestCommands, pageCommands, shortcutCommands, shortcutRows } from '../src/core/shortcuts';
 
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as typeof import('jsdom');
 
@@ -134,7 +134,12 @@ describe('keyboard shortcuts', () => {
     const list = doc.querySelector('ul') as HTMLElement;
     fillShortcutList(list, [{ name: 'save-selection', shortcut: '⌘⇧X' }], true);
     expect(list.querySelectorAll('li')).toHaveLength(shortcutCommands.length);
-    expect(Array.from(list.querySelectorAll('kbd')).map(kbd => kbd.textContent)).toContain('⌘⇧X');
+    // One keycap per key, with the keys in words for screen readers.
+    const row = Array.from(list.querySelectorAll('li')).find(item => item.textContent?.includes('selected part'))!;
+    expect(Array.from(row.querySelectorAll('kbd')).map(kbd => kbd.textContent)).toEqual(['⌘', '⇧', 'X']);
+    expect(row.querySelector('.keys-cell')?.getAttribute('aria-label')).toBe('Command + Shift + X');
+    expect(keyCaps('Ctrl+Shift+U').map(key => key.cap)).toEqual(['Ctrl', 'Shift', 'U']);
+    expect(list.querySelector('.unset')?.textContent).toBe('Not set');
   });
   it('lists the shortcuts in Baton and the guide, with a way to change them', () => {
     for (const page of ['../entrypoints/popup/index.html', '../entrypoints/welcome/index.html']) {
