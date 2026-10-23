@@ -1,6 +1,6 @@
 {
-  "version": 7,
-  "updatedAt": "2026-10-22",
+  "version": 8,
+  "updatedAt": "2026-10-24",
   "providers": {
     "chatgpt": {
       "hosts": [
@@ -28,7 +28,8 @@
       ],
       "turns": [
         "[data-testid='user-message']",
-        ".font-claude-response"
+        ".font-claude-response",
+        "[data-testid='assistant-message']"
       ],
       "editor": [
         "[contenteditable='true']"

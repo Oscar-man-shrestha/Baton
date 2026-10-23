@@ -12,6 +12,8 @@ The local transcript can be incomplete if messages were never rendered, windows 
 
 **Saving a selection (1.1.0).** When the user selects part of a conversation and chooses **Save as baton** (from the button by the selection, the right-click item, or the keyboard shortcut), Baton saves only the selected messages, plus the user's own message that a selected reply answers, as a local baton. It is stored in the browser like any other baton and is sent nowhere; it reaches another AI only as a draft the user reviews and sends. The `contextMenus` permission adds that one right-click item on the six supported chat sites. Keyboard shortcuts need no permission and read nothing.
 
+**Reading the whole chat (1.1.0).** On ChatGPT and Claude, when the user saves, passes or captures a chat, Baton reads that chat as the service stores it, from the service's own site with the session the page already has (on ChatGPT, the page's own session token, used only for that request and never stored). The request goes only to the service the user is on; nothing is sent to Baton or anyone else. If that fails, Baton reads the page instead.
+
 **Have this AI write the handoff (1.1.0, opt-in).** When the user chooses it, Baton types a request into the current chat's own text box; the user decides whether to send it to that service. Baton then reads the service's reply on the page, checks it locally against names and figures from the chat, and saves it as a local baton. Baton itself sends nothing.
 
 Baton may recognize common key and personal-data patterns before rendering a draft, but automated detection can miss sensitive data. Users should inspect and edit the draft. Copying a draft or sending it in a provider's chat is governed by that provider's own policies.

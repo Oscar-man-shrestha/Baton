@@ -16,6 +16,7 @@ import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
 import { archiveWindow, captureCheck, mergeTurnWindows, type TurnArchive } from '../src/core/capture';
+import { fetchStoredChat } from '../src/core/lossless';
 import type { Extraction, Turn } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
@@ -122,8 +123,12 @@ export default defineContentScript({
     // The chat as Baton has seen it so far: what is on the page joined with the stored transcript of this chat.
     const chatArchive = async () => {
       const data = extract(document, id, bundledSelectors);
+      // The chat as the service stores it (Claude, ChatGPT): every message, not only the ones on screen. When it has at
+      // least what the page shows, it replaces the page reading; otherwise the page reading stands.
+      const stored = await fetchStoredChat(id, location).catch(() => undefined);
+      if (stored && stored.length >= data.turns.length) { data.turns = stored; data.incomplete = false; data.warning = undefined; }
       const { archiveKey } = storageKeys();
-      const previous = genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
+      const previous = stored?.length || genericNewChat() ? undefined : (await chrome.storage.local.get(archiveKey))[archiveKey] as TurnArchive | undefined;
       const archive = archiveWindow(previous?.selectorsVersion === bundledSelectors.version ? previous : undefined, data.turns);
       if (!archive.turns.length) throw new Error('There is no conversation on this page to carry over yet.');
       return { data, archive };
@@ -1246,7 +1251,10 @@ export default defineContentScript({
         void (async () => {
           const captureUrl = pageUrl();
           const { key, highWaterKey, archiveKey } = storageKeys();
-          const result = message.includeOlder ? await captureOlderTurns() : extract(document, id, bundledSelectors);
+          // The stored chat first (every message, no scrolling); scrolling through the page only where it isn't offered.
+          const stored = await fetchStoredChat(id, location).catch(() => undefined);
+          const onPage = extract(document, id, bundledSelectors);
+          const result: Extraction = stored && stored.length >= onPage.turns.length ? { ...onPage, turns: stored, incomplete: false, warning: undefined } : message.includeOlder ? await captureOlderTurns() : onPage;
           if (captureUrl !== pageUrl()) throw new Error('The chat changed during capture. Capture the current conversation again.');
           const editor = findEditor(document, bundledSelectors.providers[id].editor);
           const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');

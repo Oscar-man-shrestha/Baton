@@ -148,7 +148,7 @@ export function exactDetails(turns: Turn[], max = 60): string[] {
   // Trailing punctuation goes, and a “)” only when it doesn't close a bracket of the name (“unique_target(path)” stays whole).
   const add = (value: string) => { let item = value.trim().replace(/[.,;:]+$/, ''); while (item.endsWith(')') && (item.match(/\(/g) || []).length < (item.match(/\)/g) || []).length) item = item.slice(0, -1).replace(/[.,;:]+$/, ''); if (item.length >= 3 && item.length <= 80 && !found.some(seen => seen.toLowerCase() === item.toLowerCase())) found.push(item); };
   const code = /`([^`\n]{2,60})`/g, link = /https?:\/\/[^\s)>\]"']+/g;
-  const file = /(?:~|\.{1,2})?\/?\b[\w.-]+(?:\/[\w.-]+)+|\b[\w-]+\.(?:py|ts|tsx|js|jsx|mjs|json|md|txt|log|toml|ya?ml|html|css|csv|pdf|sh|rs|go|java|kt|swift|sql|env)\b/g;
+  const file = /(?:~|\.{1,2})?\/?\b[\w.-]+(?:\/[\w.-]+)+|\b[\w-]+\.(?:py|ts|tsx|js|jsx|mjs|json|md|txt|log|toml|ya?ml|html|css|csv|pdf|sh|rs|go|java|kt|swift|sql|env|zip|png|jpe?g|gif|svg|webp|docx?|xlsx?|pptx?|glb|gltf|fbx|mp4|mp3|wav)\b/g;
   const figure = /[$€£¥]\s?\d[\d,]*(?:\.\d+)?\b|\b\d[\d,]*(?:\.\d+)?\s?(?:%|ms|MB|GB|KB|TB|px|words|nights|days|hours|minutes|tokens|users|items)\b|\bv?\d+\.\d+(?:\.\d+)+\b/gi;
   for (const turn of turns) {
     const text = turn.text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
@@ -197,6 +197,7 @@ export function renderBrief(brief: Brief, cap = BRIEF_TOKENS): { text: string; r
   list('Artifacts', b.artifacts.map(a => `${a.name} (${a.kind}, version ${a.version}):\n${a.content_verbatim}`));
   list('Open tasks', b.open_tasks);
   field('Exact names and figures (keep verbatim)', b.exact_details.join(' · '));
+  field('Files in the chat (not attached; ask the user to share any you need)', [...new Set(b.user_messages.concat(b.earlier_findings, [b.last_exchange.assistant]).flatMap(text => [...(text || '').matchAll(/\[Files: ([^\]]+)\]/g)].flatMap(match => match[1].split(', '))))].join(', '));
   list('What the user said, in order', b.user_messages);
   list('Earlier findings', b.earlier_findings);
   list('Useful work from the latest reply', b.key_findings);

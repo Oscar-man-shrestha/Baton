@@ -103,6 +103,9 @@ function cleanTurn(node: Element, id: ProviderId): string {
   const content = messageContent(node, id);
   const blocks = id === 'gemini' ? [content] : messageBlocks(node, id);
   let result = blocks.length > 1 ? blocks.map(cleanNode).filter(Boolean).join('\n\n') : cleanNode(content);
+  // Files shown as cards (Claude puts them in buttons, which capture skips) are named so the next AI knows they exist.
+  const files = Array.from(node.querySelectorAll('[data-testid="file-card-block"], [data-testid="file-thumbnail"]')).map(card => (card.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (files.length) result = `${result}\n\n[Files: ${[...new Set(files)].join(', ')}]`.trim();
   if (id === 'gemini' && node.matches('user-query')) {
     const duplicate = result.match(/^#{1,6}\s+You said\b[ \t]*(.*?)\n+([\s\S]*)$/i);
     if (duplicate && (duplicate[1].trim() === duplicate[2].trim() || repeatsPreview(duplicate[1], duplicate[2]))) return duplicate[2].trim();
