@@ -109,21 +109,22 @@ describe('a selection that starts in a reply', () => {
 });
 
 describe('keyboard shortcuts', () => {
-  it('suggests at most four Ctrl+Shift keys (Control on a Mac), none repeated and none the browser or ChatGPT uses', () => {
+  it('suggests at most four Ctrl+Shift keys (⌘⇧ on a Mac), none repeated and none the browser or ChatGPT uses', () => {
     const suggested = Object.values(manifestCommands()).flatMap(command => command.suggested_key ? [command.suggested_key.default] : []);
     expect(suggested.length).toBeLessThanOrEqual(4);
     expect(new Set(suggested).size).toBe(suggested.length);
     for (const key of suggested) expect(key).toMatch(/^Ctrl\+Shift\+[A-Z]$/);
-    for (const command of Object.values(manifestCommands())) if (command.suggested_key) expect(command.suggested_key.mac).toBe(command.suggested_key.default.replace('Ctrl', 'MacCtrl'));
-    // Chrome's own Ctrl+Shift keys (bookmarks bar, devtools, incognito, reopen tab…) and ChatGPT's (sidebar, copy, new chat).
-    for (const taken of 'ABCDGIJMNOQRSTVW') expect(suggested).not.toContain(`Ctrl+Shift+${taken}`);
+    for (const command of Object.values(manifestCommands())) if (command.suggested_key) expect(command.suggested_key.mac).toBe(command.suggested_key.default.replace('Ctrl', 'Command'));
+    // Chrome's own Ctrl+Shift keys (bookmarks bar, devtools, incognito, reopen tab…), ChatGPT's (sidebar, copy, new chat),
+    // the ones Brave refuses on a Mac, and Bitwarden's.
+    for (const taken of 'ABCDFGHIJLMNOPQRSTVWY') expect(suggested).not.toContain(`Ctrl+Shift+${taken}`);
     expect(manifestCommands()._execute_action).toBeDefined();
     for (const command of pageCommands) expect(shortcutCommands.some(item => item.name === command)).toBe(true);
   });
   it('shows keys as the keyboard reads them and marks unassigned ones', () => {
-    expect(formatShortcut('MacCtrl+Shift+P', true)).toBe('⌃⇧P');
-    // Chrome on a Mac already reports “⌃⇧P”.
-    expect(formatShortcut('⌃⇧P', true)).toBe('⌃⇧P');
+    expect(formatShortcut('Command+Shift+P', true)).toBe('⌘⇧P');
+    // Chrome on a Mac already reports “⌘⇧P”.
+    expect(formatShortcut('⌘⇧P', true)).toBe('⌘⇧P');
     expect(formatShortcut('Ctrl+Shift+P', false)).toBe('Ctrl+Shift+P');
     expect(formatShortcut('', true)).toBe('');
     const rows = shortcutRows([{ name: 'open-pass-menu', shortcut: 'Ctrl+Shift+P' }, { name: 'capture-chat', shortcut: '' }], false);
@@ -131,9 +132,9 @@ describe('keyboard shortcuts', () => {
     expect(rows.find(row => row.name === 'capture-chat')?.keys).toBe('Not set');
     const doc = new JSDOM('<ul></ul>').window.document;
     const list = doc.querySelector('ul') as HTMLElement;
-    fillShortcutList(list, [{ name: 'save-selection', shortcut: '⌃⇧X' }], true);
+    fillShortcutList(list, [{ name: 'save-selection', shortcut: '⌘⇧X' }], true);
     expect(list.querySelectorAll('li')).toHaveLength(shortcutCommands.length);
-    expect(Array.from(list.querySelectorAll('kbd')).map(kbd => kbd.textContent)).toContain('⌃⇧X');
+    expect(Array.from(list.querySelectorAll('kbd')).map(kbd => kbd.textContent)).toContain('⌘⇧X');
   });
   it('lists the shortcuts in Baton and the guide, with a way to change them', () => {
     for (const page of ['../entrypoints/popup/index.html', '../entrypoints/welcome/index.html']) {

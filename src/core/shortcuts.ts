@@ -1,11 +1,12 @@
 /**
  * Baton's keyboard shortcuts: the manifest's commands come from here, and the help screens list them in this order.
- * Ctrl+Shift+letter everywhere; on a Mac that is the Control key (⌃⇧), which the chat sites and the browser leave free,
- * so ⌘ shortcuts keep working. Chrome lets an extension suggest at most four keys, and only on a fresh install;
- * anyone can change them at chrome://extensions/shortcuts.
+ * Ctrl+Shift+letter, and ⌘⇧ (Command+Shift) on a Mac, with letters the browser and the chat sites don't use
+ * (ChatGPT has ⌘⇧O, S, C and I; Chrome A, B, C, D, G, I, J, M, N, O, R, T and W; Brave refuses P, F, H and J;
+ * Bitwarden uses L and Y). Chrome lets an extension suggest at most four keys, and only on a fresh install; anyone
+ * can change them at chrome://extensions/shortcuts.
  */
 export const shortcutCommands = [
-  { name: 'open-pass-menu', key: 'P', description: 'Pass this chat to another AI (opens the Pass menu)' },
+  { name: 'open-pass-menu', key: 'U', description: 'Pass this chat to another AI (opens the Pass menu)' },
   { name: 'capture-chat', key: 'K', description: 'Keep this chat as a baton' },
   { name: 'save-selection', key: 'X', description: 'Save the selected part of the chat as a baton' },
   { name: '_execute_action', key: 'E', description: 'Open Baton' },
@@ -18,10 +19,10 @@ export const shortcutsPage = 'chrome://extensions/shortcuts';
 
 /** The manifest `commands` entry. */
 export function manifestCommands(): Record<string, { description: string; suggested_key?: { default: string; mac: string } }> {
-  return Object.fromEntries(shortcutCommands.map(command => [command.name, { description: command.description, ...(command.key ? { suggested_key: { default: `Ctrl+Shift+${command.key}`, mac: `MacCtrl+Shift+${command.key}` } } : {}) }]));
+  return Object.fromEntries(shortcutCommands.map(command => [command.name, { description: command.description, ...(command.key ? { suggested_key: { default: `Ctrl+Shift+${command.key}`, mac: `Command+Shift+${command.key}` } } : {}) }]));
 }
 
-/** “MacCtrl+Shift+P” as the keyboard shows it: “⌃⇧P” on a Mac (Chrome there already reports symbols). Empty when no key is set. */
+/** “Command+Shift+P” as the keyboard shows it: “⌘⇧P” on a Mac (Chrome there already reports symbols). Empty when no key is set. */
 export function formatShortcut(shortcut: string | undefined, mac: boolean): string {
   if (!shortcut) return '';
   if (!mac) return shortcut;
