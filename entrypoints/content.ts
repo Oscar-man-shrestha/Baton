@@ -338,6 +338,16 @@ export default defineContentScript({
     let statusFrame = 0;
     let lastPrompt = '';
     let lastPromptTokens = 0;
+    // The whole conversation's size in tokens, recounted at most every 3 s (long chats are estimated at 4 characters a token).
+    let chatSizeAt = 0, chatSizeTokens = 0;
+    const chatSize = () => {
+      if (Date.now() - chatSizeAt < 3000) return chatSizeTokens;
+      chatSizeAt = Date.now();
+      const text = collectTurnNodes(document, id, bundledSelectors).map(node => node.textContent || '').join('\n');
+      chatSizeTokens = !text.trim() ? 0 : text.length > 60000 ? Math.round(text.length / 4) : encode(text).length;
+      return chatSizeTokens;
+    };
+    const tokenCount = (n: number) => (n < 1000 ? `≈${n}` : `≈${(n / 1000).toFixed(n < 10000 ? 1 : 0)}k`);
     let lastLimitText: string | undefined;
     let lastLimitCheck = 0;
     const updateStatus = () => {
@@ -415,6 +425,9 @@ export default defineContentScript({
         else addSegment({ label: 'Chat', value: 'No limit shown', note: `${sentToday(latestSends, Date.now())} today` });
       }
       work.forEach(addSegment);
+      // How big this conversation already is; last in the bar, so it is the first to step aside when space is short.
+      const size = chatSize();
+      if (size) addSegment({ label: 'Chat size', value: `${tokenCount(size)} tokens` });
       if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); nextBody.append(tokens); }
       if (nextBody.innerHTML !== statusBody.innerHTML) statusBody.replaceChildren(...Array.from(nextBody.childNodes));
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
