@@ -10,7 +10,7 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const executablePath = [process.env.BROWSER, '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find(path => path && existsSync(path));
 if (!executablePath) throw new Error('No Brave or Chrome found. Set BROWSER to a Chromium executable.');
 const jobs = [
-  ...['01-continue', '02-usage', '03-suggest', '04-draft', '05-private'].map(name => [`${name}.html`, 1280, 800, `screenshot-${name}.png`]),
+  ...['01-continue', '02-whole-chat', '03-check', '04-usage', '05-private'].map(name => [`${name}.html`, 1280, 800, `screenshot-${name}.png`]),
   ['promo-small.html', 440, 280, 'promo-small-440x280.png'],
   ['promo-marquee.html', 1400, 560, 'promo-marquee-1400x560.png']
 ];

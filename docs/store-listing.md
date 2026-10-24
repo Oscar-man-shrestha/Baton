@@ -55,11 +55,13 @@ Baton Pass is independent and not affiliated with OpenAI, Anthropic, Google, Dee
 | Field | File | Size |
 |---|---|---|
 | Store icon | `store/icon-128.png` | 128×128 |
-| Screenshot 1 | `store/screenshot-01-continue.png` — hit the limit, pass the baton | 1280×800 |
-| Screenshot 2 | `store/screenshot-02-usage.png` — usage bar and all six AIs | 1280×800 |
-| Screenshot 3 | `store/screenshot-03-suggest.png` — suggestions by task | 1280×800 |
-| Screenshot 4 | `store/screenshot-04-draft.png` — arrives as a draft, you press Send | 1280×800 |
+| Screenshot 1 | `store/screenshot-01-continue.png` — hit the limit, pass the whole chat and files to the AI suggested for the task | 1280×800 |
+| Screenshot 2 | `store/screenshot-02-whole-chat.png` — arrives as a draft with the full chat and your upload attached, capture check shown; you press Send | 1280×800 |
+| Screenshot 3 | `store/screenshot-03-check.png` — Baton checks the next AI's first reply and offers a correction | 1280×800 |
+| Screenshot 4 | `store/screenshot-04-usage.png` — usage bar, long-chat tip and all six AIs | 1280×800 |
 | Screenshot 5 | `store/screenshot-05-private.png` — privacy | 1280×800 |
+
+The screenshots are designed scenes rendered from `store/src/*.html` (`npm run render:store`). Their wording is the extension's own, and screenshot 3's card shows exactly what Baton's reply check returns for the reply in the scene.
 | Small promo tile | `store/promo-small-440x280.png` | 440×280 |
 | Marquee promo tile | `store/promo-marquee-1400x560.png` | 1400×560 |
 
