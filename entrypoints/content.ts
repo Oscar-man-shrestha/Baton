@@ -4,7 +4,7 @@ import { cleanNode, collectTurnNodes, extract, findEditor, makeAdapter, question
 import { draftBudget, exactDetails, goalFromUserText, updateBrief } from '../src/core/brief';
 import { saveCapturedCapsule, saveSelectionCapsule, saveWrittenBrief } from '../src/core/capsules';
 import { briefPrompt, checkSummary, checkWrittenBrief, completeWrittenBrief, findWrittenBrief, withoutHandoffRequests } from '../src/core/written-brief';
-import { fullContext, handoffDraft } from '../src/core/context-export';
+import { compactDraft, fitToBox, fullContext, handoffDraft } from '../src/core/context-export';
 import { listFolders, type Project } from '../src/core/projects';
 import { selectionName, selectionSummary } from '../src/core/selection';
 import { formatShortcut, onMac, type ShortcutCommand } from '../src/core/shortcuts';
@@ -141,9 +141,10 @@ export default defineContentScript({
       const brief = updateBrief(undefined, archive.turns, data.artifacts);
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
       const handoff = handoffDraft(archive, brief, pageUrl(), target);
-      // Too long to type in whole: the summary is typed, and the complete chat goes along as a Markdown file.
-      const transcript = handoff.mode === 'compact' ? textFile(transcriptName(document.title, brief.goal), fullContext(archive, pageUrl()).text, 'text/markdown') : undefined;
-      return { draft: handoff.draft, mode: handoff.mode, transcript, files, points: handoffPoints(brief), messages: archive.turns.length, check: captureCheck(archive.turns) };
+      // Every length goes: the whole chat, its summary and the whole chat as a file, for passTo to fit to the box.
+      const full = fullContext(archive, pageUrl());
+      const chatFile = { name: transcriptName(document.title, brief.goal), text: full.text };
+      return { draft: handoff.draft, full: full.draft, summary: compactDraft(archive, brief), chatFile, files, points: handoffPoints(brief), messages: archive.turns.length, check: captureCheck(archive.turns) };
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.
     const openDraftIn = async (target: ProviderId, draft: string, files: FilePayload[] = [], points?: HandoffPoints) => {
@@ -155,26 +156,22 @@ export default defineContentScript({
     };
     const passTo = async (target: ProviderId, next?: string) => {
       const saved = await saveVisibleChat(target);
-      let draft = withNextStep(saved.draft, next);
-      if (!draftBudget(draft, target).fits) return 'Saved as a baton. This project is too long for a one-click draft; open Baton to review and shorten it.';
+      // Any length: the whole chat when it fits this AI's chat box, otherwise the summary with the whole chat attached.
+      const fitted = fitToBox(withNextStep(saved.full, next), withNextStep(saved.summary, next), target, saved.chatFile);
       // Your uploaded files, fetched here with your session, go to the next AI's chat box with the draft (never sent).
       const uploads = await downloadFiles(saved.files, fetchStoredFile).catch(() => ({ files: [] as FilePayload[], skipped: [] as string[] }));
-      const files = [...(saved.transcript ? [saved.transcript] : []), ...uploads.files];
-      if (saved.transcript) draft = `${draft}\n\nAttached: “${saved.transcript.name}”, the complete conversation word for word. Check it for anything the summary above leaves out.`;
-      await openDraftIn(target, draft, files, saved.points);
-      const carried = files.length ? ` ${files.length === 1 ? 'One file' : `${files.length} files`} will be attached there${saved.transcript ? ', including the full chat' : ''}.` : '';
+      const files = [...(fitted.attach ? [textFile(fitted.attach.name, fitted.attach.text, 'text/markdown')] : []), ...uploads.files];
+      await openDraftIn(target, fitted.draft, files, saved.points);
+      const carried = files.length ? ` ${files.length === 1 ? 'One file' : `${files.length} files`} will be attached there${fitted.attach ? ', including the whole chat (it is longer than the chat box takes, so the summary is typed)' : ''}.` : '';
       return `Opened ${providerNames[target]} with your project as an unsent draft: ${saved.check.text}.${carried}${uploads.skipped.length ? ` Not attached (too big or unavailable): ${uploads.skipped.join(', ')}.` : ''} Also saved as a baton and copied.`;
     };
     // A saved selection goes exactly as saved. Too long to type in for you: it is copied and the AI opens to paste it.
     const passSaved = async (saved: Project, target: ProviderId, next?: string) => {
       const draft = withNextStep(saved.draft || '', next);
-      if (!draftBudget(draft, target).fits) {
-        await navigator.clipboard.writeText(draft);
-        window.open(newChatUrls[target], '_blank', 'noopener');
-        return `It’s longer than Baton types in for you, so it’s copied: paste it into ${providerNames[target]} (${onMac(navigator) ? '⌘V' : 'Ctrl+V'}), then press Send.`;
-      }
-      await openDraftIn(target, draft);
-      return `Opened ${providerNames[target]} with this part as an unsent draft. Read it, then press Send.`;
+      // Longer than this AI's chat box takes: a short note is typed and the saved part goes along as a file.
+      const fitted = fitToBox(draft, undefined, target, { name: transcriptName(saved.name, ''), text: saved.snapshotText || draft });
+      await openDraftIn(target, fitted.draft, fitted.attach ? [textFile(fitted.attach.name, fitted.attach.text, 'text/markdown')] : []);
+      return `Opened ${providerNames[target]} with this part as an unsent draft${fitted.attach ? ' (it is longer than the chat box takes, so it is attached as a file)' : ''}. Read it, then press Send.`;
     };
     // Same AI, another account: save the project, show where to switch (Google's chooser for Gemini), and offer it
     // as a draft on the next fresh chat here. The user signs in and out in the service's own screens.
@@ -1382,7 +1379,8 @@ export default defineContentScript({
           // The stored chat first (every message, no scrolling); scrolling through the page only where it isn't offered.
           const stored = await fetchStoredChat(id, location).catch(() => undefined);
           const onPage = extract(document, id, bundledSelectors);
-          const result: Extraction = stored && stored.length >= onPage.turns.length ? { ...onPage, turns: stored, incomplete: false, warning: undefined } : message.includeOlder ? await captureOlderTurns() : onPage;
+          const fromStore = !!stored && stored.length >= onPage.turns.length;
+          const result: Extraction = fromStore ? { ...onPage, turns: stored!, incomplete: false, warning: undefined } : message.includeOlder ? await captureOlderTurns() : onPage;
           if (captureUrl !== pageUrl()) throw new Error('The chat changed during capture. Capture the current conversation again.');
           const editor = findEditor(document, bundledSelectors.providers[id].editor);
           const pendingPrompt = editor instanceof HTMLTextAreaElement ? editor.value : (editor?.textContent || '');
@@ -1393,7 +1391,8 @@ export default defineContentScript({
           }
           const saved = await chrome.storage.local.get([highWaterKey, archiveKey, limitHistoryKey, `meter:${id}`]);
           const previousArchive = genericNewChat() ? undefined : saved[archiveKey] as TurnArchive | undefined;
-          const archive = archiveWindow(previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, result.turns);
+          // The stored chat is whole on its own; joining it to an older page capture would carry that capture's gap flags over.
+          const archive = archiveWindow(!fromStore && previousArchive?.selectorsVersion === bundledSelectors.version ? previousArchive : undefined, result.turns);
           archive.selectorsVersion = bundledSelectors.version;
           let archiveSaved = true;
           const brief = updateBrief(undefined, archive.turns, result.artifacts);

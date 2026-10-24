@@ -53,13 +53,15 @@ describe('brief', () => {
     const result = updateBrief(undefined, [{ role: 'user', text: 'Use sk-proj-ABCDEFGHIJKLMNOPQRSTUVWXYZ123456 for the demo', index: 0 }], []);
     expect(JSON.stringify(result)).not.toContain('ABCDEFGHIJKLMNOPQRSTUVWXYZ123456');
   });
-  it('blocks an oversized wrapped handoff without silently dropping the latest artifact', () => {
+  it('keeps the latest artifact in an oversized brief, and knows when a draft is longer than every chat box', () => {
     const artifact = Array.from({ length: 2500 }, (_, i) => `line_${i}`).join(' ');
     const brief = briefSchema.parse({ goal: 'Keep the source intact', preferences: ['Never auto-send'], open_tasks: ['Review all lines'], next_step: 'Continue', artifacts: [{ name: 'source', kind: 'code', content_verbatim: artifact, version: 1 }] });
     const rendered = renderBrief(brief);
     expect(rendered.text).toContain('line_2499');
     expect(rendered.receipt.warnings).toContain('Required content exceeds the 3,000-token budget. Review or shorten it manually; latest artifact and constraints were retained.');
-    expect(draftBudget(wrapHandoff(rendered.text)).fits).toBe(false);
+    expect(draftBudget(wrapHandoff(rendered.text)).fits).toBe(true);
+    expect(draftBudget('x'.repeat(40000)).fits).toBe(false);
+    expect(draftBudget('x'.repeat(40000), 'claude').fits).toBe(true);
     expect(draftBudget('Reviewed short draft').fits).toBe(true);
   });
   it('continues the user’s to-do app goal instead of truncating questions or requesting Ready', () => {

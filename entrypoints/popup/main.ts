@@ -1,4 +1,5 @@
 import { renderBrief, wrapHandoff, draftBudget, goalFromUserText, redact } from '../../src/core/brief';
+import { textFile, transcriptName } from '../../src/core/files';
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
 import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
@@ -18,7 +19,7 @@ import { listRecentCaptures } from '../../src/core/recent';
 import { saveCapturedCapsule } from '../../src/core/capsules';
 import { readCheckSteps, readFields, usageCheckSummary, type CheckField, type UsageCheck } from '../../src/core/usage-refresh';
 import { fillShortcutList, onMac, shortcutsPage } from '../../src/core/shortcuts';
-import { fullContext } from '../../src/core/context-export';
+import { fitToBox, fullContext } from '../../src/core/context-export';
 import { createActiveChatTracker } from '../../src/core/active-chat';
 
 const status = document.querySelector('#status') as HTMLElement;
@@ -408,7 +409,8 @@ const showDraftBudget = () => {
   const budget = draftBudget(draft.value, destination.value as ProviderId);
   (document.querySelector('#use-compact') as HTMLButtonElement).hidden = budget.fits || contextMode.value !== 'full';
   saveBrief.disabled = !draft.value.trim();
-  openDraft.disabled = !draft.value.trim() || (reviewed && !budget.fits);
+  // Any length can be passed: the button never refuses (see fitToBox).
+  openDraft.disabled = !draft.value.trim();
   openDraft.textContent = reviewed ? 'Pass the baton ↗' : 'Review & continue ↗';
   captureCard.hidden = !flow.hidden;
   (document.querySelector('#tab-capture') as HTMLElement).hidden = flow.hidden && activeView === 'capture';
@@ -416,10 +418,13 @@ const showDraftBudget = () => {
   actionBar.hidden = activeView !== 'capture' || flow.hidden;
   (document.querySelector('#idle-footer') as HTMLElement).hidden = !actionBar.hidden;
   copyDraft.disabled = !draft.value.trim();
-  draftBudgetLabel.dataset.state = !draft.value.trim() ? 'empty' : budget.fits ? 'ready' : 'over';
-  draft.setAttribute('aria-invalid', draft.value.trim() && !budget.fits ? 'true' : 'false');
-  draftBudgetLabel.textContent = draft.value.trim() ? `Whole draft: about ${budget.approximateTokens.toLocaleString('en-US')}/${budget.limit.toLocaleString('en-US')} tokens. ${budget.fits ? 'Ready for review.' : 'Copy or download the full context, or choose a compact handoff for insertion.'}` : 'Draft is empty.';
-  draftPreview.textContent = !draft.value.trim() ? 'Paste a brief to continue.' : !budget.fits ? 'All captured text is retained. This is too long for automatic insertion; copy or download it, or choose the compact handoff.' : reviewed ? 'Draft ready. You can open it in a new chat.' : 'Draft ready. Open it below to review before continuing.';
+  draftBudgetLabel.dataset.state = !draft.value.trim() ? 'empty' : 'ready';
+  draft.setAttribute('aria-invalid', 'false');
+  const into = providerNames[destination.value as ProviderId];
+  draftBudgetLabel.textContent = !draft.value.trim() ? 'Draft is empty.' : budget.fits
+    ? `About ${budget.approximateTokens.toLocaleString('en-US')} tokens. It goes into ${into} whole.`
+    : `About ${budget.approximateTokens.toLocaleString('en-US')} tokens, more than ${into}'s chat box takes at once (${budget.limit.toLocaleString('en-US')} characters). Baton types the summary and attaches all of it as a file, so nothing is lost.`;
+  draftPreview.textContent = !draft.value.trim() ? 'Paste a brief to continue.' : reviewed ? 'Draft ready. You can open it in a new chat.' : 'Draft ready. Open it below to review before continuing.';
 };
 draft.addEventListener('input', () => { saveBrief.disabled = !draft.value.trim(); showDraftBudget(); });
 reviewPanel.addEventListener('toggle', () => { if (reviewPanel.open) { reviewed = true; showDraftBudget(); } });
@@ -850,12 +855,16 @@ document.querySelector('#open')?.addEventListener('click', async () => {
   const safe = redact(draft.value);
   if (safe.text !== draft.value) { draft.value = safe.text; reviewed = false; reviewPanel.open = true; showDraftBudget(); status.textContent = 'Sensitive patterns were redacted. Review the updated draft before opening it.'; return; }
   const target = destination.value as ProviderId;
-  const budget = draftBudget(draft.value, target);
-  if (!budget.fits) { status.textContent = `Shorten the reviewed draft to about ${budget.limit.toLocaleString('en-US')} tokens before opening ${providerNames[target]}, or copy it instead.`; return; }
+  // Any length: typed whole when it fits this AI's chat box; otherwise the summary is typed and all of it attached.
+  const summary = modeDrafts.compact && modeDrafts.compact !== draft.value ? modeDrafts.compact : undefined;
+  const fitted = fitToBox(draft.value, summary, target, { name: transcriptName('', currentBrief?.goal || ''), text: draft.value });
   // Copied first, so a page that doesn't take the text (or a sign-in screen) never loses the draft.
   await navigator.clipboard.writeText(draft.value).catch(() => {});
-  const response = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: urls[target], text: draft.value });
-  status.textContent = response?.ok ? `Opened ${providerNames[target]}. Check the draft before sending; it is also copied, in case the page doesn't show it.` : 'Could not open destination. The draft is copied: paste it into any AI chat.';
+  const files = fitted.attach ? [textFile(fitted.attach.name, fitted.attach.text, 'text/markdown')] : [];
+  const response = await chrome.runtime.sendMessage({ type: 'OPEN_DRAFT', url: urls[target], text: fitted.draft, files });
+  status.textContent = !response?.ok ? 'Could not open destination. The draft is copied: paste it into any AI chat.'
+    : fitted.attach ? `Opened ${providerNames[target]} with the summary typed and the whole draft attached as “${fitted.attach.name}”. Check it before sending; the whole draft is also copied.`
+    : `Opened ${providerNames[target]}. Check the draft before sending; it is also copied, in case the page doesn't show it.`;
 });
 document.querySelector('#copy')?.addEventListener('click', async () => { const safe = redact(draft.value); draft.value = safe.text; showDraftBudget(); await navigator.clipboard.writeText(safe.text); status.textContent = safe.kinds.length ? 'Draft copied with sensitive patterns redacted.' : 'Draft copied.'; });
 copyTranscript.addEventListener('click', async () => {

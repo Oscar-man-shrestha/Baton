@@ -34,10 +34,26 @@ export function fullContext(archive: TurnArchive, sourceUrl: string, selection?:
  * The one-click handoff: the whole conversation when it fits the destination's draft limit (nothing lost), otherwise the compact
  * brief, which keeps the goal, everything the user said, decisions, the latest code and where the chat stopped.
  */
+/** The summary handoff, saying what it was made from so the next AI knows how much there was and that it was whole. */
+export function compactDraft(archive: TurnArchive, brief: Brief): string {
+  const summary = renderBrief(brief, BRIEF_TOKENS).text.replace(/^PROJECT HANDOFF\n/, `PROJECT HANDOFF\n\nMade from: ${captureCheck(archive.turns).text}. A summary, because the chat is too long to send whole.\n`);
+  return redact(wrapHandoff(summary)).text;
+}
+
 export function handoffDraft(archive: TurnArchive, brief: Brief, sourceUrl: string, target?: ProviderId): { draft: string; mode: 'full' | 'compact' } {
   const full = fullContext(archive, sourceUrl).draft;
   if (draftBudget(full, target).fits) return { draft: full, mode: 'full' };
-  // The summary says what it was made from, so the next AI knows how much there was and that it was whole.
-  const summary = renderBrief(brief, BRIEF_TOKENS).text.replace(/^PROJECT HANDOFF\n/, `PROJECT HANDOFF\n\nMade from: ${captureCheck(archive.turns).text}. A summary, because the chat is too long to send whole.\n`);
-  return { draft: redact(wrapHandoff(summary)).text, mode: 'compact' };
+  return { draft: compactDraft(archive, brief), mode: 'compact' };
+}
+
+/**
+ * Any length goes. What the chat box gets, and what is attached: the whole text when it fits the destination's box;
+ * otherwise the summary typed with the whole text attached; and if even the summary is too long, a short note typed
+ * with everything attached. Nothing is cut and nothing is refused.
+ */
+export function fitToBox(full: string, summary: string | undefined, target: ProviderId, file: { name: string; text: string }): { draft: string; attach?: { name: string; text: string } } {
+  if (draftBudget(full, target).fits) return { draft: full };
+  const pointer = `\n\nAttached: “${file.name}”, the complete conversation word for word. Check it for anything the summary above leaves out.`;
+  if (summary && draftBudget(summary + pointer, target).fits) return { draft: summary + pointer, attach: file };
+  return { draft: wrapHandoff(`The whole conversation is attached as “${file.name}”. Read it first: it is the complete record, word for word.`), attach: file };
 }

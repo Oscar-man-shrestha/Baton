@@ -238,12 +238,13 @@ export function renderBrief(brief: Brief, cap = BRIEF_TOKENS): { text: string; r
 }
 
 const handoffIntro = 'The following is user-reviewed project context from another chat.';
-// What the receiving AI is asked to do: pick up where the work stopped, not acknowledge or summarize back (Codex, Gemini
+// What the receiving AI is asked to do (tools sentence added after DeepSeek, handed a Claude coding chat, pretended to
+// run `<bash>` commands it doesn't have): pick up where the work stopped, not acknowledge or summarize back (Codex, Gemini
 // CLI and Claude Code's handoffs end the same way), and not bring back what the user turned down. One question is
 // allowed when something essential is unclear, so the instruction can't override the user's own rules.
-const handoffOutro = "Pick up the work where it stopped: the user's latest request (and the next step, where one is listed). Continue as if you had been part of that conversation. Don't summarize this context back or reply with only an acknowledgment, and don't suggest what the user already turned down. If something essential is truly unclear, ask one short question; otherwise go ahead with a sensible default.";
+const handoffOutro = "Pick up the work where it stopped: the user's latest request (and the next step, where one is listed). Continue as if you had been part of that conversation. Don't summarize this context back or reply with only an acknowledgment, and don't suggest what the user already turned down. The earlier assistant may have had tools you don't have here (running code, reading or editing files, browsing): don't pretend to run commands or to have seen files; work from this context and any attached files, and say what you need from the user to go further. If something essential is truly unclear, ask one short question; otherwise go ahead with a sensible default.";
 // Drafts made by Baton 1.0 and earlier, still recognised when one is pasted into a chat that is captured again.
-const earlierOutros = ["Continue the conversation naturally from the user's goal. If essential details are unanswered, ask the most useful question or offer a sensible default. Do not reply with only an acknowledgment."];
+const earlierOutros = ["Pick up the work where it stopped: the user's latest request (and the next step, where one is listed). Continue as if you had been part of that conversation. Don't summarize this context back or reply with only an acknowledgment, and don't suggest what the user already turned down. If something essential is truly unclear, ask one short question; otherwise go ahead with a sensible default.", "Continue the conversation naturally from the user's goal. If essential details are unanswered, ask the most useful question or offer a sensible default. Do not reply with only an acknowledgment."];
 
 /** A pasted Handoff draft contributes only what the user said in it, never Handoff's own wording or quoted assistant text. */
 function userStatementText(text: string, depth = 0): string {
@@ -283,19 +284,18 @@ export function wrapHandoff(briefText: string): string {
 }
 
 /**
- * How much Baton types into each AI's chat box at once. Measured in Brave, Oct 2026: ChatGPT and Grok took 120,000+
- * characters, Perplexity 60,000+, Gemini stops at 32,000; Claude and DeepSeek (behind sign-in) are unverified. Kept far
- * below what fits, because a long draft also spends the destination's allowance.
+ * How much text each AI's chat box takes at once, measured in Brave with signed-in accounts (Oct 2026): DeepSeek 200,000+
+ * characters, ChatGPT and Grok 120,000+, Claude 100,000+, Perplexity 60,000+, Gemini about 32,000. Baton types up to a
+ * little under that. Any longer chat still goes: a summary is typed and the whole chat is attached (see fitToBox).
  */
-export const draftLimits: Record<ProviderId, { tokens: number; chars: number }> = {
-  chatgpt: { tokens: 6000, chars: 60000 }, grok: { tokens: 6000, chars: 60000 }, perplexity: { tokens: 6000, chars: 50000 },
-  gemini: { tokens: 6000, chars: 30000 }, claude: { tokens: 6000, chars: 30000 }, deepseek: { tokens: 6000, chars: 30000 }
+export const draftLimits: Record<ProviderId, { chars: number }> = {
+  deepseek: { chars: 150000 }, chatgpt: { chars: 100000 }, grok: { chars: 100000 }, claude: { chars: 100000 },
+  perplexity: { chars: 55000 }, gemini: { chars: 30000 }
 };
-/** Room for the compact brief, used when a chat is too long to send whole. */
+/** Room for the compact brief, used when a chat is too long to type in whole. */
 export const BRIEF_TOKENS = 3000;
-/** Whether a draft can be typed into the destination in one go; with no destination, the smallest limit of all. */
+/** Whether text fits the destination's chat box in one go; with no destination, the smallest box of all. */
 export function draftBudget(text: string, target?: ProviderId): { approximateTokens: number; fits: boolean; limit: number } {
-  const limit = target ? draftLimits[target] : { tokens: Math.min(...Object.values(draftLimits).map(item => item.tokens)), chars: Math.min(...Object.values(draftLimits).map(item => item.chars)) };
-  const approximateTokens = encode(text).length;
-  return { approximateTokens, fits: text.trim().length > 0 && approximateTokens <= limit.tokens && text.length <= limit.chars, limit: limit.tokens };
+  const limit = target ? draftLimits[target].chars : Math.min(...Object.values(draftLimits).map(item => item.chars));
+  return { approximateTokens: text.length > 200000 ? Math.round(text.length / 4) : encode(text).length, fits: text.trim().length > 0 && text.length <= limit, limit };
 }
