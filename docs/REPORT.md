@@ -391,9 +391,9 @@ The six one-click drafts were sent to two real AIs, one fresh chat each (ChatGPT
 | long-chat | ✓ 4/4 | ✓ 3/4 | The undo command; kept typer, `moves.log`, never overwrite |
 | marathon (summary) | ✓ 4/4 | ✓ 4/4 | Continued from the compact brief alone, using its exact paths |
 
-**11 of 12 pass the scorer, and on reading all 12 continue the work** with the user's decisions and constraints. Baton's reply check raised no false alarm on any of them.
+**11 of 12 pass the scorer, and on reading all 12 continue the work** with the user's decisions and constraints. Baton's reply check first flagged 8 of these 12 good replies; the fix this run prompted brought that to zero, and planted slips are still caught.
 
-What the live run found and fixed: the scorer's false alarms on negated mentions (“no Redux”); a compact-brief weakness on very repetitive chats (a repeated question listed 14 times, a problem taken for a rejected approach, fragment “exact details”), fixed with the summary 59% smaller at the same score. Still open: a changed figure (the Takayama nights) is something no word-matching check catches.
+What the live run found and fixed: the reply check's false alarms (above); the scorer's false alarms on negated mentions (“no Redux”); a compact-brief weakness on very repetitive chats (a repeated question listed 14 times, a problem taken for a rejected approach, fragment “exact details”), fixed with the summary 59% smaller at the same score. Still open: a changed figure (the Takayama nights) is something no word-matching check catches.
 
 ### 9.4 Real-account checks
 
