@@ -1,78 +1,88 @@
-# Baton Pass privacy policy draft
+# Baton Pass privacy policy
 
-Baton Pass (shown as “Baton” in the extension) was previously named Handoff. Baton is an independent extension, not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
+**Effective:** 24 October 2026 · **Applies to:** Baton Pass 1.1.0 and later (shown as “Baton” in the browser) · **Contact:** batonforai@gmail.com
 
-**Date:** 2026-10-23. This draft must be published at a stable public URL before a Chrome Web Store submission.
+Baton Pass is an independent browser extension. It is not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
 
-Baton reads rendered conversation text and the unsent prompt in the editor only on the supported AI chat sites named in its manifest. It stores up to 300,000 characters of rendered chat text per chat as a local transcript and uses that text to maintain a local project brief, suggest a destination, show a reviewable handoff draft, and compare current chat size with past chats that showed visible limit notices. The comparison is low confidence and does not know the provider's remaining allowance. The unsent prompt is used for the current suggestion and an approximate token count while typing; it is not saved separately. The prompt status line appears below the composer only when there is room, and can be absent on some layouts. Transcripts, briefs, settings, diagnostics, and limit-event timestamps with approximate token counts are stored in Chrome's local extension storage on the user's device. Users can export projects or a full backup of saved conversation archives, folders, and edited drafts, choose automatic expiry of saved briefs and projects after 7, 30, or 90 days, or delete all Baton data from the options page. Expiry runs when Baton opens.
+## In short
 
-Baton can open Gemini so the user can select a Google account through Google’s own profile menu. It does not select accounts itself. Baton has no analytics. This configured build supports optional Google app sign-in and user-initiated Supabase backup; local use needs no account. Details follow below. It does not read cookies, passwords, or provider session credentials. It does not submit messages. The user chooses a destination and presses Send there. The extension can optionally open a destination tab and insert text into its editor as a draft.
+- Baton works on **six AI chat sites only**: chatgpt.com, claude.ai, gemini.google.com, chat.deepseek.com, grok.com and www.perplexity.ai.
+- Your chats, batons, drafts and settings are kept **in your browser**. Baton has **no analytics and no tracking**.
+- Baton **never sends a message** for you. It types a draft (and may attach files) in the chat box of the AI *you* choose; you read it and press Send.
+- Baton **never reads cookies or passwords** and never signs you in or out of an AI service.
+- Data leaves your browser only when **you** do something that needs it: send a draft, back up, or send feedback. The one automatic request is a daily download of a public file of AI rankings, which carries nothing about you.
 
-The local transcript can be incomplete if messages were never rendered, windows do not overlap, or its size cap trims early text. The compact brief can omit details. If the user selects “Try to include older messages” before capture, Baton temporarily scrolls the current chat to read additional rendered messages, then restores the prior scroll position. This is a local, user-initiated action and may still miss some messages on sites that virtualize or load history differently.
+## What Baton reads, and where
 
-**Saving a selection (1.1.0).** When the user selects part of a conversation and chooses **Save as baton** (from the button by the selection, the right-click item, or the keyboard shortcut), Baton saves only the selected messages, plus the user's own message that a selected reply answers, as a local baton. It is stored in the browser like any other baton and is sent nowhere; it reaches another AI only as a draft the user reviews and sends. The `contextMenus` permission adds that one right-click item on the six supported chat sites. Keyboard shortcuts need no permission and read nothing.
+| Where | What | Why |
+|---|---|---|
+| The six AI chat pages | The conversation shown on the page and the text you are typing (not sent anywhere) | To build a baton (a saved copy and a summary), count tokens, and suggest which AI fits your task |
+| The same sites' own chat data | The chat you are on, as that service stores it, fetched from that service's own site with the session the page already has | So a saved or passed chat is complete: the page often shows only the messages near the screen |
+| The same sites' own files | Files you uploaded to that chat, fetched from that service's site | Only when you pass a chat, to attach them to the next AI's chat box |
+| The same sites' own usage figures | Usage responses (for example “72% of session left, resets 14:40”) that the page fetches for itself or that Baton requests from the same address | To show how much each AI has left |
 
-**Reading the whole chat (1.1.0).** On all six supported services (ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity), when the user saves, passes or captures a chat, Baton reads that chat as the service stores it, from the service's own site with the session the page already has (on ChatGPT and DeepSeek, the page's own session token, and on Gemini the page's own request token, used only for that request and never stored). The request goes only to the service the user is on; nothing is sent to Baton or anyone else. If that fails, Baton reads the page instead.
+On ChatGPT and DeepSeek, fetching the chat or usage uses the short-lived session token that site's own page uses; on Gemini, the page's own request token. Baton uses it only for that one request to that same site, and **never stores it or sends it anywhere else**. On ChatGPT, Claude and Gemini a small script copies only the usage responses those pages fetch (by address); from a reply stream it keeps only the usage report, never the reply. The page receives the original unchanged.
 
-**Files in a handoff (1.1.0).** When the user passes a chat, Baton may fetch the files the user uploaded to that chat from the service's own site (with the page's session), hold them in memory, and attach them, together with a Markdown copy of the chat, to the chat box of the service the user chose. They are uploaded to that service only if the service does so on attaching, as with any file the user adds; Baton sends nothing itself and keeps no copy.
+Baton does not read any other website. It cannot see your other tabs' addresses.
 
-**Have this AI write the handoff (1.1.0, opt-in).** When the user chooses it, Baton types a request into the current chat's own text box; the user decides whether to send it to that service. Baton then reads the service's reply on the page, checks it locally against names and figures from the chat, and saves it as a local baton. Baton itself sends nothing.
+## What Baton keeps on your device
 
-Baton may recognize common key and personal-data patterns before rendering a draft, but automated detection can miss sensitive data. Users should inspect and edit the draft. Copying a draft or sending it in a provider's chat is governed by that provider's own policies.
+Stored in the browser's own extension storage, on your device:
 
-Baton also reads visible usage notices on supported chat pages. It stores the most recent interpreted usage signal per service locally and shows it in a collapsed usage view. Balances older than one hour are shown as unknown, except figures a service reported together with their reset time, which are kept until that reset (at most 8 days) and shown with the time they were read. If you turn on desktop usage alerts, Chrome asks for optional notification permission. Baton then notifies you once per observed threshold/window when a service visibly reports 80% or 95% usage, a near-limit notice, or a reached limit. It saves recent notification keys locally to avoid repeats. On ChatGPT, Claude and Gemini, Baton also reads a copy of the usage response the site's own page fetches for itself: ChatGPT's feature allowances (such as Thinking, deep research, file uploads and image generation) and its Codex/Work windows, Claude's usage meter (from its usage address, and from the usage report inside Claude's reply streams, where Free accounts get it), and Gemini's quota. A small script in those pages copies only those responses, by address, and from a reply stream keeps only its usage report, never the reply; the page receives the original unchanged. The copy is interpreted on the device and only the resulting figures (feature name, amount left or percent used, reset time) are stored locally. To keep these figures current without reloading a chat page, Baton also requests those same usage addresses itself, with the user's existing sign-in: when a chat page of ChatGPT, Claude or Gemini opens, about 30 seconds after the user sends a message there, and every 5 minutes for the services the user has turned on (at most once a minute per service). It makes the request from an open tab of that service when there is one, otherwise from the extension's background. For ChatGPT this needs the short-lived access token ChatGPT's own page uses; Baton reads it from chatgpt.com for that request only and never stores it or sends it anywhere else. Baton does not read cookies or passwords, requests no chat content, and sends nothing to any server of its own. It cannot determine a balance a service neither displays nor reports.
+- **Batons:** saved chats (up to 300,000 characters of chat text per chat), summaries, edited drafts, folders and projects.
+- **Usage readings:** the latest figures each service reported, with when they were read; the times (not the text) of messages you send, to count messages between readings.
+- **Settings and small diagnostics:** your choices, the last check results, which tips you dismissed.
 
-When the user opens Baton on a supported chat tab that was already open before installation or update, the extension uses `scripting` and explicit host access limited to the six supported chat sites to start its packaged content script on that active tab. The persistent sidebar can reconnect when the user selects another supported chat tab. This begins local observation without reloading the page. It does not run code on unrelated sites or submit a chat message.
+You can export everything to a backup file, set saved batons to expire after 7, 30 or 90 days, delete single batons, or delete all Baton data in Settings. Removing the extension removes this storage. A backup file contains your chat text: keep it private.
 
-The source includes an opt-in, hash-verified remote selector updater, but the current interface does not enable it. If introduced later, the privacy policy and permission disclosures must be updated with the exact endpoint and data transferred.
+## What leaves your device, and only when
 
-## Switching account in the same AI
+| When | What is sent | To whom |
+|---|---|---|
+| You pass a chat to another AI and press Send there | The draft you reviewed, plus any files Baton attached (your uploads, and for long chats a Markdown copy of the chat) | The AI service you chose. Attaching a file may upload it to that service as soon as it is attached, as when you add a file yourself |
+| You choose “Have this AI write the handoff” and press Send | Baton's request, typed into that chat's box | The service you are on |
+| You sign in with Google and press **Back up now** (optional) | A snapshot of your batons, summaries, drafts and folders | Baton's Supabase project (`qeoduozlznznptwsfzbt.supabase.co`), protected by per-user access rules; **not end-to-end encrypted** |
+| You press **Send** on a feedback screen, or tap an answer on the one-time check-in card | The kind of feedback, an optional reason and message, which AI site it concerns, and (if left on) Baton's version and your browser's name. Never chats | Baton's feedback table (insert-only: the public key can add answers, not read them) |
+| Once a day, automatically | A plain download request for `rankings.json` from Baton's GitHub repository; no cookies, nothing about you, your chats or prompts | GitHub (raw.githubusercontent.com) |
+| You remove Baton | The browser opens Baton's uninstall feedback page; its address carries only Baton's version. Answering is optional | GitHub Pages; answers, if sent, go to the feedback table |
 
-"Same AI, another account" saves the project on this device and offers it on the next new chat with that AI, for six hours. Pressing Not now forgets the waiting project; the baton itself stays saved. For ChatGPT, Claude and Grok, Baton can open the service's own log-out page, but only after the user presses the button and confirms. For Gemini it opens Google's account chooser. Baton never enters passwords, never reads account details or cookies, and never signs anyone in.
+Copying a draft puts it on your clipboard. Text you send to an AI service is governed by that service's privacy policy.
 
-## Feedback
+**Google Drive backup** exists in the code but is switched off in this release. If it is turned on in a future release, it will save one file, “Baton backup.json”, in your own Drive with the `drive.file` scope (Baton could see only the files it created), and this policy will be updated first.
 
-Baton asks for feedback in three places:
-- the uninstall page;
-- the Feedback page inside Baton;
-- a one-time "How's Baton working for you?" card after five passes.
+## Things Baton does on your device only
 
-Nothing is sent unless the person presses Send, or taps an answer on the check-in card. What is sent is only what they chose:
-- the kind of feedback and an optional reason;
-- their message and which AI site it's about;
-- Baton's version and the browser's name. On the Feedback page these two can be switched off.
+- **Suggesting an AI for your task:** the topic of your prompt is guessed from keywords and, when they can't tell, by a small open-source language model (all-MiniLM-L6-v2) that ships inside Baton and runs offline in a hidden extension page. Prompts are never sent anywhere for this.
+- **Checking a handoff:** after the next AI's first reply, Baton compares it with the handoff (your rules, what you turned down, your latest request) and may offer a correction for the chat box.
+- **Long-chat tip:** Baton measures the chat's length (at most once a minute while the chat changes) and may suggest a fresh chat with a handoff.
+- **Redaction:** before a draft is shown, common key, token and personal-data patterns are masked. This is a safety net, not a guarantee: always read the draft.
 
-Chats are never sent. Answers go to the project's own Supabase database, where the public key can add answers but not read them. If sending isn't available, the page offers to copy the message or email it to batonforai@gmail.com instead.
+## Accounts and sign-in
 
-## Google Drive backup (optional)
+Local use needs no account. Optional Google sign-in is used only for Baton's own backup; Baton keeps its sign-in in session storage, cleared when the browser closes. “Same AI, another account” only opens that service's own log-out page (after you confirm) or Google's account chooser. Baton never enters passwords and never reads account details.
 
-When the person chooses **Back up to Drive**, Baton signs in with Google and saves a file named "Baton backup.json" in their own Google Drive. It uses the `drive.file` permission, so Baton can only see files it created, never anything else in their Drive. The backup holds their saved batons, projects, folders and settings. **Restore from Drive** reads that file back, and newer copies on the device are kept. **Disconnect Google Drive** removes Baton's access on that device; the file stays in their Drive until they delete it.
+## Permissions
 
-## Welcome and uninstall pages
+| Permission | Used for |
+|---|---|
+| Access to the six AI chat sites | Reading chats and usage, typing drafts and attaching files there. No other site |
+| `storage` | Keeping your batons, settings and usage readings on your device |
+| `activeTab`, `scripting` | Connecting Baton to an AI tab that was already open when Baton was installed or updated |
+| `sidePanel` | Opening Baton in the browser's side panel |
+| `alarms` | Delayed usage refresh and the reset reminders you ask for |
+| `offscreen` | Running the on-device task model in a hidden extension page |
+| `contextMenus` | One right-click item, “Save selection as a baton”, on the six AI sites |
+| `identity` and access to Baton's Supabase address | Optional Google sign-in and backup |
+| `notifications` (optional, asked when you turn on alerts) | Desktop alerts for usage limits and resets |
 
-After a first install, Baton opens its own welcome page inside the extension. When Baton is removed, the browser opens a feedback page on Baton's site (`oscar-man-shrestha.github.io/handoff/uninstall.html`). Its address carries only Baton's version number. Answering is optional. Only the chosen reason, any text the user types, and the version are sent, to the project's own Google Form, and only when the user presses Send feedback. Until that form is connected, the page only offers to copy the answer or open it in the user's own email app, addressed to batonforai@gmail.com.
+## Children
 
-## Suggestion rankings
+Baton is not directed at children under 13 and does not knowingly collect their data.
 
-Once a day Baton downloads one public file, `rankings.json`, from its GitHub repository (`raw.githubusercontent.com/Oscar-man-shrestha/handoff/main/rankings.json`). The file holds the order in which Baton suggests AIs for each kind of task. The request carries no cookies and no information about the user, their chats or their prompts. The file is checked before use, and Baton keeps its built-in list if the file is missing, invalid or older. The task type of a prompt is guessed on the device: first from keywords, and when they can't tell, by a small open-source language model (all-MiniLM-L6-v2) that ships inside Baton and runs in a hidden extension page. Prompts are never sent anywhere for this, and the model works offline. The order a user sets in Settings, and the AIs they pick, are stored only in this browser.
+## Changes to this policy
 
-## Optional Google sign-in and Supabase backup
-
-The source now includes optional Google OAuth/PKCE and Supabase backup code. When configured and connected, Google and Supabase process app sign-in; Baton stores its own app authentication in extension session storage, cleared when the browser exits. It never reads an AI provider's session credentials. The configured build requests identity access and the exact Supabase project origin, not arbitrary websites.
-
-Only pressing Back up now uploads a snapshot of saved conversations, project summaries, edited drafts, and folders to the configured Supabase project. No automatic background upload is performed. The snapshot may contain sensitive chat content, is not end-to-end encrypted, and is protected by per-user database access rules tested for owner isolation. Restore into an empty separate browser profile passed live; other-computer and full session lifecycle acceptance remain pending. Deleted batons are left out of uploads and backup files; only their chat addresses are kept so a restore does not bring them back. Cloud backup replaces the previous snapshot. Restore previews counts and preserves newer local copies. Disconnect retains local data and the remote backup; Delete cloud backup removes the remote snapshot separately. Local Delete all does not delete a cloud backup.
-
-The configured project is `qeoduozlznznptwsfzbt.supabase.co`. Google sign-in, explicit upload, and same-installation restore passed live in Brave on 2026-10-21. App sign-in is cleared on extension reload or browser exit; the saved local library and cloud backup remain. Cross-device behavior remains pending. Publish this policy with final project/operator contact details before distribution.
-
-## Sidebar and usage display
-
-Usage readings come from what each service displays on its own pages and from the usage responses those pages fetch for themselves and from Baton's own requests to those usage addresses (both described above). When a service's usage address does not answer, Baton can open a service's usage page in a background tab for a few seconds: when the user presses Refresh usage, when Baton is opened (at most every 10 minutes), and about 30 seconds after the user sends a message on Claude, Gemini or ChatGPT (at most every 5 minutes per service). The last two can be switched off in the Usage window. Baton also stores, locally, the times of messages the user sends (not their text) to count messages and estimate usage between readings. The alarms permission is used for that delayed refresh and for reset reminders the user asks for from the limit rescue card: Baton schedules one alarm per service at the reset time the service displayed, then marks its toolbar icon and, if desktop alerts are allowed, shows a notification. When a service shows a limit, the rescue card can open another service with the project as an unsent draft, copy the project to the clipboard, or open Google's own account chooser; it never signs anyone in or out. The sidePanel permission lets the user open Baton in the browser's sidebar. The status strip remains outside the chat editor and can be turned off. Separate observed windows/features are stored locally, with source times; elapsed resets and old readings become unknown. Toolbar badges reflect the last observed service figure, not an independently measured live account balance. Full local backup files contain chat text and should be kept private.
-
-
-### Usage observation reliability, version 0.2.1
-
-A short equality fingerprint of usage-widget text anchors unchanged relative resets; Baton does not store that surrounding widget text. Per-tab numeric badge readings are held in extension session storage, expire from display, and are cleared on loading a page/closing a tab. Checks run when a supported page updates and when the user returns to a tab; these are observed snapshots rather than continuous authenticated polling. No extra permission or remote provider request is added by this update.
+Changes are published in this file (with a new effective date) and noted in the [changelog](CHANGELOG.md). A change that sends new data anywhere will be described before it ships.
 
 ## Contact
 
-Questions about privacy or this policy: **batonforai@gmail.com**.
+Questions or requests about privacy: **batonforai@gmail.com**. To delete a cloud backup, use **Delete cloud backup** in Baton's Backups and data, or write to this address.

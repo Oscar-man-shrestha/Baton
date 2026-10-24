@@ -1,60 +1,116 @@
-# Chrome Web Store listing draft
+# Chrome Web Store listing — Baton Pass 1.1.0
 
-**Name:** Baton Pass — continue any AI chat where you left off
+Everything to paste into the Chrome Web Store developer dashboard (and Microsoft Edge Add-ons, which uses the same fields). The step-by-step submission guide is [PUBLISHING.md](PUBLISHING.md).
 
-**Short description:** Save your AI project, see real usage limits, and pass it to another AI as a draft you send yourself.
+## Store listing tab
 
-**Description:** Baton helps you carry a project's goal, decisions, latest artifact, and next step into another AI chat. Open a supported chat, capture the visible conversation (or select just the part you need and save that as its own baton), inspect the local brief and redaction receipt, choose a destination, and decide when to send. The extension does not submit messages automatically. It shows an approximate prompt token count without covering the editor when there is room, and only shows a remaining balance when the service visibly reports one. A collapsed usage view covers six supported chats and offers optional desktop alerts at visible thresholds. Unknown or stale balances are labeled accordingly. Baton keeps a bounded local transcript that the user can copy, with warnings when capture may be incomplete. The current build has synthetic fixtures for all six services; live-site compatibility must be confirmed before publication. Baton is an independent extension, not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
+**Name** (in the manifest: `Baton Pass`; the store shows the manifest name)
 
-**Permissions justification:**
+```
+Baton Pass
+```
 
-- `storage`: keeps bounded local transcripts, briefs, settings, project records, and diagnostics.
-- Tabs: Baton opens the AI you choose in a new tab and sends its draft there. It needs no `tabs` permission for this; it can only see tabs on the six AI sites listed below.
-- `activeTab`: checks the chat tab the user is working in.
-- `scripting`: connects the packaged Baton content script to the active supported chat after the user opens Baton, if that tab predates installation or update. Explicit host access to the same six supported chat sites allows the persistent sidebar to reconnect on tab changes. No page reload is required.
-- `sidePanel`: opens the library/capture interface in the browser sidebar at the user’s request.
-- `offscreen`: runs Baton's on-device task model (a small open-source language model, bundled in the extension) in a hidden extension page, to suggest which AI fits a prompt. The text is processed on the device and never sent anywhere. The extension's content security policy allows WebAssembly (`wasm-unsafe-eval`) only for this model engine; no remote code is loaded.
-- `contextMenus`: adds one right-click item, “Save selection as a baton”, shown only on the six AI chat sites when text is selected. The selected text is saved in the browser like any baton; nothing is sent anywhere.
-- Keyboard shortcuts (manifest `commands`, no permission): open the Pass menu, keep the chat as a baton, save the selected part as a baton, and open Baton. Users can change them at chrome://extensions/shortcuts.
-- Optional `notifications`: requested only when the user enables desktop usage alerts; shows alerts for service-reported usage thresholds and limit notices.
-- Access to the six named AI chat hosts: reads rendered conversation text, observes visible limit notices, and inserts a reviewed draft in the destination editor. No access to unrelated websites is requested.
+**Summary** (manifest `description`, 132 characters max; this is what the manifest ships)
 
-**Privacy policy URL:** https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md
+```
+Continue any AI chat where you left off: save your project, see usage limits, and pass it to another AI as a draft.
+```
 
-**Publication status:** pending: repo not yet published. The file is in this repository root; the URL is the planned location supplied by the user. Do not submit this listing until the user publishes the repository and the URL resolves publicly to the final policy.
+**Category:** Productivity → Tools (or Workflow & Planning) · **Language:** English
 
-## 0.2.0 additions and release boundary
+**Description**
 
-The local build adds recent contexts, folders, exact edited draft saving, full local backup/restore, rich Markdown/full-conversation export, and a responsive sidebar. It retains only rendered text and explicitly warns about missing history/media and the archive cap. The configured build includes optional Google sign-in, identity permission and the exact Supabase project origin; local use remains available without an account.
+```
+Hit your ChatGPT, Claude or Gemini limit in the middle of a project? Baton carries the whole conversation to another AI so you can keep going, without re-explaining anything.
 
-When configured, Google/Supabase sign-in adds `identity` and the exact configured Supabase project origin. Installed Google sign-in, manual upload and same-installation restore passed live in Brave. Cross-device restore, disconnect, session lifecycle and cloud deletion still need acceptance before publication. Do not advertise live cloud sync or continuous exact quota tracking in the current listing. The planned privacy-policy URL above remains pending: repo not yet published.
+HOW IT WORKS
+• A glowing Baton button sits by the chat box on ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity.
+• Pick another AI. It opens with your project typed in as a draft. You read it and press Send. Baton never sends anything for you.
 
-## Store images (0.3.41)
+WHAT MAKES THE HANDOFF GOOD
+• The whole chat, not just what's on screen: Baton reads the chat as the service stores it, so long chats keep their first messages.
+• Exact names and figures (file names, functions, paths, amounts) are kept word for word.
+• Long chats go as a summary plus the complete chat attached as a file. Your uploaded files are re-attached where the site allows.
+• After the next AI's first reply, Baton checks it took in your rules, what you turned down and your latest request, and offers a one-click correction.
+• "Messages: 64 (32 yours, 32 replies), in order": you see what was captured.
 
-Rendered with `npm run render:store` from `store/src/*.html` (local Brave or Chrome, throwaway profile). Upload these files from `store/`:
+USAGE LIMITS IN ONE PLACE
+• A small bar under the chat box shows what each AI has left and when it resets, from the figures the service itself reports.
+• When you hit a limit, Baton suggests where to continue, ranked for your task.
+• A tip suggests a fresh chat when a conversation gets long enough that answers start to slip.
 
-| Store field | File | Size |
+BATONS
+• Save a chat (or just the part you select) as a baton, file it in folders, and pass it on later. Keyboard shortcuts and a side panel included.
+
+PRIVATE BY DESIGN
+• Your chats stay in your browser. No account needed, no analytics.
+• Baton never reads cookies or passwords and never signs you in or out.
+• Optional Google sign-in only for your own backup.
+
+Baton Pass is independent and not affiliated with OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
+```
+
+**Images** (all in `store/`, rendered by `npm run render:store` from `store/src/*.html`)
+
+| Field | File | Size |
 |---|---|---|
-| Screenshot 1 | `screenshot-01-continue.png`: hit the limit, pass the baton | 1280×800 |
-| Screenshot 2 | `screenshot-02-usage.png`: usage bar and all six lanes | 1280×800 |
-| Screenshot 3 | `screenshot-03-suggest.png`: suggestions by task | 1280×800 |
-| Screenshot 4 | `screenshot-04-draft.png`: arrives as a draft, you press Send | 1280×800 |
-| Screenshot 5 | `screenshot-05-private.png`: privacy rules | 1280×800 |
-| Small promo tile | `promo-small-440x280.png` | 440×280 |
-| Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
+| Store icon | `store/icon-128.png` | 128×128 |
+| Screenshot 1 | `store/screenshot-01-continue.png` — hit the limit, pass the baton | 1280×800 |
+| Screenshot 2 | `store/screenshot-02-usage.png` — usage bar and all six AIs | 1280×800 |
+| Screenshot 3 | `store/screenshot-03-suggest.png` — suggestions by task | 1280×800 |
+| Screenshot 4 | `store/screenshot-04-draft.png` — arrives as a draft, you press Send | 1280×800 |
+| Screenshot 5 | `store/screenshot-05-private.png` — privacy | 1280×800 |
+| Small promo tile | `store/promo-small-440x280.png` | 440×280 |
+| Marquee promo tile | `store/promo-marquee-1400x560.png` | 1400×560 |
 
-The screenshots show Baton's real interface with example chats and figures.
+**Website:** https://oscar-man-shrestha.github.io/handoff/ · **Support:** batonforai@gmail.com
 
-**Suggested name and summary.** The name carries the use case, because people search for the problem:
-- Name: `Baton Pass: Continue AI chats when you hit the limit`
-- Summary (132 characters max): `Hit your ChatGPT, Claude or Gemini limit? Continue the same chat in another AI in one click, with your context. Free and private.`
+## Privacy practices tab
 
-## Contact
+**Single purpose**
 
-- Developer and support email (Chrome Web Store contact field, privacy policy, site footer): **batonforai@gmail.com**
-- Google account display name: **Baton**
-- Use this account for the developer registration (one-time $5 fee), the uninstall Google Form, and support mail. Turn on 2-Step Verification.
+```
+Baton lets you continue an AI chat in another AI chat service: it saves the conversation from the supported AI chat site you are on and, when you choose, opens another supported AI chat with that conversation as an unsent draft, showing each service's usage limits so you know when and where to continue.
+```
 
-## Optional sign-in permission
+**Permission justifications**
 
-`identity`: used only when the person chooses Google sign-in, for Baton backup or Google Drive backup. It opens Google's own sign-in window. Drive access uses the `drive.file` scope, so Baton sees only the files it creates.
+| Permission | Justification to paste |
+|---|---|
+| `storage` | Keeps the user's saved chats (batons), summaries, settings and usage readings in the browser on their device. |
+| `activeTab` | Connects Baton to the AI chat tab the user is using when they open Baton's popup. |
+| `scripting` | Starts Baton's packaged content script on an AI chat tab that was already open before Baton was installed or updated, so the user does not have to reload the page. No remote code. |
+| `sidePanel` | Opens Baton's library in the browser side panel when the user asks. |
+| `alarms` | Schedules the delayed usage refresh after the user sends a message and the reset reminders the user asks for. |
+| `offscreen` | Runs Baton's bundled on-device model (all-MiniLM-L6-v2, WebAssembly) in a hidden extension page to suggest which AI fits a prompt. Nothing is sent anywhere. |
+| `contextMenus` | Adds one right-click item, "Save selection as a baton", on the six AI chat sites. |
+| `identity` | Optional Google sign-in, used only when the user chooses to back up their batons. |
+| Host permissions (chatgpt.com, claude.ai, gemini.google.com, chat.deepseek.com, grok.com, www.perplexity.ai) | Reads the conversation and usage figures on these AI sites, types the reviewed draft into the chosen AI's chat box and attaches the user's files there. No other website is accessed. |
+| Host permission `qeoduozlznznptwsfzbt.supabase.co` | Baton's own backend, used only for the optional backup the user starts and for feedback the user chooses to send. |
+| `notifications` (optional) | Requested only when the user turns on desktop usage alerts. |
+
+**Remote code:** No, I am not using remote code. (All JavaScript and the WebAssembly model are in the package. `wasm-unsafe-eval` in the extension pages' CSP is needed only to run the bundled WebAssembly model.)
+
+**Data usage** (what the form calls "collected" = sent off the device)
+
+| Data type | Tick? | Why |
+|---|---|---|
+| Website content | **Yes** | Chat text is sent to Baton's Supabase backend only when the user chooses Back up now; drafts and files go to the AI service the user picks. |
+| Personally identifiable information | **Yes** | Google sign-in for the optional backup provides the account email. |
+| Authentication information | No | Baton never reads passwords or cookies; Google sign-in is handled by Google's own window. |
+| Personal communications | No | (Chats with AI services are declared under website content.) |
+| Health, financial, location, web history, user activity | No | Not collected. |
+
+Certify all three statements: data is not sold to third parties; not used or transferred for purposes unrelated to the single purpose; not used to determine creditworthiness or for lending.
+
+**Privacy policy URL:** `https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md` (the repository must be public, and `PRIVACY.md` on `main`).
+
+## Distribution tab
+
+Visibility **Public**, all regions, free. (Unlisted first is a good way to try the store build with a few people.)
+
+## Test instructions for the reviewer (optional field)
+
+```
+No account is needed. Open https://chatgpt.com (signed in or not), send a message, then click the glowing Baton button next to the chat box and pick another AI: it opens with the conversation typed in as an unsent draft. The toolbar icon opens the library and usage view. Optional Google sign-in is only for backup.
+```

@@ -1,59 +1,104 @@
-# Baton Pass 0.3.24
+<p align="center">
+  <img src="store/icon-128.png" width="96" height="96" alt="Baton Pass logo">
+</p>
 
-**Baton Pass** (shown as **Baton** in the extension; formerly *Handoff*) keeps your AI project context and its usage limits in one place, and passes the project to another AI as a draft you send yourself.
+<h1 align="center">Baton Pass</h1>
 
-Context library: Capture Page, New Baton, New Folder, recent copy/delete, searchable library and sidebar. Captures save full snapshots; compact handoffs can be reviewed and opened as drafts in another AI. No automatic send.
+<p align="center">
+  <b>Continue any AI chat in another AI, with nothing lost.</b><br>
+  Save your project, see every AI's usage limits, and pass the whole chat to another AI as a draft you send yourself.
+</p>
 
-Supabase owner-scoped storage is configured and SQL isolation checks passed. Google sign-in, explicit cloud backup, and same-installation restore passed live in Brave on 2026-10-21. The existing local library was retained. Cross-device restore, session expiry/restart, cancellation, and cloud deletion remain untested. Local saves and full backup/restore require no account. Exact hidden provider quotas remain unavailable.
+<p align="center">
+  <a href="https://github.com/Oscar-man-shrestha/handoff/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Oscar-man-shrestha/handoff/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Version 1.1.0" src="https://img.shields.io/badge/version-1.1.0-7c5cff">
+  <img alt="Manifest V3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green"></a>
+</p>
 
-See [CHANGES_0.3.0.md](CHANGES_0.3.0.md), [VERIFICATION.md](VERIFICATION.md), [CLOUD_SETUP.md](CLOUD_SETUP.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+<p align="center">
+  <a href="https://oscar-man-shrestha.github.io/handoff/">Website</a> ·
+  <a href="docs/REPORT.md">Project report</a> ·
+  <a href="PRIVACY.md">Privacy</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-See [LIVE_VALIDATION_2026-10-21.md](LIVE_VALIDATION_2026-10-21.md) for the installed build and live cloud evidence. The 0.3.2 sidebar follows tab changes without replacing an edited draft.
+<p align="center">
+  <img src="store/screenshot-01-continue.png" width="720" alt="Hitting a limit in one AI and passing the chat to another with Baton">
+</p>
 
-## Development and earlier architecture notes (historical)
+---
 
-> **0.2.1 follow-up:** see `REQUIREMENTS_STATUS.md` for all nine requested outcomes, including incomplete cloud and quota integration. This release fixes reset drift, alert races, stale badges, malformed quota parsing, and cross-tab reading updates.
+## Why
 
-> **0.2.0 local build:** improved capture and Markdown, dashboard/recent contexts, full local backup, and sidebar. Google/Supabase code is prepared but not configured; exact continuous quotas across all providers are not established. See `PROJECT_REPORT.md`, `VERIFICATION.md`, and `CLOUD_SETUP.md`. Load the sibling `handoff-extension-build` folder, which contains `manifest.json`.
+Free AI chats run out mid-project, and long chats quietly get worse. Copying a conversation into another AI by hand loses the first messages, the decisions, what you already rejected and the exact file names. Baton carries all of it across, and checks the next AI picked it up.
 
-# Baton browser extension
+Works on **ChatGPT · Claude · Gemini · DeepSeek · Grok · Perplexity** in Chrome, Edge, Brave, Opera, Vivaldi and Arc.
 
-Local Chrome MV3 prototype for carrying a compact project brief between distinct AI chat services. The user reviews the text and chooses when to send it. A Gemini shortcut opens the service for manual choice in Google’s own account menu. Baton never changes accounts itself, reads passwords or cookies, or submits messages automatically. Apart from what pages show, it requests only the services' own usage addresses with the user's existing sign-in (see PRIVACY.md).
+## Features
 
-## Try the local build
+- **One-click pass.** A glowing button by the chat box opens the AI you pick with your project typed in. **You press Send**; Baton never sends anything.
+- **Nothing lost.** Reads the whole chat as the service stores it (not just what's on screen), keeps exact names and figures word for word, attaches the full chat as a file when it's long, and re-attaches your uploaded files.
+- **Checked on arrival.** After the next AI's first reply, Baton checks it kept your rules, didn't bring back what you turned down, and took up your latest request, and offers a one-click correction if not.
+- **Usage limits in one place.** What each AI has left and when it resets, from the figures the service itself reports, with a rescue card when you hit a limit and a tip when a chat gets too long.
+- **The right next AI.** Suggestions ranked for your task by a small model that runs on your device.
+- **Batons.** Save chats or selected parts, organise them in folders, pass them later. Keyboard shortcuts and a side panel included.
+- **Private.** Chats stay in your browser. No account needed, no analytics, never reads cookies or passwords.
 
-1. **Existing Brave installation:** keep `handoff-extension-build-1` and reload it to retain extension ID `jpjfbhobndoekfmknlhdpmcndchiilog` and saved data. Loading a different folder creates a different identity. For a new installation of the prebuilt package, open `brave://extensions` or `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and select the sibling **`handoff-extension-build`** folder. Its `manifest.json` must be directly inside the selected folder. The `handoff-extension` folder containing this README is source code and cannot be loaded directly.
-2. To build from source instead, run `npm install`, `npm test`, `npm run typecheck`, and `npm run build` in this folder, then select its `.output/chrome-mv3` folder in **Load unpacked**. If using the ZIP, extract it and select the folder with `manifest.json` at its root.
-3. Open a supported chat, click Baton, capture rendered turns, review the draft and receipt, then choose a destination. The destination prompt continues naturally instead of requesting a “Ready” acknowledgment. For a long chat, you may first select **Try to include older messages**; Baton temporarily scrolls the chat and restores your place. This is best effort, so review for missing messages. If Baton cannot find the original user message, it stops the transfer and asks you to try older-message capture or paste the request. The whole draft must fit 1,500 approximate tokens before automatic insertion; shorten an oversized artifact manually. The options page reports whether draft insertion succeeded after a new tab loads. If it fails, use Copy draft and paste it manually.
-4. You can save a brief as a local project and reopen a recent project from the popup. Settings lets you search projects, copy a readable handoff, delete one project, or export/import the library. Capture details lets you copy the locally archived rendered chat text; the archive is capped and may be incomplete.
+## Results
 
-Supported site patterns in the manifest: ChatGPT, Claude, Gemini, DeepSeek, Grok, Perplexity. The last three are best-effort only. A local selector check is available in Settings and projects. Provider DOM layouts change; synthetic fixture passing does not prove live compatibility.
+| | |
+|---|---|
+| Must-keep facts that reach the next AI (offline benchmark, 6 chats) | **100%** (1.0: 80%) |
+| Real ChatGPT and Claude replies to Baton handoffs that continued the work | **12 / 12** (11 pass the automatic scorer) |
+| Tests | 328 passing |
 
-## Privacy and limits
+Method and details: [docs/REPORT.md §9](docs/REPORT.md#9-quality-and-evaluation) and [evaluation/README.md](evaluation/README.md).
 
-- Content scripts read rendered chat text on the six named sites to build a local transcript and brief. They show an approximate prompt token count below the editor when there is enough room; any free-tier percentage comes only from a visible provider notice. They do not read cookies or provider account identifiers.
-- The capture response sends a compact brief and counts to the popup rather than the full raw transcript. Optional older-message capture may temporarily scroll the chat; it restores the prior position on completion.
-- `storage` saves bounded transcripts, briefs, projects, preferences, and local diagnostics. The options page offers 7/30/90-day expiry for saved briefs and projects, checked when Baton opens. `tabs` opens a user-selected destination and `activeTab` supports the current-tab workflow. No broad all-sites access is requested.
-- The extension does not run a server or analytics. It does not make provider API requests. Remote selector refresh code exists but is not exposed to users or enabled by default; future use would require a pinned SHA-256 hash and HTTPS.
-- The meter labels visible banner evidence or local-history inference. ChatGPT text chat and tool quotas are distinct. No estimate is exact.
-- Secret redaction is a regex safety net, not a guarantee. Users must review the draft before transferring it.
+## Install
 
-## Current verification
+**From the Chrome Web Store:** coming soon.
 
-Automated tests cover synthetic DOM fixtures for six sites, visible-text sanitization, seeded secret classes, provenance, trimming behavior, meter labeling, prompt classification, and project merge semantics. `npm run eval` reports pending until real target responses are supplied. See [PHASE_STATUS.md](PHASE_STATUS.md) and [LIVE_SITE_CHECKLIST.md](LIVE_SITE_CHECKLIST.md) for the remaining release work.
-# Usage alerts in 0.1.2
+**From source:**
 
-Open **Usage across AI chats** in the popup to see recent, directly visible limit notices for ChatGPT, Claude, Gemini, DeepSeek, Grok, and Perplexity. The balance stays unknown when a service does not show one. Turn on **Desktop alerts** there if you want browser notifications; Chrome asks for permission at that point. Baton alerts at 80% and 95% only when a displayed service percentage supports those numbers, and it can alert on a visible near-limit or reached-limit notice. The extension does not access cookies, tokens, or private usage endpoints. Open each service at least once to observe it; balances older than one hour are shown as unknown.
+```bash
+git clone https://github.com/Oscar-man-shrestha/handoff.git
+```
 
-**Already-open chat tabs:** Open Baton on a supported tab and it connects to that tab without reloading the page. It watches messages from that point onward. On a brand-new chat, it says it is connected and asks you to send a message before capturing. The small line below the prompt bar shows “Usage left: unknown” until the service displays a relevant notice. It may hide if the page leaves no safe space below the composer.
+```bash
+cd handoff && npm install && npm run build
+```
 
-## Changes in 0.1.4
+Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and choose the `.output/chrome-mv3` folder.
 
-- Gemini capture removes duplicated speaker chrome and retains useful Markdown structure. The compact handoff carries more of a long answer's actionable details.
-- Automatically saved recent chats appear beside named projects in the popup. Optional local folders help organize projects.
-- The usage panel can open Claude's own usage page. Baton reads a labeled session percentage there if visible, labels an older cached reading, and otherwise leaves the balance unknown. This has synthetic tests but still needs a signed-in Claude test.
-- Historical 0.1.4 status: Google sign-in was not implemented then. Current Google/Supabase backup is configured and live-tested as described above. Google Drive backup is not implemented.
+## How to use
 
-Usage is available from the header button. See [GOOGLE_LOGIN_SETUP.md](GOOGLE_LOGIN_SETUP.md) for the exact Google Console and Supabase fields, including Copy extension callback in the app.
+1. Chat on any of the six AIs as usual.
+2. When you hit a limit or want another AI, click the glowing **Baton** button by the chat box (or press **⌘⇧U** / **Ctrl+Shift+U**).
+3. Pick an AI. It opens with your project as a draft. Read it, add anything, press **Send**.
 
-Baton is an independent extension, not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
+More: **⌘⇧K** keeps the chat as a baton, **⌘⇧X** saves the selected part, **⌘⇧E** opens Baton. The full guide opens from **?** in Baton.
+
+## Development
+
+```bash
+npm run dev          # browser with Baton loaded, reloads on change
+npm test             # 328 tests (Vitest)
+npm run typecheck    # TypeScript
+npm run eval:handoff # handoff fidelity benchmark
+npm run zip          # store package in .output/
+```
+
+Architecture, every pipeline with diagrams, research and results: **[docs/REPORT.md](docs/REPORT.md)**. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Publishing to the stores: [docs/PUBLISHING.md](docs/PUBLISHING.md).
+
+Built with TypeScript, [WXT](https://wxt.dev), [ONNX Runtime Web](https://onnxruntime.ai) running [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) on device, and [Supabase](https://supabase.com) for the optional backup.
+
+## Privacy
+
+Baton works only on the six AI sites, keeps your chats in your browser, and sends data only when you act: a draft to the AI you choose, an optional backup, or feedback. Full policy: [PRIVACY.md](PRIVACY.md). Security issues: [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Oscar Man Shrestha. Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Baton Pass is independent and not affiliated with or endorsed by OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.

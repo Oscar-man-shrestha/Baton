@@ -6,3 +6,4 @@ coverage/
 .DS_Store
 .mcp.json
 research_notes/
+.codex/
