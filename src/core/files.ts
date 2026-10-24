@@ -6,7 +6,8 @@ import type { ProviderId } from './selectors';
  * box (never sent). Measured on real accounts, Oct 2026: ChatGPT, Gemini, DeepSeek and Perplexity take a pasted file;
  * Claude ignores a synthetic paste or drop and takes its file input instead. Grok is unverified, so it gets the paste.
  */
-export type FileRef = { name: string; type?: string; url?: string; text?: string; size?: number; via?: 'chatgpt' };
+// shown: the AI presented this file to the user (a deliverable, not a helper), so it goes first when space is short.
+export type FileRef = { name: string; type?: string; url?: string; text?: string; size?: number; via?: 'chatgpt'; shown?: boolean };
 export type FilePayload = { name: string; type: string; data: string };
 
 export const fileLimits = { count: 8, each: 10 * 1024 * 1024, total: 20 * 1024 * 1024 };
@@ -16,12 +17,13 @@ export const attachMethod: Record<ProviderId, 'paste' | 'input'> = { chatgpt: 'p
 export function pickFiles(refs: FileRef[], limits = fileLimits): FileRef[] {
   const seen = new Set<string>();
   const picked: FileRef[] = [];
-  for (const ref of [...refs].reverse()) {
+  const newest = [...refs].reverse();
+  for (const ref of [...newest.filter(ref => ref.shown), ...newest.filter(ref => !ref.shown)]) {
     if ((!ref.url && ref.text === undefined) || seen.has(ref.name) || (ref.size ?? 0) > limits.each) continue;
     seen.add(ref.name); picked.push(ref);
     if (picked.length >= limits.count) break;
   }
-  return picked.reverse();
+  return refs.filter(ref => picked.includes(ref));
 }
 
 export function toBase64(bytes: Uint8Array): string {
@@ -61,9 +63,11 @@ export async function downloadFiles(refs: FileRef[], fetchFile: (ref: FileRef) =
     try {
       if (ref.text !== undefined) { const file = textFile(ref.name, ref.text, ref.type || 'text/plain'); total += ref.text.length; if (total > limits.total) throw new Error('total'); files.push(file); continue; }
       const blob = await fetchFile(ref);
-      if (blob.size > limits.each || total + blob.size > limits.total || /text\/html/.test(blob.type)) throw new Error('size');
+      // An empty file adds nothing, and a web page where a file was expected is a sign-in or error page.
+      if (!blob.size || blob.size > limits.each || total + blob.size > limits.total || /text\/html/.test(blob.type)) throw new Error('size');
       total += blob.size;
-      files.push({ name: ref.name, type: blob.type || ref.type || 'application/octet-stream', data: toBase64(new Uint8Array(await blob.arrayBuffer())) });
+      // A generic type from the server (application/octet-stream) gives way to the one the file name implies.
+      files.push({ name: ref.name, type: (blob.type && blob.type !== 'application/octet-stream' ? blob.type : ref.type) || blob.type || 'application/octet-stream', data: toBase64(new Uint8Array(await blob.arrayBuffer())) });
     } catch { skipped.push(ref.name); }
   }
   return { files, skipped };

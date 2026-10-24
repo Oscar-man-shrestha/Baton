@@ -18,7 +18,7 @@ Baton Pass is an independent browser extension. It is not affiliated with or end
 |---|---|---|
 | The six AI chat pages | The conversation shown on the page and the text you are typing (not sent anywhere) | To build a baton (a saved copy and a summary), count tokens, and suggest which AI fits your task |
 | The same sites' own chat data | The chat you are on, as that service stores it, fetched from that service's own site with the session the page already has | So a saved or passed chat is complete: the page often shows only the messages near the screen |
-| The same sites' own files | Files you uploaded to that chat, fetched from that service's site | Only when you pass a chat, to attach them to the next AI's chat box |
+| The same sites' own files | Files in that chat: ones you uploaded, and ones the AI made for you there (such as Claude's output files or a ChatGPT canvas), fetched from that service's site | Only when you pass a chat, to attach them to the next AI's chat box |
 | The same sites' own usage figures | Usage responses (for example “72% of session left, resets 14:40”) that the page fetches for itself or that Baton requests from the same address | To show how much each AI has left |
 
 On ChatGPT and DeepSeek, fetching the chat or usage uses the short-lived session token that site's own page uses; on Gemini, the page's own request token. Baton uses it only for that one request to that same site, and **never stores it or sends it anywhere else**. On ChatGPT, Claude and Gemini a small script copies only the usage responses those pages fetch (by address); from a reply stream it keeps only the usage report, never the reply. The page receives the original unchanged.
@@ -39,7 +39,7 @@ You can export everything to a backup file, set saved batons to expire after 7, 
 
 | When | What is sent | To whom |
 |---|---|---|
-| You pass a chat to another AI and press Send there | The draft you reviewed, plus any files Baton attached (your uploads, and for long chats a Markdown copy of the chat) | The AI service you chose. Attaching a file may upload it to that service as soon as it is attached, as when you add a file yourself |
+| You pass a chat to another AI and press Send there | The draft you reviewed, plus any files Baton attached (your uploads, files the AI made in that chat, and for long chats a Markdown copy of the chat) | The AI service you chose. Attaching a file may upload it to that service as soon as it is attached, as when you add a file yourself |
 | You choose “Have this AI write the handoff” and press Send | Baton's request, typed into that chat's box | The service you are on |
 | You sign in with Google and press **Back up now** (optional) | A snapshot of your batons, summaries, drafts and folders | Baton's Supabase project (`qeoduozlznznptwsfzbt.supabase.co`), protected by per-user access rules; **not end-to-end encrypted** |
 | You press **Send** on a feedback screen, or tap an answer on the one-time check-in card | The kind of feedback, an optional reason and message, which AI site it concerns, and (if left on) Baton's version and your browser's name. Never chats | Baton's feedback table (insert-only: the public key can add answers, not read them) |
