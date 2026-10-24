@@ -1,0 +1,258 @@
+Let’s add due dates, reminders, and an archive for completed tasks to your existing React + Vite PWA.
+
+We’ll keep the original constraints:
+
+No server, no account, no Redux.
+
+Store tasks and their due dates in IndexedDB using idb.
+
+Keep the checkbox responsive with optimistic React state updates.
+
+Move completed tasks to an Archive instead of deleting them.
+
+Support offline use on your phone and laptop.
+
+One important limitation: a PWA cannot guarantee that a reminder fires at an exact time when the browser is closed, especially on iOS. We can build in-app reminders first and add supported system notifications where the browser and operating system permit them.
+
+1. Update the task model
+
+Extend your existing Todo type rather than replacing it.
+
+TypeScript
+export type Todo = {
+  id: string;
+  title: string;
+  done: boolean;
+  createdAt: number;
+  dueAt?: number | null;
+  reminderNotifiedAt?: number | null;
+  archivedAt?: number | null;
+};
+
+dueAt: deadline timestamp.
+
+reminderNotifiedAt: prevents repeatedly notifying about the same deadline.
+
+archivedAt: records when the completed task was archived.
+
+A task becomes archived when completed. You can still show it in the Archive tab and restore it if needed.
+
+2. Keep IndexedDB local
+
+In your existing database file, update the database version from 1 to 2. Keep the existing object store and data.
+
+TypeScript
+import { openDB } from "idb";
+
+export const db = openDB("todos", 2, {
+  upgrade(database, oldVersion) {
+    if (oldVersion < 1) {
+      database.createObjectStore("todos", {
+        keyPath: "id",
+      });
+    }
+  },
+});
+
+This preserves existing tasks. Since IndexedDB stores JavaScript objects, you don't need to create new columns for dueAt or archivedAt.
+
+If your current upgrade callback already creates the todos store, keep that existing migration logic instead of duplicating it.
+
+Add these storage helpers:
+
+TypeScript
+export async function updateTodo(
+  id: string,
+  changes: Partial<Todo>
+) {
+  const database = await db;
+  const tx = database.transaction("todos", "readwrite");
+  const todo = await tx.store.get(id);
+
+  if (todo) {
+    await tx.store.put({ ...todo, ...changes });
+  }
+
+  await tx.done;
+}
+
+export async function getTodos(): Promise<Todo[]> {
+  return (await db).getAll("todos");
+}
+
+Import Todo from wherever you defined your type.
+
+3. Add a due date and reminder to the task form
+
+Use a datetime-local input so users can pick a deadline and time.
+
+TypeScript
+const [dueAt, setDueAt] = useState("");
+
+<label htmlFor="dueAt">Due date and time (optional)</label>
+
+<input
+  id="dueAt"
+  type="datetime-local"
+  value={dueAt}
+  onChange={(e) => setDueAt(e.target.value)}
+/>
+
+When creating a task, convert the selected value to a timestamp:
+
+TypeScript
+const todo: Todo = {
+  id: crypto.randomUUID(),
+  title: title.trim(),
+  done: false,
+  createdAt: Date.now(),
+  dueAt: dueAt ? new Date(dueAt).getTime() : null,
+  reminderNotifiedAt: null,
+  archivedAt: null,
+};
+
+Keep your existing task-creation logic; add these fields to it.
+
+4. Archive completed tasks
+
+When the user checks a task, update React state immediately and then persist the change.
+
+TypeScript
+dispatch({ type: "toggle", id });
+
+await updateTodo(id, {
+  done: !todo.done,
+  archivedAt: !todo.done ? Date.now() : null,
+});
+
+Here, todo must be the current task before toggling. Keep your existing reducer and adjust the action handler to set archivedAt consistently.
+
+For the UI, filter the same task list into two views:
+
+TypeScript
+const activeTodos = todos.filter(
+  (todo) => !todo.done
+);
+
+const archivedTodos = todos.filter(
+  (todo) => todo.done
+);
+
+This keeps archived tasks in IndexedDB rather than deleting them.
+
+5. Add reminders while the app is open
+
+Create a useReminders.ts hook. It checks deadlines every 30 seconds and requests browser notification permission only when the user enables reminders.
+
+TypeScript
+import { useEffect } from "react";
+import { getTodos, updateTodo } from "./db";
+
+export function useReminders(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    let cancelled = false;
+
+    async function checkReminders() {
+      if (
+        !("Notification" in window) ||
+        Notification.permission !== "granted"
+      ) {
+        return;
+      }
+
+      const todos = await getTodos();
+      const now = Date.now();
+
+      for (const todo of todos) {
+        if (
+          cancelled ||
+          todo.done ||
+          !todo.dueAt ||
+          todo.dueAt > now ||
+          todo.reminderNotifiedAt
+        ) {
+          continue;
+        }
+
+        await updateTodo(todo.id, {
+          reminderNotifiedAt: now,
+        });
+
+        if (!cancelled) {
+          new Notification("Task due", {
+            body: todo.title,
+          });
+        }
+      }
+    }
+
+    void checkReminders();
+
+    const timer = window.setInterval(
+      () => void checkReminders(),
+      30_000
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [enabled]);
+}
+
+Use it inside your app:
+
+TypeScript
+const [remindersEnabled, setRemindersEnabled] =
+  useState(false);
+
+useReminders(remindersEnabled);
+
+Add a settings toggle that asks for permission after a user click:
+
+TypeScript
+async function enableReminders() {
+  if (!("Notification" in window)) {
+    alert("Notifications are not supported here.");
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+
+  setRemindersEnabled(permission === "granted");
+}
+
+Important: this starter implementation is deliberately limited to deadlines that have already arrived. It won't reliably alert you while the app is closed, and its notification history should eventually be reset when a deadline changes.
+
+6. Suggested final interface
+My Tasks
+Today
+Upcoming
+Archive
+
+Finish DSA practice
+
+Today · 6:00 PM
+
+Revise machine learning
+
+Tomorrow · 8:00 PM
+
+Implement this tab
+What I recommend building next
+
+Implement the features in this order:
+
+Due dates and deadline sorting.
+
+Archive and restore.
+
+Reminder settings and browser notifications.
+
+PWA installation on your phone and laptop.
+
+Optional local export/import so you can back up tasks.
+
+One design decision matters for your reminder behavior: should reminders work even when you completely close the app, or is it acceptable for them to work only while the app is open? That determines whether we can keep this entirely simple and local or need platform-specific notification support.

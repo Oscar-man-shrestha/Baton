@@ -1,0 +1,140 @@
+Undo works by replaying the log backwards, restricted to a single tidy run. For that, each log line needs a run ID, so the format becomes timestamp, run_id, source, destination.
+
+1. Tag every move with a run ID in run
+
+
+python
+import uuid
+
+run_id = uuid.uuid4().hex[:8]   # one per invocation
+# after each successful move:
+logger.info("%s\t%s\t%s", run_id, src, dst)   # formatter: "%(asctime)s\t%(message)s"
+
+2. The undo command
+
+
+python
+import shutil
+from pathlib import Path
+from typing import NamedTuple, Optional
+import typer
+
+LOG_DIR = Path.home() / ".tidy"
+LOG_PATH = LOG_DIR / "moves.log"
+UNDONE_PATH = LOG_DIR / "undone.txt"
+
+
+class Move(NamedTuple):
+    run_id: str
+    source: Path
+    destination: Path
+
+
+def read_moves() -> list[Move]:
+    """Oldest first, including rotated files (moves.log.1, .2, ...)."""
+    rotated = sorted(
+        (p for p in LOG_DIR.glob("moves.log.*") if p.suffix[1:].isdigit()),
+        key=lambda p: int(p.suffix[1:]),
+        reverse=True,
+    )
+    moves = []
+    for f in [*rotated, LOG_PATH]:
+        if not f.exists():
+            continue
+        for line in f.read_text(encoding="utf-8").splitlines():
+            parts = line.split("\t")
+            if len(parts) == 4:                      # timestamp, run_id, src, dst
+                moves.append(Move(parts[1], Path(parts[2]), Path(parts[3])))
+    return moves
+
+
+
+def undone_runs() -> set[str]:
+    return set(UNDONE_PATH.read_text().split()) if UNDONE_PATH.exists() else set()
+
+
+@app.command()
+def undo(
+    run_id: Optional[str] = typer.Argument(None, help="Run to undo (default: latest)"),
+    dry_run: bool = False,
+):
+    moves, done = read_moves(), undone_runs()
+
+    if run_id is None:
+        pending = [m for m in moves
+                   if m.run_id not in done and not m.run_id.startswith("undo-")]
+        if not pending:
+            typer.echo("Nothing to undo.")
+            raise typer.Exit()
+        run_id = pending[-1].run_id
+
+    batch = [m for m in moves if m.run_id == run_id]
+    if not batch:
+        typer.echo(f"No moves found for run {run_id}.", err=True)
+        raise typer.Exit(1)
+
+    restored = skipped = 0
+    for m in reversed(batch):                        # newest move first
+        if not m.destination.exists():
+            typer.echo(f"skip (no longer there): {m.destination}")
+            skipped += 1
+            continue
+
+
+        target = unique_target(m.source)             # never overwrites
+        typer.echo(f"{m.destination} -> {target}")
+        if dry_run:
+            restored += 1
+            continue
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(m.destination), str(target))
+        logger.info("undo-%s\t%s\t%s", run_id, m.destination, target)  # after success
+        restored += 1
+
+    if not dry_run:
+        with UNDONE_PATH.open("a") as fh:
+            fh.write(run_id + "\n")
+    verb = "Would restore" if dry_run else "Restored"
+    typer.echo(f"{verb} {restored}, skipped {skipped}.")
+
+How it behaves
+
+tidy undo reverses the most recent run that hasn’t been undone. tidy undo a1b2c3d4 targets a specific run, and the IDs are in the log.
+tidy undo --dry-run prints what would move back and writes nothing, in line with your existing --dry-run flag.
+If something now occupies a file’s original path, the file comes back as name (2).ext through unique_target, so undo can’t overwrite anything either.
+Files you’ve since moved or removed are skipped and reported, not treated as errors.
+Undo moves are logged as undo-<run_id> and excluded from the default selection, so running undo twice never redoes a cleanup. undone.txt also blocks a repeat undo of the same run.
+Empty dated folders are left behind, because removing them is a delete. If they bother you, a --prune-empty flag that only calls Path.rmdir() is safe, since rmdir refuses non-empty folders.
+
+Test
+
+
+python
+from typer.testing import CliRunner
+
+def test_undo_restores_latest_run(tmp_path, monkeypatch):
+    import tidy
+    d = tmp_path / ".tidy"; d.mkdir()
+    monkeypatch.setattr(tidy, "LOG_DIR", d)
+    monkeypatch.setattr(tidy, "LOG_PATH", d / "moves.log")
+    monkeypatch.setattr(tidy, "UNDONE_PATH", d / "undone.txt")
+
+    src = tmp_path / "dl" / "report.pdf"
+    dst = tmp_path / "dl" / "2026-10" / "report.pdf"
+    dst.parent.mkdir(parents=True)
+    dst.write_bytes(b"data")
+    tidy.LOG_PATH.write_text(f"2026-10-23 10:00:00\tabc12345\t{src}\t{dst}\n")
+
+    result = CliRunner().invoke(tidy.app, ["undo"])
+
+    assert result.exit_code == 0
+    assert src.read_bytes() == b"data" and not dst.exists()
+    assert "abc12345" in tidy.UNDONE_PATH.read_text()
+
+Two more tests are worth adding: one where the original path is occupied (expect report (2).pdf), and one with --dry-run asserting nothing moved and undone.txt doesn’t exist.
+
+Two caveats:
+
+Tab-separated logs break on filenames containing tabs or newlines. Switching to JSON Lines fixes that if you want to be thorough.
+If a restore crosses drives, shutil.move copies and then removes the source. That matches how tidy already behaves on your external drive, but if you want the never-delete rule to hold there too, copy, verify sizes match, and only then remove the source.

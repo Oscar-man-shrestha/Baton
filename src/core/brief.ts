@@ -93,7 +93,13 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
   base.status = base.open_questions.length ? 'The assistant asked questions; the user has not answered yet.' : base.status === 'The assistant asked questions; the user has not answered yet.' ? '' : base.status;
   base.last_exchange = { user: lastUser?.text.slice(0, 600) || '', assistant: assistantOverview(lastAssistant?.text || '') };
   base.key_findings = assistantIsLatest ? selectEvidence(lastAssistant?.text || '', `${base.goal} ${lastUser?.text || ''}`) : [];
-  base.user_messages = safeTurns.filter(turn => turn.role === 'user').map(turn => userStatementText(turn.text).replace(/\s+/g, ' ').trim()).filter(Boolean).map(text => text.length > 400 ? `${text.slice(0, 399)}…` : text);
+  const said = safeTurns.filter(turn => turn.role === 'user').map(turn => userStatementText(turn.text).replace(/\s+/g, ' ').trim()).filter(Boolean).map(text => text.length > 400 ? `${text.slice(0, 399)}…` : text);
+  // A message asked again (and again) is listed once, where it was last asked, with how often.
+  base.user_messages = said.flatMap((text, index) => {
+    const times = said.filter(other => sameThing(other) === sameThing(text)).length;
+    if (said.slice(index + 1).some(later => sameThing(later) === sameThing(text))) return [];
+    return [times > 1 ? `${text.replace(/\s*\((?:asking again|again)[^)]*\)\s*$/i, '')} (asked ${times} times)` : text];
+  });
   // The best point of each earlier reply, newest first (later replies build on earlier ones), repeats skipped.
   const query = `${base.goal} ${base.user_messages.join(' ')}`;
   const picked: { text: string; order: number }[] = [];
@@ -110,11 +116,16 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
     if (turn.role !== 'user') continue;
     const statements = userStatementText(turn.text).split(/\n+|(?<=[.!?])\s+/).map(line => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
     for (const statement of statements) {
-      if (/\b(must|always|never|do not|don't|only|prefer)\b/i.test(statement) && !base.preferences.includes(statement)) base.preferences.push(statement);
+      const known = (list: string[]) => list.some(item => sameThing(item) === sameThing(statement));
+      if (/\b(must|always|never|do not|don't|only|prefer)\b/i.test(statement) && !known(base.preferences)) base.preferences.push(statement);
       if (!statement.endsWith('?') && !/\b(never|do not|don't|should|might|could)\b/i.test(statement) && /\b(?:(?:we|i) (?:decided|choose|chose|agreed)|will use)\b|^(?:let'?s )?use\b/i.test(statement) && !base.decisions.some(d => d.text === statement)) base.decisions.push({ text: statement, rationale: '', status: 'ratified_by_user', source_turn: turn.index, confidence: 0.8 });
-      if (/\b(todo|next|please|need to)\b/i.test(statement) && !base.open_tasks.includes(statement)) base.open_tasks.push(statement);
+      if (/\b(todo|next|please|need to)\b/i.test(statement) && !known(base.open_tasks)) base.open_tasks.push(statement);
       // What the user turned down or found didn't work, so the next AI doesn't suggest it again.
-      if (!statement.endsWith('?') && /\b(?:no|not|skip|avoid|instead of|hated?|didn[’']?t (?:work|change|help)|doesn[’']?t work)\b/i.test(statement) && !base.rejected_approaches.includes(statement)) base.rejected_approaches.push(statement);
+      // A “no” that only describes something (“some files have no modified date”, “there is no server yet”) and a
+      // question without its “?” (“how do I …”) are not turned down.
+      const describes = /\b(?:have|has|had|there (?:is|are|was|were)|with|got|get|gives?|returns?)\s+no\b/i.test(statement) && !/\b(?:not|skip|avoid|instead of|hated?|don[’']?t want|didn[’']?t work)\b/i.test(statement);
+      const asks = /^(?:how|what|why|when|where|which|who|can|could|should|is|are|do|does)\b/i.test(statement);
+      if (!statement.endsWith('?') && !describes && !asks && /\b(?:no|not|skip|avoid|instead of|hated?|didn[’']?t (?:work|change|help)|doesn[’']?t work)\b/i.test(statement) && !known(base.rejected_approaches)) base.rejected_approaches.push(statement);
     }
   }
   base.exact_details = exactDetails(safeTurns);
@@ -143,12 +154,20 @@ export function updateBrief(previous: Brief | undefined, turns: Turn[], artifact
 }
 
 /** Names and figures to carry verbatim: from your messages, every kind; from replies, names in `code` and file names or links. */
+/** The same thing said again (“…(asking again, round 5, with more detail please)”) has the same key. */
+export function sameThing(text: string): string {
+  return text.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 export function exactDetails(turns: Turn[], max = 60): string[] {
   const found: string[] = [];
   // Trailing punctuation goes, and a “)” only when it doesn't close a bracket of the name (“unique_target(path)” stays whole).
-  const add = (value: string) => { let item = value.trim().replace(/[.,;:]+$/, ''); while (item.endsWith(')') && (item.match(/\(/g) || []).length < (item.match(/\)/g) || []).length) item = item.slice(0, -1).replace(/[.,;:]+$/, ''); if (item.length >= 3 && item.length <= 80 && !found.some(seen => seen.toLowerCase() === item.toLowerCase())) found.push(item); };
-  const code = /`([^`\n]{2,60})`/g, link = /https?:\/\/[^\s)>\]"']+/g;
-  const file = /(?:~|\.{1,2})?\/?\b[\w.-]+(?:\/[\w.-]+)+|\b[\w-]+\.(?:py|ts|tsx|js|jsx|mjs|json|md|txt|log|toml|ya?ml|html|css|csv|pdf|sh|rs|go|java|kt|swift|sql|env|zip|png|jpe?g|gif|svg|webp|docx?|xlsx?|pptx?|glb|gltf|fbx|mp4|mp3|wav)\b/g;
+  // Stray backticks go, and a quote only when it has no partner (“pdf = 'Documents'” keeps both of its quotes).
+  const balance = (item: string) => { for (const quote of ["'", '"']) { if ((item.split(quote).length - 1) % 2 === 1) item = item.startsWith(quote) ? item.slice(1) : item.endsWith(quote) ? item.slice(0, -1) : item; } return item; };
+  const add = (value: string) => { let item = balance(value.trim().replace(/^`+|[`.,;:]+$/g, '').trim()).replace(/[.,;:]+$/, '').trim(); while (item.endsWith(')') && (item.match(/\(/g) || []).length < (item.match(/\)/g) || []).length) item = item.slice(0, -1).replace(/[.,;:]+$/, ''); if (item.length >= 3 && item.length <= 80 && !found.some(seen => seen.toLowerCase() === item.toLowerCase())) found.push(item); };
+  const code = /`([^`\n]{2,60})`/g, link = /https?:\/\/[^\s)>\]"'`]+/g;
+  // A path may start with ~/, ./, ../ or / and go through hidden folders (“~/.tidy/moves.log”).
+  const file = /(?<![\w./~-])(?:~\/|\.{1,2}\/|\/)?\.?[\w-][\w.-]*(?:\/[\w.-]+)+|\b[\w-]+\.(?:py|ts|tsx|js|jsx|mjs|json|md|txt|log|toml|ya?ml|html|css|csv|pdf|sh|rs|go|java|kt|swift|sql|env|zip|png|jpe?g|gif|svg|webp|docx?|xlsx?|pptx?|glb|gltf|fbx|mp4|mp3|wav)\b/g;
   const figure = /[$€£¥]\s?\d[\d,]*(?:\.\d+)?\b|\b\d[\d,]*(?:\.\d+)?\s?(?:%|ms|MB|GB|KB|TB|px|words|nights|days|hours|minutes|tokens|users|items)\b|\bv?\d+\.\d+(?:\.\d+)+\b/gi;
   for (const turn of turns) {
     const text = turn.text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
@@ -156,7 +175,11 @@ export function exactDetails(turns: Turn[], max = 60): string[] {
     for (const pattern of [link, file]) for (const match of text.matchAll(pattern)) add(match[0]);
     if (turn.role === 'user') for (const match of text.matchAll(figure)) add(match[0]);
   }
-  return found.slice(0, max);
+  // A piece of a longer detail (“/github.com/you/tidy” of a URL, “src/tidy” of “src/tidy/”, “.tidy/moves.log” of
+  // “~/.tidy/moves.log”) adds nothing, so only the longer one stays.
+  const key = (item: string) => item.toLowerCase().replace(/\/+$/, '');
+  const whole = found.filter((item, index) => !found.some((other, at) => at !== index && (key(other) === key(item) ? at < index : key(other).length > key(item).length && key(other).includes(key(item)) && /[/.]/.test(item))));
+  return whole.slice(0, max);
 }
 
 export function renderBrief(brief: Brief, cap = BRIEF_TOKENS): { text: string; receipt: Receipt } {

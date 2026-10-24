@@ -89,4 +89,26 @@ describe('brief', () => {
     expect(handoff).toContain('What specific tech stack or platform');
     expect(draftBudget(handoff).fits).toBe(true);
   });
+  it('keeps the summary of a long chat lean: repeats collapse, problems are not rejections, detail fragments go', async () => {
+    const { exactDetails } = await import('../src/core/brief');
+    const turns = [
+      { role: 'user' as const, text: 'Build tidy. It must never delete anything.', index: 0 },
+      { role: 'user' as const, text: 'some files have no modified date that makes sense', index: 1 },
+      { role: 'user' as const, text: 'some files have no modified date that makes sense (asking again, round 2, with more detail please)', index: 2 },
+      { role: 'user' as const, text: 'we decided to use typer for the CLI, not argparse', index: 3 },
+      { role: 'assistant' as const, text: 'Install with `pipx install .` from the project folder.', index: 4 },
+      { role: 'assistant' as const, text: 'Once it is public: https://github.com/you/tidy` works.', index: 5 },
+      { role: 'assistant' as const, text: 'Config in `[folders]` with `pdf = \'Documents\'`; code in src/tidy/ (also src/tidy) and logs in ~/.tidy/moves.log (.tidy/moves.log).', index: 6 }
+    ];
+    const brief = updateBrief(undefined, turns, []);
+    expect(brief.rejected_approaches).toEqual(['we decided to use typer for the CLI, not argparse']);
+    expect(brief.user_messages).toEqual(['Build tidy. It must never delete anything.', 'some files have no modified date that makes sense (asked 2 times)', 'we decided to use typer for the CLI, not argparse']);
+    const details = exactDetails(turns);
+    expect(details).toContain('pipx install');
+    expect(details).toContain("pdf = 'Documents'");
+    expect(details).toContain('https://github.com/you/tidy');
+    expect(details.filter(item => item.startsWith('src/tidy'))).toHaveLength(1);
+    expect(details).toContain('~/.tidy/moves.log');
+    expect(details.filter(item => /^\/github|^\.tidy\/|`$/.test(item))).toEqual([]);
+  });
 });

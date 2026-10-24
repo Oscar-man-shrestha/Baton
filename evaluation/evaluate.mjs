@@ -31,11 +31,16 @@ if (process.argv.includes('--legacy')) {
     const file = path.join(repliesDir, ai, `${conversation.id}.txt`);
     const reply = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
     if (!reply) { rows.push({ ai, case: conversation.id, status: 'pending' }); continue; }
-    const lower = reply.toLowerCase();
+    // Hyphens count as spaces, so “never-delete” matches “never delete”.
+    const flat = text => text.toLowerCase().replace(/[-‐‑]/g, ' ');
+    const lower = flat(reply);
     const { mention, avoid } = conversation.replyChecks;
-    const kept = mention.filter(options => options.some(option => lower.includes(option.toLowerCase())));
+    const kept = mention.filter(options => options.some(option => lower.includes(flat(option))));
+    // A turned-down idea named as something to avoid (“no Redux”, “Typer, not argparse”) is the handoff working, not a slip.
+    const negated = /\b(?:not|no|never|without|instead of|rather than|avoid(?:ing)?|skip(?:ping)?|don['’]t|won['’]t)\b[^.!?\n]{0,30}$/i;
+    const recommends = phrase => { const target = flat(phrase); for (let at = lower.indexOf(target); at >= 0; at = lower.indexOf(target, at + 1)) if (!negated.test(lower.slice(Math.max(0, at - 40), at))) return true; return false; };
     const flags = [
-      ...avoid.filter(phrase => lower.includes(phrase.toLowerCase())).map(phrase => `mentions “${phrase}”: ${sentenceWith(reply, phrase)}`),
+      ...avoid.filter(recommends).map(phrase => `mentions “${phrase}”: ${sentenceWith(reply, phrase)}`),
       ...(reply.length < 300 ? ['very short: may only acknowledge the handoff'] : []),
       ...(askedAgain.test(reply) ? [`asks for context the draft gave: ${reply.match(askedAgain)[0]}`] : [])
     ];

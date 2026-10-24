@@ -1,0 +1,223 @@
+The safest design for tidy undo is to use the move log as a reversal journal: every successful move records its original path and destination, and undo moves the file back to its original location.
+
+We’ll keep your existing decisions:
+
+Use Typer, not argparse.
+
+Never delete files intentionally; undo only moves files.
+
+Store the log at ~/.tidy/moves.log.
+
+Handle duplicate filenames without overwriting anything.
+
+Support dry runs so you can inspect the undo plan before changing files.
+
+One important detail: the undo command must not blindly reverse every historical move. It should undo only the latest operation by default, otherwise it could reverse older, unrelated cleanup runs.
+
+1. Add the undo implementation
+
+Create src/tidy/undo.py. This version reads the tab-separated log, identifies the latest run by its shared timestamp, and processes its moves in reverse order.
+
+Python
+Run
+
+
+import csv
+import os
+import shutil
+from pathlib import Path
+
+
+LOG_PATH = Path.home() / ".tidy" / "moves.log"
+
+
+
+
+def undo_latest(dry_run: bool = False) -> list[tuple[Path, Path]]:
+    if not LOG_PATH.exists():
+        raise FileNotFoundError(f"No move log found: {LOG_PATH}")
+
+
+    with LOG_PATH.open("r", newline="", encoding="utf-8") as file:
+        entries = list(csv.reader(file, delimiter="\t"))
+
+
+    entries = [entry for entry in entries if len(entry) == 3]
+
+
+    if not entries:
+        return []
+
+
+    # All moves in one run must share the same timestamp.
+    latest_timestamp = entries[-1][0]
+    latest_run = [
+        (Path(source), Path(destination))
+        for timestamp, source, destination in entries
+        if timestamp == latest_timestamp
+    ]
+
+
+    completed = []
+
+
+    for source, destination in reversed(latest_run):
+        if not destination.exists() and not destination.is_symlink():
+            print(f"SKIP: destination missing: {destination}")
+            continue
+
+
+2. Register the Typer command
+
+In src/tidy/cli.py, add this command alongside your existing run command.
+
+Python
+Run
+
+
+from typing import Annotated
+
+
+import typer
+
+
+from tidy.undo import undo_latest
+
+
+app = typer.Typer()
+
+
+
+
+@app.command()
+def undo(
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview the restoration without moving files."),
+    ] = False,
+) -> None:
+    """Restore files from the latest cleanup run."""
+    try:
+        restored = undo_latest(dry_run=dry_run)
+    except (OSError, ValueError) as error:
+        typer.echo(f"Undo failed: {error}", err=True)
+        raise typer.Exit(code=1)
+
+
+    if not restored:
+        typer.echo("No files were restored.")
+    else:
+        action = "would be restored" if dry_run else "restored"
+        typer.echo(f"{len(restored)} file(s) {action}.")
+
+
+
+Important integration note: If your existing cli.py already creates app = typer.Typer(), keep that existing instance. Don't create a second one. Add the imports and @app.command() function to the existing file.
+
+3. Make sure the logger records a whole run consistently
+
+Your existing move logger needs to give every move in one cleanup run the same timestamp. Generate it once, before the loop, not separately for each file.
+
+For example:
+
+Python
+Run
+from datetime import datetime, timezone
+
+
+run_timestamp = datetime.now(timezone.utc).isoformat()
+
+
+for source, destination in planned_moves:
+    # Move the file successfully first.
+    # Then append the log entry:
+    with LOG_PATH.open("a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file, delimiter="\t")
+        writer.writerow([
+            run_timestamp,
+            str(source),
+            str(destination),
+        ])
+
+Add the csv import and ensure LOG_PATH points to your existing log path. Only append a log entry after a move succeeds.
+
+There is also one correction needed in the undo implementation above: when removing successfully undone entries, the comparison must use the original (source, destination) pair, not the reversed pair. Replace the undone section with:
+
+Python
+Run
+undone = {
+    (source, destination)
+    for destination, source in completed
+}
+
+
+remaining = [
+    entry for entry in entries
+    if len(entry) != 3
+    or (Path(entry[1]), Path(entry[2])) not in undone
+]
+4. Test the important cases
+
+Create tests/test_undo.py. These tests assume the undo module exposes LOG_PATH as shown above.
+
+Python
+Run
+
+
+import csv
+
+
+from tidy import undo as undo_module
+from tidy.undo import undo_latest
+
+
+
+
+def test_undo_restores_file_and_removes_log_entry(tmp_path, monkeypatch):
+    original = tmp_path / "Downloads" / "report.pdf"
+    destination = tmp_path / "Downloads" / "2026-10" / "report.pdf"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"important report")
+
+
+    log = tmp_path / "moves.log"
+    with log.open("w", newline="") as file:
+        csv.writer(file, delimiter="\t").writerow(
+            ("run-1", str(original), str(destination))
+        )
+
+
+    monkeypatch.setattr(undo_module, "LOG_PATH", log)
+
+
+    # Restore a test entry using the same run timestamp.
+    assert undo_latest() == [(destination, original)]
+    assert original.read_bytes() == b"important report"
+    assert not destination.exists()
+    assert log.read_text() == ""
+
+
+
+
+def test_dry_run_does_not_move_file(tmp_path, monkeypatch):
+    original = tmp_path / "report.pdf"
+    destination = tmp_path / "2026-10" / "report.pdf"
+    destination.parent.mkdir()
+    destination.write_text("keep me")
+
+
+    log = tmp_path / "moves.log"
+    with log.open("w", newline="") as file:
+
+Run the tests with:
+
+Bash
+pytest -q
+
+Then try the command:
+
+Bash
+tidy undo --dry-run
+tidy undo
+
+One final safety improvement before relying on this with real files: the implementation above uses a shared timestamp to identify a run, so two runs with identical timestamps could be grouped accidentally. A production-ready version should use a unique run ID and a structured log format, such as JSON Lines, while retaining the existing log or providing a migration. Also, for external drives, test interrupted moves and cross-filesystem failures. The goal is that a failed undo leaves the remaining log entries intact and never overwrites an existing file.

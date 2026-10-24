@@ -1,0 +1,133 @@
+Let's implement tidy undo using Typer and the move log at ~/.tidy/moves.log.
+
+The key safety rule: undo moves files back to their original locations, never deletes anything, and never overwrites an existing file. It should process moves in reverse order so filename collisions and nested moves are handled more predictably.
+
+1. How undo should work
+
+Read the move log.
+
+Process successful moves in reverse chronological order.
+
+Check that the original source folder still exists.
+
+Check that the moved file exists at its logged destination.
+
+If the original path is occupied, skip that entry rather than overwrite anything.
+
+Move the file back and record the undo operation.
+
+One important improvement to our earlier design: use a structured log format, such as JSON Lines, rather than tab-separated paths. Filenames can contain unusual characters, and structured records are easier to validate.
+
+2. Implementation
+
+Here is a standalone implementation you can integrate into your existing tidy CLI.
+
+Python
+Run
+
+
+from __future__ import annotations
+
+
+import json
+import logging
+import shutil
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+import typer
+
+
+app = typer.Typer()
+
+
+LOG_DIR = Path.home() / ".tidy"
+LOG_FILE = LOG_DIR / "moves.log"
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("tidy")
+
+
+
+
+def append_log(record: dict) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+    with LOG_FILE.open("a", encoding="utf-8") as log:
+        log.write(json.dumps(record, ensure_ascii=False) + "\n")
+        log.flush()
+
+
+
+
+def read_log() -> list[dict]:
+    if not LOG_FILE.exists():
+        return []
+
+
+    records = []
+
+
+    with LOG_FILE.open("r", encoding="utf-8") as log:
+        for line_number, line in enumerate(log, start=1):
+3. One required change to your existing move code
+
+For this undo command to work reliably, each successful forward move needs a unique move_id and a record written only after the move succeeds.
+
+For example, after your existing shutil.move:
+
+Python
+Run
+import uuid
+from datetime import datetime, timezone
+
+
+move_id = str(uuid.uuid4())
+
+
+append_log({
+    "event": "move",
+    "status": "success",
+    "move_id": move_id,
+    "source": str(source),
+    "destination": str(destination),
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+})
+
+Keep your existing collision-safe destination logic and symlink exclusions. Update your move logger to use this schema before relying on undo; the new command cannot safely interpret old tab-separated logs automatically.
+
+4. Test it
+
+Run these commands from your project environment:
+
+Bash
+# Preview what would be restored
+tidy undo --dry-run
+
+# Actually restore the files
+tidy undo
+
+# Run it again; already-restored entries should not be repeated
+tidy undo
+
+If you are running the Python file directly instead of installing the CLI:
+
+Bash
+python tidy.py undo --dry-run
+python tidy.py undo
+Important edge cases
+
+Original file already exists: skip it, never overwrite.
+
+Original folder was deleted: skip it, never recreate folders silently.
+
+Destination file is missing: skip it.
+
+Malformed log: stop rather than guess.
+
+Dry run: do not move files or append undo records.
+
+One limitation remains: a process crash between moving a file and logging the undo can leave the operation unrecorded. Also, checking a path before shutil.move is not fully race-proof if another process changes the filesystem at the same moment. For a personal Downloads organizer, this is a reasonable starting point; a stronger implementation would use atomic no-overwrite moves where supported and journal the operation before and after each filesystem change.

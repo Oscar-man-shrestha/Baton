@@ -1,0 +1,105 @@
+{
+  "scoredAt": "2026-10-24T19:17:22.978Z",
+  "rows": [
+    {
+      "ai": "ai-1",
+      "case": "todo-app",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-1",
+      "case": "college-essay",
+      "status": "pass",
+      "score": "3/3",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-1",
+      "case": "flask-debug",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-1",
+      "case": "japan-trip",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-1",
+      "case": "long-chat",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-1",
+      "case": "marathon",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-2",
+      "case": "todo-app",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-2",
+      "case": "college-essay",
+      "status": "fail",
+      "score": "2/3",
+      "missing": [
+        "oven"
+      ],
+      "flags": []
+    },
+    {
+      "ai": "ai-2",
+      "case": "flask-debug",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-2",
+      "case": "japan-trip",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    },
+    {
+      "ai": "ai-2",
+      "case": "long-chat",
+      "status": "pass",
+      "score": "3/4",
+      "missing": [
+        "never delete / no deletion / doesn't delete / does not delete / never deletes"
+      ],
+      "flags": []
+    },
+    {
+      "ai": "ai-2",
+      "case": "marathon",
+      "status": "pass",
+      "score": "4/4",
+      "missing": [],
+      "flags": []
+    }
+  ]
+}

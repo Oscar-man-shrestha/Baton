@@ -12,7 +12,8 @@ export type Miss = { kind: 'rejected' | 'rule' | 'latest' | 'asked-again' | 'ack
 
 const stop = new Set('about above after again also another because been before being both could does doing done each from have having here into itself just like make more most much need only other over same should some such than that their them then there these they this those through very want what when where which while will with without would your yours please thanks first next want using used make sure keep still able going really maybe something anything everything'.split(' '));
 const words = (text: string) => (text.toLowerCase().match(/[a-z][a-z0-9+#.-]{3,}/g) || []).map(word => word.replace(/[.-]+$/, '')).filter(word => !stop.has(word));
-const negation = /\b(?:not|never|no|don['’]t|do not|without|avoid|instead of|rather than|skip|drop(?:ped)?|rejected|turned down|won['’]t|isn['’]t|aren['’]t)\b[^.!?\n]{0,40}$/i;
+// A negation reaches to the end of its clause only (“Koto no Yume, and buy a JR pass” still recommends the pass).
+const negation = /\b(?:not|never|no|don['’]t|do not|without|avoid|instead of|rather than|skip|drop(?:ped)?|rejected|turned down|won['’]t|isn['’]t|aren['’]t)\b[^.!?\n,;]{0,40}$/i;
 
 /** The handoff's points worth checking, from Baton's brief of the source chat. */
 export function handoffPoints(brief: Brief): HandoffPoints {
@@ -31,18 +32,30 @@ export function handoffPoints(brief: Brief): HandoffPoints {
 export function keyTerm(text: string): string | undefined {
   const code = text.match(/`([^`]{2,40})`/)?.[1] || text.match(/[“"']([^“”"']{2,40})[”"']/)?.[1];
   if (code) return code.toLowerCase();
-  const afterNegation = text.match(/\b(?:not|never|no|don['’]t|do not|without|avoid|instead of|rather than|skip|drop)\s+(?:use\s+|using\s+|a\s+|an\s+|the\s+|any\s+)?([A-Za-z][\w+#.-]{2,})/i)?.[1];
-  const name = text.slice(1).match(/\b([A-Z][\w+#.-]{2,}|[a-z]+[A-Z][\w]*)\b/)?.[1];
-  const term = name || afterNegation || words(text).sort((a, b) => b.length - a.length)[0];
+  // The thing turned down is what follows the “not/no/skip”, past filler words: “skip the JR pass” → “jr”, “don't make it
+  // sound cheesy” → “cheesy”, “use typer for the CLI, not argparse” → “argparse”. Measured on real chats, where taking
+  // the first Name instead gave “the”, “make” and “CLI”.
+  const negated = text.match(/\b(?:not|never|no|don['’]t|do not|without|avoid|instead of|rather than|skip|drop)\s+([^.,;:!?\n]{1,60})/i)?.[1];
+  if (negated) {
+    const filler = /^(?:use|using|a|an|the|any|more|some|it|its|this|that|make|makes|making|sound|sounds|be|do|go|get|have|want|like|need|words?|like)$/i;
+    const found = (negated.match(/[A-Za-z][\w+#.-]*/g) || []).find(word => !filler.test(word) && (word.length >= 3 || /^[A-Z]{2}$/.test(word)));
+    if (found) return found.toLowerCase().replace(/[.,;:]+$/, '');
+  }
+  const name = text.match(/^([A-Z][\w+#.-]{2,})\b/)?.[1] || text.slice(1).match(/\b([A-Z][\w+#.-]{2,}|[a-z]+[A-Z][\w]*)\b/)?.[1];
+  const term = name || words(text).sort((a, b) => b.length - a.length)[0];
   return term?.toLowerCase().replace(/[.,;:]+$/, '');
 }
 
 /** Whether the reply brings a term up as something to do (not as something to avoid). */
-function recommends(reply: string, term: string): boolean {
+// Advice wording right before a term: “you can delete…”, “I recommend Redux”, “let's add a server”.
+const advice = /\b(?:you can|you could|you should|you might|let['’]s|we['’]ll|we will|i['’]ll|i will|i['’]d|i would|i recommend|i suggest|recommend|suggest|try|just|simply|go with|switch to|use|add|run)\b[^.!?\n]{0,40}$/i;
+/** Whether the reply brings a term up as something to do (not as something to avoid); `asAdvice` needs advice wording. */
+function recommends(reply: string, term: string, asAdvice = false): boolean {
   const lower = reply.toLowerCase();
+  const boundary = (at: number) => !/[a-z0-9]/.test(lower[at - 1] || ' ') && !/[a-z0-9]/.test(lower[at + term.length] || ' ') || term.length > 4;
   for (let at = lower.indexOf(term); at >= 0; at = lower.indexOf(term, at + term.length)) {
     const before = lower.slice(Math.max(0, lower.lastIndexOf('\n', at) + 1, at - 60), at);
-    if (!negation.test(before)) return true;
+    if (boundary(at) && !negation.test(before) && (!asAdvice || advice.test(before))) return true;
   }
   return false;
 }
@@ -58,11 +71,13 @@ export function checkReply(reply: string, points: HandoffPoints): Miss[] {
   for (const point of points.rejected) {
     const term = keyTerm(point);
     // Named as the user wrote it (“Redux”, not “redux”).
-    if (term && term.length > 2 && recommends(text, term)) misses.push({ kind: 'rejected', text: `It may be suggesting ${point.match(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || term}, which you turned down.`, point });
+    if (term && term.length >= 2 && recommends(text, term)) misses.push({ kind: 'rejected', text: `It may be suggesting ${point.match(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || term}, which you turned down.`, point });
   }
   for (const point of points.rules) {
     const term = point.match(/\b(?:never|don['’]t|do not|no|without|avoid|must not)\s+(?:use\s+|using\s+|a\s+|an\s+|the\s+|any\s+)?([a-z][\w-]{2,})/i)?.[1]?.toLowerCase();
-    if (term && !stop.has(term) && recommends(text, term)) misses.push({ kind: 'rule', text: `It may go against your rule: “${point}”`, point });
+    // A rule is only at risk when the reply advises the action: saying “nothing is deleted” or “removing them is a delete,
+    // so I left it out” is the rule kept (8 of 12 real replies were wrongly flagged before this).
+    if (term && !stop.has(term) && recommends(text, term, true)) misses.push({ kind: 'rule', text: `It may go against your rule: “${point}”`, point });
   }
   // The latest request: most of its content words should come up in a reply that takes it on.
   const asked = [...new Set(words(points.latest))];

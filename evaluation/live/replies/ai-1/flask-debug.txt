@@ -1,0 +1,97 @@
+Since your Flask app is behind Nginx + HTTPS + Gunicorn, use Werkzeug’s ProxyFix so Flask recognizes the original request as HTTPS. This lets url_for(..., _external=True) generate https:// URLs instead of http://.
+
+1. Add ProxyFix to your Flask app
+
+In your main application file, usually app.py, add:
+
+Python
+Run
+from flask import Flask, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+
+app = Flask(__name__)
+
+
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1
+)
+
+Keep your existing configuration, routes, and fixed SECRET_KEY. Don't replace your working app configuration with this example—just add the import and middleware to your existing app.
+
+x_for=1: trusts one proxy for the client IP.
+
+x_proto=1: trusts one proxy for the original HTTP/HTTPS scheme.
+
+x_host=1: trusts one proxy for the original host.
+
+These values assume one trusted Nginx proxy in front of Gunicorn. Only enable the forwarded headers your proxy actually sets.
+
+2. Configure Nginx to forward the headers
+
+Inside the HTTPS server block, your application proxy location should include:
+
+nginx
+location / {
+    proxy_pass http://127.0.0.1:8000;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+Adjust port 8000 if Gunicorn listens on a different port.
+
+The important line for HTTPS URL generation is:
+
+nginx
+proxy_set_header X-Forwarded-Proto $scheme;
+
+Nginx must set this header itself rather than blindly passing through a client-supplied value.
+
+3. Restart and verify
+
+Test the Nginx configuration:
+
+Bash
+sudo nginx -t
+
+If valid, reload Nginx:
+
+Bash
+sudo systemctl reload nginx
+
+Restart your Gunicorn service using its actual service name so the Flask middleware change takes effect.
+
+Then test:
+
+Python
+Run
+with app.test_request_context():
+    print(url_for("dashboard", _external=True))
+
+This isolated test will normally print http://... because it has no forwarded request headers. To verify ProxyFix, simulate the headers:
+
+Python
+Run
+with app.test_request_context(
+    "/",
+    base_url="http://example.com",
+    headers={"X-Forwarded-Proto": "https"}
+):
+    print(url_for("dashboard", _external=True))
+
+Expected output:
+
+Plain text
+https://example.com/dashboard
+
+Replace dashboard with your actual endpoint name if necessary.
+
+Security note: ProxyFix trusts forwarded headers according to the counts you configure. Don't expose Gunicorn directly to untrusted clients while relying on those headers for security-sensitive decisions.
+
+Your session issue and HTTPS URL generation are separate: keep the fixed environment-based SECRET_KEY that solved the login error.

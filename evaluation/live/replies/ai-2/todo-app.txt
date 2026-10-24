@@ -1,0 +1,128 @@
+Due dates are straightforward. Reminders have one catch with your no-server rule: a pure on-device PWA can’t reliably fire a notification while the app is fully closed. Scheduled notification triggers were removed from Chrome, and Periodic Background Sync is Chromium-only and flaky. So the plan below fires reminders while the app is open or in the background, and catches up on anything missed as soon as you reopen it. Overdue tasks also get flagged in the list.
+
+1. Data model and DB migration
+
+ts
+// types.ts
+export interface Todo {
+  id: string; title: string; done: boolean; archived: boolean; createdAt: number;
+  dueAt?: number;       // epoch ms
+  remindAt?: number;    // epoch ms
+  notifiedAt?: number;
+}
+
+ts
+// db.ts
+import { openDB } from 'idb';
+import type { Todo } from './types';
+
+export const db = openDB('todos', 2, {
+  upgrade(db, oldVersion, _new, tx) {
+    if (oldVersion < 1) db.createObjectStore('todos', { keyPath: 'id' });
+    if (oldVersion < 2) tx.objectStore('todos').createIndex('dueAt', 'dueAt');
+  },
+});
+
+export async function loadTodos(): Promise<Todo[]> {
+  // old records have no `archived` field, so default it
+  return (await (await db).getAll('todos')).map(t => ({ ...t, archived: t.archived ?? false }));
+}
+
+export async function patchTodo(id: string, patch: Partial<Todo>) {
+  const store = (await db).transaction('todos', 'readwrite').store;
+  const todo = await store.get(id);
+  if (todo) await store.put({ ...todo, ...patch });
+}
+
+patchTodo replaces toggleTodo, so toggle becomes patchTodo(id, { done: !done }). Archiving and due dates use it too.
+
+2. Reducer additions (still just useReducer, no Redux)
+
+ts
+case 'setDue':
+  return state.map(t => t.id === a.id
+    ? { ...t, dueAt: a.dueAt, remindAt: a.remindAt, notifiedAt: undefined } : t);
+case 'archiveCompleted':
+  return state.map(t => t.done ? { ...t, archived: true } : t);
+case 'notified':
+  return state.map(t => t.id === a.id ? { ...t, notifiedAt: a.at } : t);
+
+Same optimistic pattern as the toggle fix: dispatch first, then write to IndexedDB.
+
+
+ts
+function setDue(id: string, dueAt?: number, remindMinutesBefore?: number) {
+  const remindAt = dueAt && remindMinutesBefore != null ? dueAt - remindMinutesBefore * 60_000 : undefined;
+  dispatch({ type: 'setDue', id, dueAt, remindAt });
+  patchTodo(id, { dueAt, remindAt, notifiedAt: undefined });
+}
+
+function archiveCompleted() {
+  const ids = todos.filter(t => t.done && !t.archived).map(t => t.id);
+  dispatch({ type: 'archiveCompleted' });
+  ids.forEach(id => patchTodo(id, { archived: true }));
+}
+
+I made archiving a manual “Archive completed” action, with the main list showing !archived. If you’d rather it happen automatically when you check a task, call patchTodo(id, { done: true, archived: true }) in the toggle instead.
+
+3. Reminder scheduler
+
+ts
+// reminders.ts
+import { useEffect, useRef } from 'react';
+import { patchTodo } from './db';
+import type { Todo } from './types';
+
+export async function ensurePermission() {
+  if ('Notification' in window && Notification.permission === 'default')
+    await Notification.requestPermission();   // call from a click handler (required on iOS)
+}
+
+async function notify(t: Todo) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const reg = await navigator.serviceWorker.ready;   // showNotification via the SW works on Android too
+  reg.showNotification(t.title, {
+    body: t.dueAt ? `Due ${new Date(t.dueAt).toLocaleString()}` : undefined,
+    tag: t.id,
+  });
+}
+
+export function useReminders(todos: Todo[], dispatch: (a: any) => void) {
+  const fired = useRef(new Set<string>());
+
+  useEffect(() => {
+    let timer: number | undefined;
+    const pending = () => todos.filter(t => !t.done && !t.archived && t.remindAt && !t.notifiedAt && !fired.current.has(t.id));
+
+    const check = async () => {
+      const now = Date.now();
+      for (const t of pending().filter(t => t.remindAt! <= now)) {
+        fired.current.add(t.id);
+        await notify(t);
+        dispatch({ type: 'notified', id: t.id, at: now });
+
+        patchTodo(t.id, { notifiedAt: now });
+      }
+      const next = pending().map(t => t.remindAt!).filter(r => r > now).sort((a, b) => a - b)[0];
+      if (next) timer = window.setTimeout(check, Math.min(next - now, 2 ** 31 - 1));
+    };
+
+    check();
+    const onVisible = () => document.visibilityState === 'visible' && check();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [todos]);
+}
+
+Call useReminders(todos, dispatch) once in your provider. The visibilitychange listener is what catches up on reminders missed while the app was closed or the phone was asleep.
+
+4. UI bits
+Use <input type="datetime-local"> for the due date, with new Date(value).getTime() to convert.
+Add a small reminder select (None / At due time / 10 min / 1 hour / 1 day before) mapped to minutes undefined / 0 / 10 / 60 / 1440.
+Call ensurePermission() in the save handler the first time a reminder is set.
+Show overdue items (dueAt < Date.now() && !done) in red. This is derived from dueAt, so it works even if notifications are denied.
+Platform notes
+iOS: notifications only work once the PWA is added to the Home Screen (iOS 16.4+).
+Android and desktop Chrome: work once installed, and mostly in a normal tab too.
+
+If you want reminders that fire even when the app is fully closed, still with no server, the best option is an “Add to calendar” button that exports a .ics file with a VALARM, so the phone’s own calendar handles the alert. I can add that as the next step, or build the due-date picker and list sorting first.

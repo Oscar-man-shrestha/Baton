@@ -13,7 +13,9 @@ const points: HandoffPoints = {
 describe('checking the next AI’s first reply', () => {
   it('finds the word a point is about', () => {
     expect(keyTerm('Redux, too heavy for this app')).toBe('redux');
-    expect(keyTerm("Let's use typer for the CLI, not argparse")).toBe('cli');
+    expect(keyTerm("Let's use typer for the CLI, not argparse")).toBe('argparse');
+    expect(keyTerm('ok skip the JR pass then')).toBe('jr');
+    expect(keyTerm("please don't make it sound cheesy, no words like passion or journey")).toBe('cheesy');
     expect(keyTerm('not argparse')).toBe('argparse');
     expect(keyTerm('use `unique_target` instead')).toBe('unique_target');
   });
@@ -51,5 +53,15 @@ describe('checking the next AI’s first reply', () => {
     const misses = checkReply('Great! For state I recommend Redux with a small Node server to sync todos.', todo);
     expect(misses.map(miss => miss.kind)).toEqual(['rejected', 'rule', 'latest']);
     expect(misses[0].text).toBe('It may be suggesting Redux, which you turned down.');
+  });
+  it('on real replies: a kept rule is not a broken one, and real slips are still caught', () => {
+    const tidy: HandoffPoints = { rules: ['It must never delete anything, only move files into dated folders.'], rejected: ['we decided to use typer for the CLI, not argparse'], decisions: [], latest: 'great. next I want the undo command', hadContext: true };
+    const kept = 'Here is the tidy undo command. Empty dated folders stay. Removing them is a delete, so I left it out to keep your rule absolute. Original folder was deleted: skip it. Use Typer, not argparse.';
+    expect(checkReply(kept, tidy)).toEqual([]);
+    const slipped = 'For the undo command, switch to argparse for simplicity, and you can delete the empty folders afterwards.';
+    expect(checkReply(slipped, tidy).map(miss => miss.kind)).toEqual(['rejected', 'rule']);
+    const trip: HandoffPoints = { rules: [], rejected: ['ok skip the JR pass then'], decisions: [], latest: 'compare two ryokan in Takayama', hadContext: true };
+    expect(checkReply('Go with Koto no Yume in Takayama; the ryokan is near the old town. Skip the JR pass as planned.', trip)).toEqual([]);
+    expect(checkReply('For the ryokan in Takayama pick Koto no Yume, and buy a 7-day JR pass to save money.', trip).map(miss => miss.kind)).toEqual(['rejected']);
   });
 });

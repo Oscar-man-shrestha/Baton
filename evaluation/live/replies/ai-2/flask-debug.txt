@@ -1,0 +1,48 @@
+Add ProxyFix right after you create the app:
+
+
+python
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+The 1 means “trust one proxy in front of the app”, which matches your single nginx. Don’t set these higher than the real number of proxies, because clients can spoof the headers and the extras would be trusted.
+
+ProxyFix only reads headers, so nginx has to send them. In your location block:
+
+
+nginx
+location / {
+    proxy_pass http://127.0.0.1:8000;   # your gunicorn address
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+}
+
+Reload nginx (sudo nginx -t && sudo systemctl reload nginx) and restart gunicorn.
+
+To verify, temporarily add this route and open it on the live site:
+
+
+python
+@app.route('/_debug')
+def _debug():
+    from flask import request, url_for
+    return {
+        'scheme': request.scheme,
+        'host': request.host,
+        'remote_addr': request.remote_addr,
+        'url': url_for('_debug', _external=True),
+    }
+
+You should see https, your real domain, and the client’s IP rather than 127.0.0.1. Remove the route afterwards.
+
+Some other things to know:
+
+PREFERRED_URL_SCHEME = 'https' is not a substitute. It only affects url_for when there is no active request (background jobs, CLI), and it’s a fine extra to set for that case.
+ProxyFix also fixes request.is_secure, which Flask uses when deciding whether to send Secure cookies. That was one of the suspects in your earlier login issue, so it’s good to have in place anyway.
+If you ever serve the app under a sub-path (e.g. /app), add x_prefix=1 and have nginx send X-Forwarded-Prefix /app.
+
+If the debug route still shows http, paste your nginx location block and I’ll look for what’s missing.

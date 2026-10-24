@@ -1,0 +1,3 @@
+AI: Claude (claude.ai, signed-in account), Sonnet 5.5 with High effort, incognito chats, 2026-10-24
+Drafts: npm run eval:drafts on 2026-10-24 (Baton 1.1.0 at commit a3e7d40)
+Sent by: Claude Code in the Claude app's browser, one new incognito chat per draft; first reply saved as shown on the page (text blocks; code-block language labels appear on their own line).
