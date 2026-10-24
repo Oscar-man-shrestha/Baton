@@ -29,4 +29,6 @@ jobs:
         with:
           name: baton-pass-chrome
           path: .output/*-chrome.zip
+          # WXT builds into .output/, which upload-artifact treats as hidden.
+          include-hidden-files: true
           if-no-files-found: error
