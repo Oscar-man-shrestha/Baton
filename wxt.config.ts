@@ -1,9 +1,12 @@
 import { defineConfig } from 'wxt';
 import { fileURLToPath } from 'node:url';
 import cloud from './src/config/cloud.json';
+import google from './src/config/google.json';
 import selectors from './src/selectors.json';
 import { manifestCommands } from './src/core/shortcuts';
 const cloudEnabled = /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(cloud.url) && !!cloud.publishableKey;
+// Google Drive backup signs in through chrome.identity too, with or without Supabase.
+const driveEnabled = /^[\w-]+\.apps\.googleusercontent\.com$/.test(google.driveClientId);
 const chatHosts = Object.values(selectors.providers).flatMap(provider => provider.hosts.map(host => `https://${host}/*`));
 
 export default defineConfig({
@@ -17,7 +20,7 @@ export default defineConfig({
     // No “tabs” permission: Baton only reads the addresses of the six AI sites, which its host access already allows,
     // so Chrome doesn't warn about reading browsing history.
     // offscreen: a hidden extension page that runs the on-device task model (Chrome shows no warning for it).
-    permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'alarms', 'offscreen', 'contextMenus', ...(cloudEnabled ? ['identity'] : [])],
+    permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'alarms', 'offscreen', 'contextMenus', ...(cloudEnabled || driveEnabled ? ['identity'] : [])],
     // The task model runs as WebAssembly; this is the narrowest setting that allows it (no remote code, no eval).
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
     optional_permissions: ['notifications'],

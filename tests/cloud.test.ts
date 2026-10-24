@@ -26,6 +26,11 @@ describe('optional Supabase integration', () => {
     expect(state.oauth.mock.calls[0][0].options.skipBrowserRedirect).toBe(true); expect(state.exchange).toHaveBeenCalledWith('pkce-result');
     state.flow.mockResolvedValue('https://extension.chromiumapp.org/supabase-evil?code=bad'); await expect(cloud.signInGoogle()).rejects.toThrow('unexpected'); expect(state.exchange).toHaveBeenCalledTimes(1);
   });
+  it('names the callback to allowlist when the auth window never returns to the extension', async () => {
+    state.flow.mockRejectedValue(new Error('The user did not approve access.'));
+    await expect((await import('../src/core/cloud')).signInGoogle()).rejects.toThrow('add https://extension.chromiumapp.org/supabase to Supabase');
+    expect(state.exchange).not.toHaveBeenCalled();
+  });
   it('does not open an auth flow when Google is disabled on the project', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ external: { google: false } }) }));
     await expect((await import('../src/core/cloud')).signInGoogle()).rejects.toThrow('not enabled');
