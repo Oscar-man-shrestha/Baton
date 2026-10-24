@@ -18,7 +18,8 @@ const negation = /\b(?:not|never|no|don['’]t|do not|without|avoid|instead of|r
 /** The handoff's points worth checking, from Baton's brief of the source chat. */
 export function handoffPoints(brief: Brief): HandoffPoints {
   const rules = [...brief.preferences, ...brief.user_messages.flatMap(message => message.split(/(?<=[.!?])\s+|\n+/))]
-    .map(text => text.trim()).filter(text => /\b(?:never|don['’]t|do not|no|without|avoid|must not|only)\b/i.test(text) && text.length <= 160);
+    // A rule has a rule word; “I tried Redux and hated it, no Redux please” is a turned-down idea, not a rule.
+    .map(text => text.trim()).filter(text => /\b(?:never|don['’]t|do not|must|always|only|without|avoid)\b/i.test(text) && text.length <= 160);
   return {
     rules: [...new Set(rules)].slice(0, 8),
     rejected: brief.rejected_approaches.slice(0, 8),
@@ -68,16 +69,18 @@ export function checkReply(reply: string, points: HandoffPoints): Miss[] {
   if ((text.length < 300 && /what would you like (?:me )?to do|how can i help|let me know (?:what|how)|ready when you are|what should we (?:do|work on)/i.test(text))
     || (text.split(/\s+/).length <= 10 && /^(?:got it|understood|sure|okay|ok|great|thanks|perfect|noted|i(?:['’]m| am) ready|i have (?:the|your) context)\b/i.test(text)))
     misses.push({ kind: 'ack-only', text: 'It only acknowledged the handoff instead of continuing the work.' });
-  for (const point of points.rejected) {
-    const term = keyTerm(point);
-    // Named as the user wrote it (“Redux”, not “redux”).
-    if (term && term.length >= 2 && recommends(text, term)) misses.push({ kind: 'rejected', text: `It may be suggesting ${point.match(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || term}, which you turned down.`, point });
-  }
+  // Rules first, and each word once: “no server” is one point, not a rule and a turned-down idea both.
+  const reported = new Set<string>();
   for (const point of points.rules) {
     const term = point.match(/\b(?:never|don['’]t|do not|no|without|avoid|must not)\s+(?:use\s+|using\s+|a\s+|an\s+|the\s+|any\s+)?([a-z][\w-]{2,})/i)?.[1]?.toLowerCase();
     // A rule is only at risk when the reply advises the action: saying “nothing is deleted” or “removing them is a delete,
     // so I left it out” is the rule kept (8 of 12 real replies were wrongly flagged before this).
-    if (term && !stop.has(term) && recommends(text, term, true)) misses.push({ kind: 'rule', text: `It may go against your rule: “${point}”`, point });
+    if (term && !stop.has(term) && recommends(text, term, true) && !reported.has(term) && reported.add(term)) misses.push({ kind: 'rule', text: `It may go against your rule: “${point}”`, point });
+  }
+  for (const point of points.rejected) {
+    const term = keyTerm(point);
+    // Named as the user wrote it (“Redux”, not “redux”).
+    if (term && term.length >= 2 && !reported.has(term) && recommends(text, term) && reported.add(term)) misses.push({ kind: 'rejected', text: `It may be suggesting ${point.match(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || term}, which you turned down.`, point });
   }
   // The latest request: most of its content words should come up in a reply that takes it on.
   const asked = [...new Set(words(points.latest))];

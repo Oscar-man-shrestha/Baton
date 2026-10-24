@@ -25,7 +25,7 @@ describe('checking the next AI’s first reply', () => {
   });
   it('catches a rejected approach brought back, a rule broken, and the latest request ignored', () => {
     const bad = 'Great question! For state management I recommend Redux with a server-side sync. You can delete duplicates to save space.';
-    expect(checkReply(bad, points).map(miss => miss.kind)).toEqual(['rejected', 'rule', 'rule', 'latest']);
+    expect(checkReply(bad, points).map(miss => miss.kind)).toEqual(['rule', 'rule', 'rejected', 'latest']);
   });
   it('catches an acknowledgment-only reply and a request for context the handoff had', () => {
     expect(checkReply('Got it! I have the context. What would you like me to do next?', points).map(miss => miss.kind)).toContain('ack-only');
@@ -51,17 +51,32 @@ describe('checking the next AI’s first reply', () => {
   it('does not call a short reply with substance an acknowledgment, and flags a latest request left aside', () => {
     const todo: HandoffPoints = { rules: ['Everything must stay on the device, no server.'], rejected: ['Redux, too heavy for this app'], decisions: [], latest: 'next add due dates and a reminder for each todo', hadContext: true };
     const misses = checkReply('Great! For state I recommend Redux with a small Node server to sync todos.', todo);
-    expect(misses.map(miss => miss.kind)).toEqual(['rejected', 'rule', 'latest']);
-    expect(misses[0].text).toBe('It may be suggesting Redux, which you turned down.');
+    expect(misses.map(miss => miss.kind)).toEqual(['rule', 'rejected', 'latest']);
+    expect(misses[1].text).toBe('It may be suggesting Redux, which you turned down.');
   });
   it('on real replies: a kept rule is not a broken one, and real slips are still caught', () => {
     const tidy: HandoffPoints = { rules: ['It must never delete anything, only move files into dated folders.'], rejected: ['we decided to use typer for the CLI, not argparse'], decisions: [], latest: 'great. next I want the undo command', hadContext: true };
     const kept = 'Here is the tidy undo command. Empty dated folders stay. Removing them is a delete, so I left it out to keep your rule absolute. Original folder was deleted: skip it. Use Typer, not argparse.';
     expect(checkReply(kept, tidy)).toEqual([]);
     const slipped = 'For the undo command, switch to argparse for simplicity, and you can delete the empty folders afterwards.';
-    expect(checkReply(slipped, tidy).map(miss => miss.kind)).toEqual(['rejected', 'rule']);
+    expect(checkReply(slipped, tidy).map(miss => miss.kind)).toEqual(['rule', 'rejected']);
     const trip: HandoffPoints = { rules: [], rejected: ['ok skip the JR pass then'], decisions: [], latest: 'compare two ryokan in Takayama', hadContext: true };
     expect(checkReply('Go with Koto no Yume in Takayama; the ryokan is near the old town. Skip the JR pass as planned.', trip)).toEqual([]);
     expect(checkReply('For the ryokan in Takayama pick Koto no Yume, and buy a 7-day JR pass to save money.', trip).map(miss => miss.kind)).toEqual(['rejected']);
+  });
+  it('reports each point once, as a rule where it is one (the e2e card said server and Redux twice)', () => {
+    const brief = updateBrief(undefined, [
+      { role: 'user', text: 'Build a todo app for my phone. Everything must stay on the device, no server.', index: 0 },
+      { role: 'assistant', text: 'Use React and IndexedDB.', index: 1 },
+      { role: 'user', text: 'I tried Redux before and hated it, no Redux please.', index: 2 },
+      { role: 'assistant', text: 'Plain React state then.', index: 3 },
+      { role: 'user', text: 'next add due dates and a reminder for each todo', index: 4 }
+    ], []);
+    const misses = checkReply('Great question! For state I recommend Redux with a small Node server to sync todos across devices.', handoffPoints(brief));
+    expect(misses.map(miss => miss.text)).toEqual([
+      'It may go against your rule: “Everything must stay on the device, no server.”',
+      'It may be suggesting Redux, which you turned down.',
+      'It may not have taken up your latest request.'
+    ]);
   });
 });

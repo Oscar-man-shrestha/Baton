@@ -37,5 +37,7 @@ export function fullContext(archive: TurnArchive, sourceUrl: string, selection?:
 export function handoffDraft(archive: TurnArchive, brief: Brief, sourceUrl: string, target?: ProviderId): { draft: string; mode: 'full' | 'compact' } {
   const full = fullContext(archive, sourceUrl).draft;
   if (draftBudget(full, target).fits) return { draft: full, mode: 'full' };
-  return { draft: redact(wrapHandoff(renderBrief(brief, BRIEF_TOKENS).text)).text, mode: 'compact' };
+  // The summary says what it was made from, so the next AI knows how much there was and that it was whole.
+  const summary = renderBrief(brief, BRIEF_TOKENS).text.replace(/^PROJECT HANDOFF\n/, `PROJECT HANDOFF\n\nMade from: ${captureCheck(archive.turns).text}. A summary, because the chat is too long to send whole.\n`);
+  return { draft: redact(wrapHandoff(summary)).text, mode: 'compact' };
 }

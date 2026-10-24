@@ -370,7 +370,7 @@ Official figures are labelled as such; estimates say so; readings expire (one ho
 
 | Method | Kept | Fits the draft limit | Largest draft |
 |---|---|---|---|
-| **Baton one-click** | **100%** | 6/6 | 1,277 tokens |
+| **Baton one-click** | **100%** | 6/6 | 1,321 tokens |
 | Baton compact brief | 99% | 6/6 | 1,281 tokens |
 | Baton full context | 100% | 5/6 | 15,839 tokens |
 | Last exchange only | 38% | 6/6 | 119 tokens |

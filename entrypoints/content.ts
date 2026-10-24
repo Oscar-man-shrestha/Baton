@@ -142,7 +142,7 @@ export default defineContentScript({
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
       const handoff = handoffDraft(archive, brief, pageUrl(), target);
       // Too long to type in whole: the summary is typed, and the complete chat goes along as a Markdown file.
-      const transcript = handoff.mode === 'compact' ? textFile(transcriptName(document.title), fullContext(archive, pageUrl()).text, 'text/markdown') : undefined;
+      const transcript = handoff.mode === 'compact' ? textFile(transcriptName(document.title, brief.goal), fullContext(archive, pageUrl()).text, 'text/markdown') : undefined;
       return { draft: handoff.draft, mode: handoff.mode, transcript, files, points: handoffPoints(brief), messages: archive.turns.length, check: captureCheck(archive.turns) };
     };
     // Shared by the rescue card and the Baton button: save a baton, then open the target with the project as an unsent draft.

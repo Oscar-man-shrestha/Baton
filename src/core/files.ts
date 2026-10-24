@@ -40,9 +40,16 @@ export function textFile(name: string, text: string, type = 'text/plain'): FileP
   return { name, type, data: toBase64(new TextEncoder().encode(text)) };
 }
 
-/** A file name from a chat title: readable, safe on every site, ending in “ - full chat.md”. */
-export function transcriptName(title: string): string {
-  const base = title.replace(/\s*[-–|]\s*(ChatGPT|Claude|Gemini|Google Gemini|DeepSeek|Grok|Perplexity)\s*$/i, '').replace(/[\\/:*?"<>|\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+/**
+ * A file name from the chat's title, ending in “ - full chat.md”. Where the title is only the AI's own name (“Google
+ * Gemini”, “ChatGPT: Chat, Work, Create & Code with AI”), the name comes from what the chat is about instead.
+ */
+export function transcriptName(title: string, about = ''): string {
+  const clean = (text: string) => text.replace(/\s*[-–|:]\s*(ChatGPT|Claude|Gemini|Google Gemini|DeepSeek|Grok|Perplexity)\s*$/i, '').replace(/[\\/:*?"<>|\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const generic = /^(?:chatgpt\b.*|(?:google )?gemini|claude|new chat|deepseek\b.*|grok|perplexity|chat)$/i;
+  const fromTitle = clean(title);
+  const fromAbout = clean(about.split(/(?<=[.!?])\s/)[0]).split(' ').slice(0, 8).join(' ').replace(/[.,;:!?]+$/, '');
+  const base = (!fromTitle || generic.test(fromTitle) ? fromAbout || fromTitle : fromTitle).slice(0, 60).trim();
   return `${base || 'Chat'} - full chat.md`;
 }
 

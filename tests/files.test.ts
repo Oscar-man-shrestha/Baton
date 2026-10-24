@@ -21,6 +21,9 @@ describe('files that travel with a handoff', () => {
     expect(transcriptName('Cinematic 3D developer portfolio with interactive character - Claude')).toBe('Cinematic 3D developer portfolio with interactive character - full chat.md');
     expect(transcriptName('a/b: c?')).toBe('a b c - full chat.md');
     expect(transcriptName('')).toBe('Chat - full chat.md');
+    expect(transcriptName('ChatGPT: Chat, Work, Create & Code with AI', 'Build a todo app for my phone. Everything must stay local.')).toBe('Build a todo app for my phone - full chat.md');
+    expect(transcriptName('Google Gemini', 'Plan a 10 day trip to Japan')).toBe('Plan a 10 day trip to Japan - full chat.md');
+    expect(transcriptName('Run Everything Locally - ChatGPT', 'ignored')).toBe('Run Everything Locally - full chat.md');
     expect(new TextDecoder().decode(fromBase64(toBase64(new TextEncoder().encode('ünïcode ✓'))))).toBe('ünïcode ✓');
   });
   it('attaches by paste, or through the file input on Claude, and reports what showed up', async () => {
@@ -50,5 +53,13 @@ describe('files that travel with a handoff', () => {
     expect(gpt[0].files).toEqual([{ name: 'shot.png', type: 'image/png', size: 405136, url: 'file_1', via: 'chatgpt' }]);
     const grok = grokTurns([{ responseId: 'r', sender: 'human', message: 'fix', fileAttachmentsMetadata: [{ fileName: 'a.png', fileMimeType: 'image/png', fileUri: 'users/1/2/content' }] }]);
     expect(grok[0].files).toEqual([{ name: 'a.png', type: 'image/png', url: 'https://assets.grok.com/users/1/2/content' }]);
+  });
+  it('a long chat goes as a summary that says what it was made from', async () => {
+    const { handoffDraft } = await import('../src/core/context-export');
+    const { updateBrief } = await import('../src/core/brief');
+    const turns = Array.from({ length: 40 }, (_, index) => ({ role: index % 2 ? 'assistant' as const : 'user' as const, text: `${index % 2 ? 'Answer' : 'Question'} ${index}: ${'details about the reducer and the undo log. '.repeat(40)}`, index }));
+    const { draft, mode } = handoffDraft({ turns, incomplete: false, truncated: false, savedAt: 0 }, updateBrief(undefined, turns, []), 'https://chatgpt.com/c/1', 'gemini');
+    expect(mode).toBe('compact');
+    expect(draft).toContain('Made from: 40 messages (20 yours, 20 replies), in order. A summary, because the chat is too long to send whole.');
   });
 });
