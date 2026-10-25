@@ -51,6 +51,15 @@ const countSegment = (win: DisplayWindow, label: string, now: number): Segment =
  * ChatGPT's allowances as the site reports them: Thinking (“Thinking 3 left · 4h 46m”), then whichever other allowance
  * is closest to running out (“Paste 3 left · 1d 0h”). A ring shows when the maximum is known.
  */
+/**
+ * Grok's and Perplexity's own counts (“Grok 4 7 left”, “Pro search 3 left”): the two closest to running out, in the
+ * service's own words. ChatGPT's counts go through countSegments, which also places its Thinking allowance first.
+ */
+export function serviceCountSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
+  return windows.filter(win => win.remainingCount !== undefined && win.source === 'provider-response')
+    .sort((a, b) => a.remainingCount! - b.remainingCount! || a.feature.localeCompare(b.feature)).slice(0, 2)
+    .map(win => countSegment(win, win.feature, now));
+}
 export function countSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
   const counted = windows.filter(win => win.remainingCount !== undefined && win.source === 'provider-response');
   const thinking = counted.find(win => win.feature === 'Thinking');

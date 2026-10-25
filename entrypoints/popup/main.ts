@@ -439,7 +439,7 @@ let currentTopic: Topic = 'general';
 
 const refreshContext = async () => {
   const archive = sourceUrl ? (await chrome.storage.local.get(`archive:brief:${sourceUrl}`))[`archive:brief:${sourceUrl}`] as TurnArchive | undefined : undefined;
-  completeContext = archive?.turns.length ? fullContext(archive, sourceUrl) : undefined;
+  completeContext = archive?.turns.length ? fullContext(archive, sourceUrl, undefined, currentBrief) : undefined;
   copyTranscript.disabled = !completeContext;
   downloadContext.disabled = !completeContext;
   contextMode.options[1].disabled = !completeContext;

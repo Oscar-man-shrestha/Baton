@@ -7,7 +7,8 @@ import type { UsageWindow } from './usage-windows';
 // request from the page), else from the background for ChatGPT and Claude. ChatGPT's short-lived access token is
 // read for the call and kept nowhere. Only usage addresses are requested; no chat content is read or sent.
 
-export const apiProviders: ProviderId[] = ['chatgpt', 'claude', 'gemini'];
+// Grok and Perplexity publish exact remaining counts too (measured Oct 2026); DeepSeek publishes no limits.
+export const apiProviders: ProviderId[] = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'];
 type Body = { kind: UsageKind; text: string };
 /** What the last check did, for Baton's usage panel: which way it went and what each address answered. */
 export type UsageCheck = { at: number; route: 'tab' | 'background' | 'none'; steps: string[]; readings: number };
@@ -40,6 +41,15 @@ async function fetchInPage(provider: string, geminiRpc: string): Promise<{ bodie
     const query = new URLSearchParams({ rpcids: geminiRpc, 'source-path': '/app', bl: wiz.cfb2h || '', 'f.sid': wiz.FdrFJe || '', hl: document.documentElement.lang || 'en', _reqid: String(Math.floor(Math.random() * 900000) + 100000), rt: 'c' });
     const body = new URLSearchParams({ 'f.req': JSON.stringify([[[geminiRpc, JSON.stringify([[[1, 2]]]), null, 'generic']]]), at: wiz.SNlM0e });
     out.push({ kind: 'gemini-quota', text: await text(await call('quota', fetch(`${prefix}/_/BardChatUi/data/batchexecute?${query}`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8', 'x-same-domain': '1' }, body }))) });
+  } else if (provider === 'grok') {
+    // One answer per model: Grok 4 (the default) and Grok 3 have separate 24-hour allowances.
+    for (const model of ['grok-4', 'grok-3']) {
+      const response = await call(model, fetch('/rest/rate-limits', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ requestKind: 'DEFAULT', modelName: model }) }));
+      const data = await text(response);
+      if (data) out.push({ kind: 'grok-rate-limits', text: JSON.stringify({ model, data: JSON.parse(data) }) });
+    }
+  } else if (provider === 'perplexity') {
+    out.push({ kind: 'perplexity-rate-limit', text: await text(await call('rate-limit', fetch('/rest/rate-limit/status?version=2.18&source=default', { credentials: 'include', headers: { accept: 'application/json' } }))) });
   }
   return { bodies: out, steps };
 }
@@ -52,7 +62,7 @@ export function fieldNames(text: string): string {
   return keys(json).map(key => { const inner = (json as any)[key]; return inner && typeof inner === 'object' && !Array.isArray(inner) ? `${key}(${keys(inner).join(',')})` : inner === null ? `${key}=null` : key; }).join(', ').slice(0, 300) || 'empty';
 }
 
-const origins: Record<string, string> = { chatgpt: 'https://chatgpt.com', claude: 'https://claude.ai', gemini: 'https://gemini.google.com' };
+const origins: Record<string, string> = { chatgpt: 'https://chatgpt.com', claude: 'https://claude.ai', gemini: 'https://gemini.google.com', grok: 'https://grok.com', perplexity: 'https://www.perplexity.ai' };
 
 /** Reads usage for one AI: the parsed readings (empty when signed out or nothing came back) and what happened. */
 export async function fetchUsage(provider: ProviderId, now = Date.now()): Promise<{ readings: UsageWindow[]; check: UsageCheck }> {
@@ -71,8 +81,9 @@ export async function fetchUsage(provider: ProviderId, now = Date.now()): Promis
     } catch (error) { bodies = []; check.steps = [`tab script failed: ${error instanceof Error ? error.message : String(error)}`.slice(0, 120)]; }
     if (bodies.some(body => body.text)) break;
   }
-  // No open tab (or it couldn't answer): ChatGPT and Claude also answer the background with the browser's sign-in.
-  if (!bodies.some(body => body.text) && provider !== 'gemini') {
+  // No open tab (or it couldn't answer): ChatGPT and Claude also answer the background with the browser's sign-in;
+  // Gemini, Grok and Perplexity are read in their own tabs only.
+  if (!bodies.some(body => body.text) && (provider === 'chatgpt' || provider === 'claude')) {
     const tabSteps = check.steps;
     const answer = await fetchFromBackground(provider);
     bodies = answer.bodies;

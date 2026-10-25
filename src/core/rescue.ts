@@ -14,7 +14,8 @@ export function providerEnabled(id: ProviderId, enabled: Record<string, boolean 
 }
 
 // Feature caps, Codex/Work allowances and credits leave ordinary chat usable, so they never decide whether a service is out.
-const chatReading = (feature: string) => !/image|file|upload|voice|deep research|work|codex|credit|limit resets|^model$/i.test(feature);
+// Perplexity's Pro search, Research and Labs are feature caps too: with none left, its free questions still work.
+export const chatReading = (feature: string) => !/image|file|upload|voice|deep research|work|codex|credit|limit resets|^model$|pro search|^research$|^labs$/i.test(feature);
 function readings(saved: Record<string, unknown>, id: ProviderId, now: number): Meter[] {
   const windows = activeWindows((saved[`usageWindows:${id}`] || []) as UsageWindow[], now).filter(win => chatReading(win.feature));
   const meter = saved[`meter:${id}`] as Meter | undefined;
@@ -26,8 +27,11 @@ function readings(saved: Record<string, unknown>, id: ProviderId, now: number): 
 export type LimitState = { provider: ProviderId; feature: string; resetAt?: number };
 /** A limit counts only when the service itself showed it within the last hour. */
 export function reachedLimit(saved: Record<string, unknown>, id: ProviderId, now = Date.now()): LimitState | undefined {
-  const hit = readings(saved, id, now).filter(reading => reading.percent === 100);
+  const all = readings(saved, id, now);
+  const hit = all.filter(reading => reading.percent === 100);
   if (!hit.length) return;
+  // Grok's models are alternatives (Grok 4, Grok 3): it is out only when every model is.
+  if (id === 'grok' && hit.length < all.length) return;
   const resets = hit.map(reading => reading.resetAt).filter((at): at is number => !!at && at > now);
   // The window that frees up last decides when this service is usable again.
   return { provider: id, feature: hit.map(reading => reading.feature).join(' and '), ...(resets.length === hit.length ? { resetAt: Math.max(...resets) } : {}) };
@@ -39,6 +43,9 @@ export function rescueOptions(source: ProviderId, saved: Record<string, unknown>
   const options = providerIds.filter(id => id !== source && providerEnabled(id, enabled)).map((id): RescueOption => {
     const limit = reachedLimit(saved, id, now);
     if (limit) return { provider: id, status: 'limited', ...(limit.resetAt ? { resetAt: limit.resetAt } : {}), detail: `limit reached${limit.resetAt ? ` · resets in ${resetCountdown(limit.resetAt, now)}` : ''}` };
+    // Counts the service itself reports (Grok per model, Perplexity's free questions): the most room left decides.
+    const counts = readings(saved, id, now).filter(reading => reading.remainingCount !== undefined && (id === 'grok' || id === 'perplexity')).sort((a, b) => b.remainingCount! - a.remainingCount!);
+    if (counts.length) { const best = counts[0]; return { provider: id, status: best.remainingCount! > 0 ? 'room' : 'limited', ...(best.percent !== undefined ? { remainingPercent: 100 - best.percent } : {}), detail: `${best.feature}: ${best.remainingCount} left` }; }
     const left = readings(saved, id, now).map(reading => reading.remainingPercent ?? (reading.percent === undefined ? undefined : 100 - reading.percent)).filter((value): value is number => value !== undefined);
     if (!left.length) {
       // No official balance: use messages counted against a stated or learned limit, labelled as counted.

@@ -100,7 +100,7 @@ describe('a selection that starts in a reply', () => {
       const turns = [{ role: 'assistant' as const, text: 'Book the rail pass before you leave.', index: 0 }];
       expect(selectionName([question, ...turns])).toBe('Plan a trip to Japan in spring');
       const saved = await saveSelectionCapsule({ turns, question }, 'https://claude.ai/chat/1', 'Japan trip');
-      expect(saved.snapshotText).toMatch(/## 1\. You\n\nPlan a trip to Japan in spring\n\n## 2\. Assistant\n\nBook the rail pass/);
+      expect(saved.snapshotText).toMatch(/## 1\. User\n\nPlan a trip to Japan in spring\n\n## 2\. Assistant[^\n]*\n\nBook the rail pass/);
       expect(saved.snapshotText).toContain('after the question it answers');
       expect(saved.brief.goal).toContain('Plan a trip to Japan');
       expect(goalFromUserText(wrapHandoff(saved.snapshotText!))).toBe('Plan a trip to Japan in spring');

@@ -56,7 +56,7 @@ describe('lossless capture from the stored chat', () => {
   it('tells the next AI which files were in the chat', async () => {
     const { fullContext } = await import('../src/core/context-export');
     const text = fullContext({ turns: [{ role: 'user', text: 'Build it', index: 0 }, { role: 'assistant', text: 'Done.\n\n[Files: cinematic-portfolio-m1.zip]', index: 1 }], incomplete: false, truncated: false, savedAt: 0 }, 'https://claude.ai/chat/1').text;
-    expect(text).toContain('Files in the chat (not attached here; ask the user to share any you need): cinematic-portfolio-m1.zip');
+    expect(text).toContain('Files in the chat: cinematic-portfolio-m1.zip');
   });
   it('DeepSeek: the current branch, request and response only, files named', () => {
     const turns = deepseekTurns({ chat_session: { current_message_id: 5 }, chat_messages: [
@@ -87,5 +87,22 @@ describe('lossless capture from the stored chat', () => {
     const turn = (user: string, shown: string, drafts: [string, string][]) => [['c_1', 'r_x'], null, [[user], 1], [drafts.map(([id, text]) => [id, [text]]), null, null, shown]];
     const turns = geminiTurns([[turn('give me python code', 'rc_1', [['rc_1', 'import pandas']]), turn('review my answers', 'rc_9', [['rc_8', 'other draft'], ['rc_9', 'Q1 is right']])]]);
     expect(turns.map(turn => turn.text)).toEqual(['review my answers', 'Q1 is right', 'give me python code', 'import pandas']);
+  });
+  it('a long chat: clear speakers, key points first, the latest request again at the end', async () => {
+    const { fullContext } = await import('../src/core/context-export');
+    const { updateBrief } = await import('../src/core/brief');
+    const turns = [{ role: 'user' as const, text: 'Build tidy. It must never delete anything. We decided to use typer, not argparse.', index: 0 },
+      ...Array.from({ length: 20 }, (_, i) => ({ role: (i % 2 ? 'user' : 'assistant') as 'user' | 'assistant', text: `Point ${i}: ${'details about moves.log and undo. '.repeat(20)}`, index: i + 1 })),
+      { role: 'user' as const, text: 'next I want the undo command', index: 21 }];
+    const archive = { turns, incomplete: false, truncated: false, savedAt: 0 };
+    const text = fullContext(archive, 'https://claude.ai/chat/1', undefined, updateBrief(undefined, turns, [])).text;
+    expect(text).toContain('Source: Claude, https://claude.ai/chat/1');
+    expect(text).toContain('## 1. User\n\nBuild tidy.');
+    expect(text).toContain('## 2. Assistant (Claude)');
+    expect(text.indexOf('## Key points (from the whole chat below)')).toBeLessThan(text.indexOf('## 1. User'));
+    expect(text).toContain('Turned down:\n- We decided to use typer, not argparse.');
+    expect(text.trimEnd().endsWith('## Where it stopped\n\nThe user\'s latest request, word for word: “next I want the undo command”')).toBe(true);
+    const short = fullContext({ ...archive, turns: turns.slice(0, 2) }, 'https://claude.ai/chat/1', undefined, updateBrief(undefined, turns.slice(0, 2), [])).text;
+    expect(short).not.toContain('## Key points');
   });
 });

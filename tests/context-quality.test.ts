@@ -61,7 +61,7 @@ describe('context fidelity', () => {
     const text = `${'Detailed context. '.repeat(1000)}FINAL_REQUIREMENT`;
     const result = fullContext({ turns: [{ role: 'user', text, index: 0 }, { role: 'assistant', text: 'sk-proj-ABCDEFGHIJKLMNOPQRSTUVWXYZ123456', index: 1 }], incomplete: true, truncated: false, savedAt: 1 }, 'https://chatgpt.com/c/example?session=private');
     expect(result.text).toContain('FINAL_REQUIREMENT');
-    expect(result.text).toContain('Some rendered windows may be missing');
+    expect(result.text).toContain('Some messages may be missing; check the order before relying on it.');
     expect(result.text).not.toContain('session=private');
     expect(result.text).not.toContain('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
     expect(result.tokens).toBeGreaterThan(1500);

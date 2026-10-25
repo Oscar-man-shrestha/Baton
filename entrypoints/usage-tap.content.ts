@@ -2,12 +2,13 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import { connectFrames, frameShape, isClaudeTimelineStream, timelineUsage, timelineUsageJson } from '../src/core/claude-timeline';
 import { isClaudeReplyStream, usageKindOf } from '../src/core/usage-kind';
 
-// Usage tap: runs in the page's own context on ChatGPT, Claude and Gemini, before their scripts. When the site fetches
-// its own usage (ChatGPT's allowances and Codex/Work windows, Claude's usage meter, Gemini's quota), Baton reads a copy
+// Usage tap: runs in the page's own context on ChatGPT, Claude, Gemini and Perplexity, before their scripts. When the
+// site fetches its own usage (ChatGPT's allowances and Codex/Work windows, Claude's usage meter, Gemini's quota,
+// Perplexity's remaining Pro searches), Baton reads a copy
 // of that one response; the page gets the original untouched. Nothing else is read, and nothing leaves the browser:
 // the copy goes to Baton's content script on the same page.
 export default defineContentScript({
-  matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*'],
+  matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*', 'https://www.perplexity.ai/*'],
   world: 'MAIN',
   runAt: 'document_start',
   main() {

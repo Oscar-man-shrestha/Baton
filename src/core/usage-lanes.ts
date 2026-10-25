@@ -1,6 +1,7 @@
 import type { ProviderId } from './selectors';
 import type { StatedLimit } from './limits';
 import { displayWindows, estimable, type UsageHistory } from './usage-estimate';
+import { chatReading } from './rescue';
 import { messageSummary, type LimitHit } from './message-counts';
 import { resetCountdown, type UsageWindow } from './usage-windows';
 
@@ -14,6 +15,14 @@ export function laneFor(saved: Record<string, unknown>, provider: ProviderId, no
   const chat = shown.filter(win => estimable(win) && win.percent !== undefined).sort((a, b) => b.percent! - a.percent!);
   const extras = shown.filter(win => !estimable(win)).map(win => win.percent !== undefined ? `${win.feature}: ${Number((100 - win.percent).toFixed(1))}% left` : win.remainingCount !== undefined ? `${/^limit resets$/i.test(win.feature) ? 'Banked limit resets' : win.feature}: ${win.remainingCount.toLocaleString()}` : '').filter(Boolean);
   const counted = messageSummary(provider, (saved[`usageSends:${provider}`] || []) as number[], (saved[`limitHits:${provider}`] || []) as LimitHit[], now, saved[`statedLimit:${provider}`] as StatedLimit | undefined);
+  // Grok and Perplexity report counts (“Grok 4: 7 left”); the chat count with the most room decides the lane.
+  const counts = (provider === 'grok' || provider === 'perplexity') ? shown.filter(win => win.source === 'provider-response' && win.remainingCount !== undefined && chatReading(win.feature)).sort((a, b) => b.remainingCount! - a.remainingCount!) : [];
+  if (counts.length) {
+    const best = counts[0];
+    const reset = resetCountdown(best.resetAt, now);
+    const others = shown.filter(win => win !== best && win.remainingCount !== undefined && win.source === 'provider-response').map(win => `${win.feature}: ${win.remainingCount} left`);
+    return { provider, ...(best.percent !== undefined ? { left: 100 - best.percent } : {}), value: `${best.remainingCount} left`, detail: `${best.feature}${reset ? ` · resets in ${reset}` : ''}`, extras: [...others, ...extras.filter(item => !others.includes(item))], source: 'service' };
+  }
   if (chat.length) {
     const tight = chat[0];
     const left = Math.max(0, 100 - tight.percent!);

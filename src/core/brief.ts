@@ -260,7 +260,7 @@ function userStatementText(text: string, depth = 0): string {
   if (inner.startsWith('PROJECT HANDOFF')) {
     quoted = [...inner.matchAll(/^(?:Preferences and constraints|Open tasks):\n((?:- .*(?:\n|$))+)/gm)].flatMap(match => match[1].split('\n').map(line => line.replace(/^- /, ''))).join('\n');
   } else if (inner.startsWith('# Captured conversation') || inner.startsWith('# Selected part of a conversation')) {
-    quoted = [...inner.matchAll(/^## \d+\. You\n\n([\s\S]*?)(?=\n\n## \d+\. (?:You|Assistant)\n|(?![\s\S]))/gm)].map(match => userStatementText(match[1], depth + 1)).join('\n');
+    quoted = [...inner.matchAll(/^## \d+\. (?:You|User)\n\n([\s\S]*?)(?=\n\n## (?:\d+\. (?:You|User|Assistant[^\n]*)|Where it stopped)\n|(?![\s\S]))/gm)].map(match => userStatementText(match[1], depth + 1)).join('\n');
   }
   return [text.slice(0, start), quoted, after].join('\n');
 }
@@ -274,7 +274,7 @@ export function goalFromUserText(text: string, depth = 0): string {
   const inner = goal.match(/<(HANDOFF_[0-9a-f]+)>\n([\s\S]*?)(?:\n<\/\1>|$)/)?.[2] || '';
   const compact = inner.match(/^Goal: ([\s\S]*?)(?=\n\n|(?![\s\S]))/m)?.[1];
   if (compact) return compact.trim();
-  const firstUser = inner.match(/^## \d+\. You\n\n([\s\S]*?)(?=\n\n## \d+\. (?:You|Assistant)\n|(?![\s\S]))/m)?.[1];
+  const firstUser = inner.match(/^## \d+\. (?:You|User)\n\n([\s\S]*?)(?=\n\n## \d+\. (?:You|User|Assistant[^\n]*)\n|(?![\s\S]))/m)?.[1];
   return firstUser ? goalFromUserText(firstUser, depth + 1) : '';
 }
 
@@ -297,5 +297,6 @@ export const BRIEF_TOKENS = 3000;
 /** Whether text fits the destination's chat box in one go; with no destination, the smallest box of all. */
 export function draftBudget(text: string, target?: ProviderId): { approximateTokens: number; fits: boolean; limit: number } {
   const limit = target ? draftLimits[target].chars : Math.min(...Object.values(draftLimits).map(item => item.chars));
-  return { approximateTokens: text.length > 200000 ? Math.round(text.length / 4) : encode(text).length, fits: text.trim().length > 0 && text.length <= limit, limit };
+  // Exact counting is slow on long text and this runs on every keystroke in the draft box, so long text is estimated.
+  return { approximateTokens: text.length > 20000 ? Math.round(text.length / 4) : encode(text).length, fits: text.trim().length > 0 && text.length <= limit, limit };
 }

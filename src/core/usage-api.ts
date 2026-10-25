@@ -97,8 +97,43 @@ export function parseGeminiQuota(text: string, now = Date.now()): UsageWindow[] 
 }
 
 /** One parser per kind; bodies are text as the site sent them. */
+/**
+ * Grok's /rest/rate-limits for one model: { windowSizeSeconds, remainingQueries, totalQueries, waitTimeSeconds? }.
+ * Baton asks for each model and keeps the model name with the answer: { model, data }.
+ */
+export function parseGrokRateLimits(payload: unknown, now = Date.now()): UsageWindow[] {
+  const root = payload && typeof payload === 'object' ? payload as any : {};
+  const data = root.data ?? root;
+  const remaining = finite(data?.remainingQueries), total = finite(data?.totalQueries);
+  if (remaining === undefined || total === undefined || total <= 0 || remaining < 0 || remaining > total) return [];
+  const model = String(root.model || 'grok').replace(/^grok-?/i, '').replace(/-auto$/i, '');
+  const wait = finite(data.waitTimeSeconds);
+  const percent = Number((((total - remaining) / total) * 100).toFixed(1));
+  return [reading('grok', `Grok ${model || ''}`.trim(), now, { remainingCount: remaining, percent, remainingPercent: 100 - percent, ...(wait && wait > 0 ? { resetAt: now + wait * 1000 } : {}) })];
+}
+
+/** Perplexity's /rest/rate-limit/status: free questions and each mode's remaining uses (only what the plan has). */
+export function parsePerplexityRateLimit(payload: unknown, now = Date.now()): UsageWindow[] {
+  const root = payload && typeof payload === 'object' ? payload as any : {};
+  const names: Record<string, string> = { pro_search: 'Pro search', research: 'Research', labs: 'Labs', agentic_research: 'Deep research' };
+  const out: UsageWindow[] = [];
+  const add = (feature: string, entry: any) => {
+    const remaining = finite(entry?.remaining_detail?.remaining ?? entry?.remaining);
+    if (remaining === undefined || remaining < 0 || !Number.isSafeInteger(remaining)) return;
+    // A mode the plan doesn't include (unavailable with none left) isn't a limit to show.
+    if (entry?.available === false && remaining === 0) return;
+    out.push(reading('perplexity', feature, now, { remainingCount: remaining, ...(remaining === 0 ? { percent: 100, remainingPercent: 0 } : {}) }));
+  };
+  if (root.free_queries) add('Free questions', root.free_queries);
+  for (const [key, entry] of Object.entries(root.modes || {})) add(names[key] || key.replace(/_/g, ' '), entry);
+  // The older shape (/rest/rate-limit/all): remaining_pro, remaining_research, …
+  if (!root.modes) for (const [key, label] of [['remaining_pro', 'Pro search'], ['remaining_research', 'Research'], ['remaining_labs', 'Labs']] as const) if (finite(root[key])) add(label, { remaining: root[key], available: root[key] > 0 });
+  return out;
+}
+
 export function parseUsageResponse(kind: UsageKind, text: string, now = Date.now()): UsageWindow[] {
   if (kind === 'gemini-quota') return parseGeminiQuota(text, now);
+  if (kind === 'grok-rate-limits' || kind === 'perplexity-rate-limit') { let json: unknown; try { json = JSON.parse(text); } catch { return []; } return kind === 'grok-rate-limits' ? parseGrokRateLimits(json, now) : parsePerplexityRateLimit(json, now); }
   let json: unknown; try { json = JSON.parse(text); } catch { return []; }
   return kind === 'chatgpt-features' ? parseChatGptFeatures(json, now) : kind === 'chatgpt-wham' ? parseChatGptWham(json, now) : parseClaudeUsageResponse(json, now);
 }

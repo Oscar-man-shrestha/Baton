@@ -24,7 +24,7 @@ import type { Extraction, Turn } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
-import { chatFeature, chatSegments, countSegments, workSegments, type Segment } from '../src/core/composer-line';
+import { chatFeature, chatSegments, countSegments, workSegments, type Segment, serviceCountSegments } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, sentToday, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
@@ -142,7 +142,7 @@ export default defineContentScript({
       await saveCapturedCapsule(archive, brief, pageUrl(), document.title);
       const handoff = handoffDraft(archive, brief, pageUrl(), target);
       // Every length goes: the whole chat, its summary and the whole chat as a file, for passTo to fit to the box.
-      const full = fullContext(archive, pageUrl());
+      const full = fullContext(archive, pageUrl(), undefined, brief);
       const chatFile = { name: transcriptName(document.title, brief.goal), text: full.text };
       return { draft: handoff.draft, full: full.draft, summary: compactDraft(archive, brief), chatFile, files, points: handoffPoints(brief), messages: archive.turns.length, check: captureCheck(archive.turns) };
     };
@@ -582,7 +582,8 @@ export default defineContentScript({
       // Same order as ChatGPT's own figures read: Thinking, Codex/Work windows, then the allowance closest to running out.
       const counts = id === 'chatgpt' ? countSegments(windows) : [];
       const work = id === 'chatgpt' ? [...counts.slice(0, 1), ...workSegments(extras), ...counts.slice(1)] : [];
-      const segments = chatSegments(chat);
+      // Grok and Perplexity report what's left as counts, which chatSegments (percentages) leaves out.
+      const segments = [...chatSegments(chat), ...(id === 'grok' || id === 'perplexity' ? serviceCountSegments(windows) : [])];
       // Claude reports the 5-hour session only with a reply: once it resets, hold its place until the next message.
       if (id === 'claude' && segments.some(segment => segment.label === 'Weekly') && !segments.some(segment => segment.label === 'Session')) addSegment({ label: 'Session', value: '—', note: 'after your next message' });
       if (segments.length) segments.forEach(addSegment);
@@ -930,7 +931,7 @@ export default defineContentScript({
       void chrome.runtime.sendMessage({ type: 'API_USAGE', kind: data.kind, text: data.text }).catch(() => {});
     };
     window.addEventListener('message', tapped);
-    if (id === 'chatgpt' || id === 'claude' || id === 'gemini') void chrome.runtime.sendMessage({ type: 'API_USAGE_REFRESH' }).catch(() => {});
+    if (id !== 'deepseek') void chrome.runtime.sendMessage({ type: 'API_USAGE_REFRESH' }).catch(() => {});
     ctx.onInvalidated(() => window.removeEventListener('message', tapped));
     scheduleStatus();
     const captureOlderTurns = async (): Promise<Extraction> => {
