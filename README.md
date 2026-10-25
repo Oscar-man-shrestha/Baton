@@ -5,59 +5,140 @@
 <h1 align="center">Baton Pass</h1>
 
 <p align="center">
-  <b>Continue any AI chat in another AI, with nothing lost.</b><br>
-  Save your project, see every AI's usage limits, and pass the whole chat to another AI as a draft you send yourself.
+  <b>Your AI ran out mid-project? Keep going in another one, with nothing lost.</b><br>
+  One click carries your whole chat, your files and your decisions to ChatGPT, Claude, Gemini, DeepSeek, Grok or Perplexity.<br>
+  Then it checks the next AI actually picked it up.
 </p>
 
 <p align="center">
   <a href="https://github.com/Oscar-man-shrestha/handoff/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Oscar-man-shrestha/handoff/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Version 1.1.0" src="https://img.shields.io/badge/version-1.1.0-7c5cff">
   <img alt="Manifest V3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4">
+  <img alt="Free, no account" src="https://img.shields.io/badge/free-no%20account-22c55e">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/Oscar-man-shrestha/handoff/releases/tag/v1.1.0-beta"><b>Download the beta</b></a> ·
   <a href="https://oscar-man-shrestha.github.io/handoff/">Website</a> ·
+  <a href="docs/TESTING.md">Tester guide</a> ·
   <a href="docs/REPORT.md">Project report</a> ·
   <a href="PRIVACY.md">Privacy</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
-  <img src="store/screenshot-01-continue.png" width="720" alt="Hitting a limit in one AI and passing the chat to another with Baton">
+  <img src="docs/media/baton-demo.gif" width="820" alt="Demo: a limit is hit in ChatGPT, Baton passes the whole chat with its files to Claude as a draft, checks Claude's first reply, and shows usage left on every AI">
 </p>
 
 ---
 
-## Why
+## The problem
 
-Free AI chats run out mid-project, and long chats quietly get worse. Copying a conversation into another AI by hand loses the first messages, the decisions, what you already rejected and the exact file names. Baton carries all of it across, and checks the next AI picked it up.
+Free AI chats run out in the middle of the work, and long chats quietly get worse. Starting over in another AI means copying the conversation by hand, and something always gets lost: the first messages, the decisions, what you already turned down, the exact file names. The new AI then confidently suggests the thing you rejected an hour ago.
 
-Works on **ChatGPT · Claude · Gemini · DeepSeek · Grok · Perplexity** in Chrome, Edge, Brave, Opera, Vivaldi and Arc.
+**Baton Pass moves the whole project in one click, and checks it arrived intact.**
 
-## Features
+## How it works
 
-- **One-click pass.** A glowing button by the chat box opens the AI you pick with your project typed in. **You press Send**; Baton never sends anything.
-- **Nothing lost.** Reads the whole chat as the service stores it (not just what's on screen), keeps exact names and figures word for word, attaches the full chat as a file when it's long, and re-attaches your uploaded files.
-- **Checked on arrival.** After the next AI's first reply, Baton checks it kept your rules, didn't bring back what you turned down, and took up your latest request, and offers a one-click correction if not.
-- **Usage limits in one place.** What each AI has left and when it resets, from the figures the service itself reports, with a rescue card when you hit a limit and a tip when a chat gets too long.
-- **The right next AI.** Suggestions ranked for your task by a small model that runs on your device.
-- **Batons.** Save chats or selected parts, organise them in folders, pass them later. Keyboard shortcuts and a side panel included.
-- **Private.** Chats stay in your browser. No account needed, no analytics, never reads cookies or passwords.
+1. **Chat as usual** on any of the six AIs. A glowing Baton button sits next to the chat box, and a small bar shows how much you have left.
+2. **Click the Baton button** (or press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>U</kbd>) and pick the next AI. Baton suggests the best one for your task and how much room it has.
+3. **Read the draft and press Send.** The new AI opens with your whole project typed in and your files attached. Baton never sends anything for you.
+4. **Baton checks the first reply.** If the new AI ignored a rule, brought back something you rejected, or changed a number you settled, one click puts a correction in the chat box.
 
-## Results
+## What makes it different
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### Nothing lost
+Reads the whole chat **as the AI stores it**, not just what's on screen. Long chats that the page only half shows come through complete, every part of every reply included. A capture check tells you what it got: *“64 messages (32 yours, 32 replies), in order.”*
+
+</td>
+<td width="50%" valign="top">
+
+### Your files come too
+Your uploads are re-attached in the next AI, along with **what the AI made for you**: Claude's output files in their real final state, ChatGPT writing blocks. A long chat goes as a summary with the complete chat attached as a file.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### Checked on arrival
+After the new AI's first reply, Baton compares it with the handoff: your rules, what you turned down, your latest request, the numbers you settled. *“It may have a number wrong: it says ‘three nights in Takayama’; the chat settled on 2 nights.”*
+
+</td>
+<td valign="top">
+
+### Usage on every AI
+How much each AI has left and when it resets, **from the figures the service itself reports**: ChatGPT's allowances, Claude's session and week, Gemini's quota, Grok per model, Perplexity's Pro searches. A rescue card appears when you hit a limit, and a tip when a chat gets long enough that answers slip.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### The right next AI
+Suggestions ranked for your task (code, research, writing, maths, images) and by how much room each AI has, using a small model that runs **on your device**.
+
+</td>
+<td valign="top">
+
+### Private by design
+Your chats stay in your browser. No account, no analytics, no server in between. Baton reads chats only on the six AI sites, with the sign-in you already have.
+
+</td>
+</tr>
+</table>
+
+### Compared with copy-paste and typical handoff tools
+
+| | Copy-paste | Typical handoff tools | **Baton Pass** |
+|---|:---:|:---:|:---:|
+| Whole chat, even what the page doesn't show | ✗ | some sites | **all six sites** |
+| Exact names, figures and decisions kept word for word | ✗ | rarely | **✓** |
+| Files you uploaded and files the AI made | ✗ | rarely | **✓** |
+| Any length (summary plus the full chat as a file) | ✗ | often cut | **✓** |
+| Checks the next AI's first reply, offers a correction | ✗ | ✗ | **✓** |
+| Real usage left on every AI | ✗ | limit notice only | **✓** |
+| Nothing sent to a server | ✓ | often not | **✓** |
+| You always press Send yourself | ✓ | some auto-send | **✓** |
+
+## Proven, not promised
 
 | | |
 |---|---|
-| Must-keep facts that reach the next AI (offline benchmark, 6 chats) | **100%** (1.0: 80%) |
-| Real ChatGPT and Claude replies to Baton handoffs that continued the work | **12 / 12** (11 pass the automatic scorer) |
-| Tests | 328 passing |
+| Must-keep facts that reach the next AI (offline benchmark, 6 chats) | **100%** (version 1.0: 80%) |
+| Real ChatGPT and Claude replies to Baton handoffs that continued the work | **12 / 12** |
+| Real slips caught by the reply check on those replies | **1 of 1**, with no false alarms |
+| Automated tests | **349** passing |
 
-Method and details: [docs/REPORT.md §9](docs/REPORT.md#9-quality-and-evaluation) and [evaluation/README.md](evaluation/README.md).
+How it was measured: [project report §9](docs/REPORT.md#9-quality-and-evaluation) and [evaluation/README.md](evaluation/README.md).
+
+## Screenshots
+
+<p align="center">
+  <img src="store/screenshot-02-whole-chat.png" width="49%" alt="The next AI opens with the whole chat typed in and the files attached">
+  <img src="store/screenshot-03-check.png" width="49%" alt="Baton checks the next AI's first reply and offers a correction">
+</p>
+<p align="center">
+  <img src="store/screenshot-04-usage.png" width="49%" alt="Usage left on every AI, and a tip when a chat gets long">
+  <img src="store/screenshot-05-private.png" width="49%" alt="Privacy: you press Send, everything stays in your browser">
+</p>
 
 ## Install
 
-**From the Chrome Web Store:** coming soon.
+**Chrome Web Store:** coming soon.
+
+**Beta (Chrome, Brave, Edge, Opera, Vivaldi or Arc on a computer):**
+
+1. Download [`handoff-extension-1.1.0-chrome.zip`](https://github.com/Oscar-man-shrestha/handoff/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip) and unzip it into a folder you'll keep.
+2. Open `chrome://extensions` (or `brave://extensions`, `edge://extensions`) and turn on **Developer mode**.
+3. Click **Load unpacked**, choose the unzipped folder, and pin Baton from the puzzle-piece icon.
+
+Testing it for us? The [tester guide](docs/TESTING.md) lists what to try and how to report.
 
 **From source:**
 
@@ -69,33 +150,74 @@ git clone https://github.com/Oscar-man-shrestha/handoff.git
 cd handoff && npm install && npm run build
 ```
 
-Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and choose the `.output/chrome-mv3` folder.
+Then **Load unpacked** the `.output/chrome-mv3` folder as above.
 
-## How to use
+## Keyboard shortcuts
 
-1. Chat on any of the six AIs as usual.
-2. When you hit a limit or want another AI, click the glowing **Baton** button by the chat box (or press **⌘⇧U** / **Ctrl+Shift+U**).
-3. Pick an AI. It opens with your project as a draft. Read it, add anything, press **Send**.
+| Action | Mac | Windows / Linux |
+|---|---|---|
+| Pass this chat to another AI | <kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd> | <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>U</kbd> |
+| Keep this chat as a baton | <kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd> | <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>K</kbd> |
+| Save the selected part as a baton | <kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd> | <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd> |
+| Open Baton | <kbd>⌘</kbd><kbd>⇧</kbd><kbd>E</kbd> | <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>E</kbd> |
 
-More: **⌘⇧K** keeps the chat as a baton, **⌘⇧X** saves the selected part, **⌘⇧E** opens Baton. The full guide opens from **?** in Baton.
+Also available without a default key (set one in your browser's extension shortcuts): **Have this AI write the handoff** and **Open Baton in the side panel**.
 
-## Development
+## Privacy in one minute
+
+- **You press Send.** Baton types a draft and attaches files; it never sends a message for you.
+- **Your chats stay in your browser.** Batons, settings and usage readings are saved on your device. Google backup is optional and off by default.
+- **Only the six AI sites.** Baton reads chats and usage there with the sign-in you already have. It never reads passwords or cookies, and the short-lived session tokens a site's own page uses are used only for that one request and never stored.
+- **No analytics.** Feedback is sent only when you write it.
+
+Full policy: [PRIVACY.md](PRIVACY.md) · Security reports: [SECURITY.md](SECURITY.md)
+
+## FAQ
+
+<details>
+<summary><b>Does Baton send my messages or read other sites?</b></summary>
+
+No. It only types a draft into the AI you choose, and you press Send. It works only on chatgpt.com, claude.ai, gemini.google.com, chat.deepseek.com, grok.com and perplexity.ai.
+</details>
+
+<details>
+<summary><b>Is it free? Do I need an account?</b></summary>
+
+Free and open source, with no account. The optional Google backup is the only thing that signs in, and you can ignore it.
+</details>
+
+<details>
+<summary><b>What if my chat is very long?</b></summary>
+
+Any length goes. If the whole chat fits the next AI's chat box (up to 100,000+ characters on most), it's typed in whole, with the key points first and your latest request repeated at the end. If not, a summary is typed and the complete chat is attached as a file.
+</details>
+
+<details>
+<summary><b>Why does it need access to six websites?</b></summary>
+
+To read the chat you pass and each AI's usage figures, and to type the draft into the next AI's chat box. Every permission is explained in [PRIVACY.md](PRIVACY.md#permissions).
+</details>
+
+<details>
+<summary><b>What happens when an AI site changes its design?</b></summary>
+
+Baton reads each chat as the service stores it, so most page changes don't affect it; if that fails, it falls back to reading the page. When a site change does break something, the fix ships as an update.
+</details>
+
+## For developers
 
 ```bash
 npm run dev          # browser with Baton loaded, reloads on change
-npm test             # 328 tests (Vitest)
+npm test             # 349 tests (Vitest)
 npm run typecheck    # TypeScript
 npm run eval:handoff # handoff fidelity benchmark
+npm run eval         # score live replies from real AIs
 npm run zip          # store package in .output/
 ```
 
-Architecture, every pipeline with diagrams, research and results: **[docs/REPORT.md](docs/REPORT.md)**. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Publishing to the stores: [docs/PUBLISHING.md](docs/PUBLISHING.md).
+The full story (research, architecture, every pipeline with diagrams, evaluation and results) is in the **[project report](docs/REPORT.md)**. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Publishing: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
-Built with TypeScript, [WXT](https://wxt.dev), [ONNX Runtime Web](https://onnxruntime.ai) running [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) on device, and [Supabase](https://supabase.com) for the optional backup.
-
-## Privacy
-
-Baton works only on the six AI sites, keeps your chats in your browser, and sends data only when you act: a draft to the AI you choose, an optional backup, or feedback. Full policy: [PRIVACY.md](PRIVACY.md). Security issues: [SECURITY.md](SECURITY.md).
+Built with TypeScript, [WXT](https://wxt.dev), [ONNX Runtime Web](https://onnxruntime.ai) running [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) on your device, and [Supabase](https://supabase.com) for the optional backup.
 
 ## License
 
