@@ -106,3 +106,19 @@ describe('lossless capture from the stored chat', () => {
     expect(short).not.toContain('## Key points');
   });
 });
+
+describe('Grok: the reply on screen decides the branch', () => {
+  it('follows ?rid= to an older regenerated reply, and continues below a reply in the middle', async () => {
+    const { grokTurns } = await import('../src/core/lossless');
+    const responses = [
+      { responseId: 'u1', sender: 'human', message: 'Write a script', createTime: '2026-03-23T14:50:00Z' },
+      { responseId: 'a-old', parentResponseId: 'u1', sender: 'assistant', message: 'First version', createTime: '2026-03-23T14:51:00Z' },
+      { responseId: 'a-new', parentResponseId: 'u1', sender: 'assistant', message: 'Regenerated version', createTime: '2026-03-23T14:55:00Z' },
+      { responseId: 'u2', parentResponseId: 'a-old', sender: 'human', message: 'Shorter please', createTime: '2026-03-23T14:52:00Z' },
+      { responseId: 'a2', parentResponseId: 'u2', sender: 'assistant', message: 'Shorter version', createTime: '2026-03-23T14:53:00Z' }
+    ];
+    expect(grokTurns(responses).map(turn => turn.text)).toEqual(['Write a script', 'Regenerated version']);
+    expect(grokTurns(responses, 'a2').map(turn => turn.text)).toEqual(['Write a script', 'First version', 'Shorter please', 'Shorter version']);
+    expect(grokTurns(responses, 'a-old').map(turn => turn.text)).toEqual(['Write a script', 'First version', 'Shorter please', 'Shorter version']);
+  });
+});

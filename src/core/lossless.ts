@@ -220,11 +220,15 @@ export function perplexityTurns(entries: PerplexityEntry[]): Turn[] {
 }
 
 type GrokResponse = { responseId: string; parentResponseId?: string; sender: string; message?: string; createTime?: string; error?: unknown; fileAttachmentsMetadata?: { fileName?: string; fileMimeType?: string; fileUri?: string }[] };
-/** Grok: the branch ending in the newest message (a regenerated reply replaces the earlier one); failed replies skipped. */
-export function grokTurns(responses: GrokResponse[]): Turn[] {
+/** Grok: the branch with the reply on screen (?rid=), else the newest; failed replies skipped. */
+export function grokTurns(responses: GrokResponse[], shown?: string): Turn[] {
   const byId = new Map(responses.map(response => [response.responseId, response]));
   const parents = new Set(responses.map(response => response.parentResponseId).filter(Boolean));
-  const leaf = responses.filter(response => !parents.has(response.responseId) && !response.error).sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
+  // The reply on screen (Grok's ?rid=) decides the branch; without it, the newest one.
+  const newestLeaf = responses.filter(response => !parents.has(response.responseId) && !response.error).sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
+  let leaf = (shown && byId.get(shown)) || newestLeaf;
+  // From a reply in the middle of the chat, follow its newest continuation down to the end.
+  for (let next: GrokResponse | undefined = leaf; next; ) { next = responses.filter(response => response.parentResponseId === next!.responseId && !response.error).sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0]; if (next) leaf = next; }
   const branch: GrokResponse[] = [];
   for (let at: GrokResponse | undefined = leaf; at && !branch.includes(at); at = byId.get(at.parentResponseId || '')) branch.unshift(at);
   return numbered(branch.filter(response => !response.error).map(response => {
@@ -290,7 +294,7 @@ export async function fetchStoredChat(id: ProviderId, location: Location, timeou
     const nodes = (await json(`/rest/app-chat/conversations/${chat}/response-node?includeThreads=true`)).responseNodes as { responseId: string }[] | undefined;
     if (!nodes?.length) return undefined;
     const loaded = await json(`/rest/app-chat/conversations/${chat}/load-responses`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ responseIds: nodes.map(node => node.responseId) }) });
-    return grokTurns(loaded.responses || []);
+    return grokTurns(loaded.responses || [], new URLSearchParams(location.search).get('rid') || undefined);
   }
   if (id === 'perplexity') {
     const entries: PerplexityEntry[] = [];
