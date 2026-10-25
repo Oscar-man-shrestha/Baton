@@ -1,4 +1,5 @@
 import type { Brief } from './brief';
+import { changedFigures, settledFigures, type Figure } from './figures';
 
 /**
  * Receiving-side check: after the next AI's first reply to a handoff, did it take the handoff in? No other handoff tool
@@ -7,8 +8,9 @@ import type { Brief } from './brief';
  * the user set, not taking up the latest request, asking for context the handoff already gave, and only acknowledging.
  * Text heuristics can be wrong, so each finding is worded as “may”, and nothing is sent without the user.
  */
-export type HandoffPoints = { rules: string[]; rejected: string[]; decisions: string[]; latest: string; hadContext: boolean };
-export type Miss = { kind: 'rejected' | 'rule' | 'latest' | 'asked-again' | 'ack-only'; text: string; point?: string };
+// figures: what the user settled with a number (“Takayama 2 nights”); optional so older handoffs still check.
+export type HandoffPoints = { rules: string[]; rejected: string[]; decisions: string[]; latest: string; hadContext: boolean; figures?: Figure[] };
+export type Miss = { kind: 'rejected' | 'rule' | 'figure' | 'latest' | 'asked-again' | 'ack-only'; text: string; point?: string };
 
 const stop = new Set('about above after again also another because been before being both could does doing done each from have having here into itself just like make more most much need only other over same should some such than that their them then there these they this those through very want what when where which while will with without would your yours please thanks first next want using used make sure keep still able going really maybe something anything everything'.split(' '));
 const words = (text: string) => (text.toLowerCase().match(/[a-z][a-z0-9+#.-]{3,}/g) || []).map(word => word.replace(/[.-]+$/, '')).filter(word => !stop.has(word));
@@ -25,6 +27,7 @@ export function handoffPoints(brief: Brief): HandoffPoints {
     rejected: brief.rejected_approaches.slice(0, 8),
     decisions: brief.decisions.filter(item => item.status !== 'superseded').map(item => item.text).slice(0, 8),
     latest: brief.last_exchange.user || brief.user_messages[brief.user_messages.length - 1] || '',
+    figures: settledFigures(brief.user_messages),
     hadContext: brief.artifacts.length > 0 || brief.user_messages.length > 1
   };
 }
@@ -82,6 +85,11 @@ export function checkReply(reply: string, points: HandoffPoints): Miss[] {
     // Named as the user wrote it (“Redux”, not “redux”).
     if (term && term.length >= 2 && !reported.has(term) && recommends(text, term) && reported.add(term)) misses.push({ kind: 'rejected', text: `It may be suggesting ${point.match(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || term}, which you turned down.`, point });
   }
+  // A settled figure given a different number (“three nights in Takayama” where the chat said two).
+  for (const { settled, said } of changedFigures(text, points.figures || [])) {
+    const plural = (n: number, unit: string) => n === 1 ? unit : unit === 'person' ? 'people' : `${unit}s`;
+    misses.push({ kind: 'figure', text: `It may have a number wrong: it says “${said.said}”; the chat settled on ${settled.number} ${plural(settled.number, settled.unit)}.`, point: `${settled.name}: ${settled.number} ${plural(settled.number, settled.unit)}, as we settled (not ${said.number})` });
+  }
   // The latest request: most of its content words should come up in a reply that takes it on.
   const asked = [...new Set(words(points.latest))];
   if (asked.length >= 3) {
@@ -98,6 +106,7 @@ export function checkReply(reply: string, points: HandoffPoints): Miss[] {
 /** A correction for the chat box (the user reviews and sends it): only the points the reply missed. */
 export function correction(misses: Miss[]): string {
   const lines = misses.map(miss => miss.kind === 'rejected' ? `- I turned this down earlier: ${miss.point}`
+    : miss.kind === 'figure' ? `- ${miss.point}.`
     : miss.kind === 'rule' ? `- My rule still applies: ${miss.point}`
     : miss.kind === 'latest' ? `- My latest request, which is what to work on now: “${miss.point}”`
     : miss.kind === 'asked-again' ? '- Everything I shared before is in the context above (and any attached file); please use it rather than asking again.'
