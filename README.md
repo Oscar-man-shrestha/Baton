@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Oscar-man-shrestha/handoff/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Oscar-man-shrestha/handoff/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/Oscar-man-shrestha/Baton/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Oscar-man-shrestha/Baton/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Version 1.1.0" src="https://img.shields.io/badge/version-1.1.0-7c5cff">
   <img alt="Manifest V3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4">
   <img alt="Free, no account" src="https://img.shields.io/badge/free-no%20account-22c55e">
@@ -19,8 +19,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Oscar-man-shrestha/handoff/releases/tag/v1.1.0-beta"><b>Download the beta</b></a> ·
-  <a href="https://oscar-man-shrestha.github.io/handoff/">Website</a> ·
+  <a href="https://github.com/Oscar-man-shrestha/Baton/releases/tag/v1.1.0-beta"><b>Download the beta</b></a> ·
+  <a href="https://oscar-man-shrestha.github.io/Baton/">Website</a> ·
   <a href="docs/TESTING.md">Tester guide</a> ·
   <a href="docs/REPORT.md">Project report</a> ·
   <a href="PRIVACY.md">Privacy</a> ·
@@ -134,7 +134,7 @@ How it was measured: [project report §9](docs/REPORT.md#9-quality-and-evaluatio
 
 **Beta (Chrome, Brave, Edge, Opera, Vivaldi or Arc on a computer):**
 
-1. Download [`handoff-extension-1.1.0-chrome.zip`](https://github.com/Oscar-man-shrestha/handoff/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip) and unzip it into a folder you'll keep.
+1. Download [`handoff-extension-1.1.0-chrome.zip`](https://github.com/Oscar-man-shrestha/Baton/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip) and unzip it into a folder you'll keep.
 2. Open `chrome://extensions` (or `brave://extensions`, `edge://extensions`) and turn on **Developer mode**.
 3. Click **Load unpacked**, choose the unzipped folder, and pin Baton from the puzzle-piece icon.
 
@@ -143,11 +143,11 @@ Testing it for us? The [tester guide](docs/TESTING.md) lists what to try and how
 **From source:**
 
 ```bash
-git clone https://github.com/Oscar-man-shrestha/handoff.git
+git clone https://github.com/Oscar-man-shrestha/Baton.git
 ```
 
 ```bash
-cd handoff && npm install && npm run build
+cd Baton && npm install && npm run build
 ```
 
 Then **Load unpacked** the `.output/chrome-mv3` folder as above.
@@ -215,7 +215,7 @@ npm run eval         # score live replies from real AIs
 npm run zip          # store package in .output/
 ```
 
-The full story (research, architecture, every pipeline with diagrams, evaluation and results) is in the **[project report](docs/REPORT.md)**. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Publishing: [docs/PUBLISHING.md](docs/PUBLISHING.md).
+The full story (research, architecture, every pipeline with diagrams, evaluation and results) is in the **[project report](docs/REPORT.md)**. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md). Publishing: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 Built with TypeScript, [WXT](https://wxt.dev), [ONNX Runtime Web](https://onnxruntime.ai) running [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) on your device, and [Supabase](https://supabase.com) for the optional backup.
 

@@ -37,7 +37,7 @@ Baton saves "Baton backup.json" into the user's own Drive, using the `drive.file
    - App name: **Baton**;
    - Support and developer email: batonforai@gmail.com;
    - App logo: `store/icon-128.png` (optional);
-   - Privacy policy: https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md;
+   - Privacy policy: https://github.com/Oscar-man-shrestha/Baton/blob/main/PRIVACY.md;
    - Scopes: add `.../auth/drive.file`.
 
    Save, then **Publish app**, so it isn't limited to test users.

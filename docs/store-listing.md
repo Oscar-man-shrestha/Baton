@@ -65,7 +65,7 @@ The screenshots are designed scenes rendered from `store/src/*.html` (`npm run r
 | Small promo tile | `store/promo-small-440x280.png` | 440×280 |
 | Marquee promo tile | `store/promo-marquee-1400x560.png` | 1400×560 |
 
-**Website:** https://oscar-man-shrestha.github.io/handoff/ · **Support:** batonforai@gmail.com
+**Website:** https://oscar-man-shrestha.github.io/Baton/ · **Support:** batonforai@gmail.com
 
 ## Privacy practices tab
 
@@ -105,7 +105,7 @@ Baton lets you continue an AI chat in another AI chat service: it saves the conv
 
 Certify all three statements: data is not sold to third parties; not used or transferred for purposes unrelated to the single purpose; not used to determine creditworthiness or for lending.
 
-**Privacy policy URL:** `https://github.com/Oscar-man-shrestha/handoff/blob/main/PRIVACY.md` (the repository must be public, and `PRIVACY.md` on `main`).
+**Privacy policy URL:** `https://github.com/Oscar-man-shrestha/Baton/blob/main/PRIVACY.md` (the repository must be public, and `PRIVACY.md` on `main`).
 
 ## Distribution tab
 

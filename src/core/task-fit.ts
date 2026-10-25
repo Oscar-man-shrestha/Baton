@@ -121,7 +121,7 @@ export function parseRankings(input: unknown, fallback?: Rankings): Rankings | u
 }
 export const bundledRankings = parseRankings(bundled)!;
 
-export const RANKINGS_URL = 'https://raw.githubusercontent.com/Oscar-man-shrestha/handoff/main/rankings.json';
+export const RANKINGS_URL = 'https://raw.githubusercontent.com/Oscar-man-shrestha/Baton/main/rankings.json';
 export type SavedRankings = { data: unknown; fetchedAt: number };
 /** The online list when it is valid and not older than the bundled one; otherwise the bundled list. */
 export function activeRankings(saved: unknown): { rankings: Rankings; online: boolean; fetchedAt?: number } {

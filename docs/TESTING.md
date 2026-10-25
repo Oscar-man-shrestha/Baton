@@ -8,7 +8,7 @@ Thank you for testing! Baton Pass is a browser extension that moves an AI chat (
 
 You need **Chrome, Brave or Edge** on a computer. Phones are not supported.
 
-1. Download **[handoff-extension-1.1.0-chrome.zip](https://github.com/Oscar-man-shrestha/handoff/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip)** (from the [test release](https://github.com/Oscar-man-shrestha/handoff/releases/tag/v1.1.0-beta)).
+1. Download **[handoff-extension-1.1.0-chrome.zip](https://github.com/Oscar-man-shrestha/Baton/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip)** (from the [test release](https://github.com/Oscar-man-shrestha/Baton/releases/tag/v1.1.0-beta)).
 2. **Unzip it** into a folder you'll keep, for example `Documents/baton-test`. The browser loads it from there, so don't delete the folder while testing.
 3. Open the extensions page:
    - Chrome: `chrome://extensions`

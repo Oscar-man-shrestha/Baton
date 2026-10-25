@@ -45,7 +45,7 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(scheduleRankings);
   // First install: open the welcome page (pin Baton, open an AI chat, find the glowing button).
   // Uninstall: the browser opens a short feedback page on Baton's site; only the version is in the address.
-  const uninstallPage = () => { void chrome.runtime.setUninstallURL(`https://oscar-man-shrestha.github.io/handoff/uninstall.html?v=${encodeURIComponent(chrome.runtime.getManifest().version)}`).catch(() => {}); };
+  const uninstallPage = () => { void chrome.runtime.setUninstallURL(`https://oscar-man-shrestha.github.io/Baton/uninstall.html?v=${encodeURIComponent(chrome.runtime.getManifest().version)}`).catch(() => {}); };
   chrome.runtime.onInstalled.addListener(details => {
     uninstallPage();
     if (details.reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') }).catch(() => {});
