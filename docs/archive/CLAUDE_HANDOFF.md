@@ -59,7 +59,7 @@ Canonical latest commits at handoff: `dc46722` (live verification documentation)
 - No Git remote creation/push, public hosting, or server deployment. The user will create/push the public repository later. Planned privacy URL: `https://github.com/Oscar-man-shrestha/handoff-extension/blob/main/PRIVACY.md`, **pending: repo not yet published**.
 - Ask before paid services, a new remote destination, materially broader permissions, destructive actions, or anything involving account switching/limit evasion. Preserve local data and ask before deleting real cloud backups.
 - A Google OAuth secret and Stitch key were previously pasted in chat. **Neither is included here.** Do not request or echo secrets in chat/source. User was told to replace the exposed Google secret and store its replacement directly in Supabase. Rotation/revocation was not independently verified; do not claim it was. Google client-secret entry was performed by the human.
-- Research does not authorize wholesale copying of unlicensed code or branding. Capsule Infinity dashboard styling was adapted under its MIT notice; preserve `THIRD_PARTY_NOTICES.md` and the notice shipped in the build. Use Handoff branding.
+- Research does not authorize wholesale copying of unlicensed code or branding. Keep `THIRD_PARTY_NOTICES.md` and the copy shipped in the build current for every bundled third-party component. Use Handoff branding.
 
 ## 4. Existing implementation and code map
 

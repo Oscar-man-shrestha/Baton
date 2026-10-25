@@ -440,7 +440,7 @@ Verified: 216 tests in 30 files, typecheck, complete build, visual check with sa
 
 ## 0.3.25 — Baton's own layout (same colours)
 
-The user asked to keep the colours and change the structure, so Baton no longer reads as Capsule Infinity's dashboard (stat tiles with icons, a row of three equal Quick Action buttons, then a list).
+The user asked to keep the colours and change the structure, so Baton has its own layout instead of a generic dashboard (stat tiles with icons, a row of three equal Quick Action buttons, then a list).
 
 - **Header:** a striped baton mark instead of the “↗” arrow; subtitle “Pass your AI work forward”.
 - **Pass card** for the current chat: source line, “Pass the baton” heading, a one-line hint (you always press Send yourself), one wide primary button **“Capture this chat →”**, and smaller “＋ New Baton” and “▱ Folder” buttons. Capture settings are folded in below.
@@ -459,7 +459,7 @@ Verified: 213 tests in 30 files, typecheck, complete build; build-1 synced with 
 
 ## 0.3.24 — Pass 0.3.24 — renamed from Handoff
 
-Why: two Chrome Web Store extensions are already called “Handoff” and do the same job, and “Capsule” is Capsule Infinity's own word. A Firefox add-on is called plain “Baton”, so the official name is **Baton Pass** and the extension shows the short name **Baton**. Searches on 22 Oct 2026 found no other tool called “Baton Pass”; check the Chrome Web Store directly before publishing.
+Why: two Chrome Web Store extensions are already called “Handoff” and do the same job, and “Capsule” is another extension's word. A Firefox add-on is called plain “Baton”, so the official name is **Baton Pass** and the extension shows the short name **Baton**. Searches on 22 Oct 2026 found no other tool called “Baton Pass”; check the Chrome Web Store directly before publishing.
 
 - **Manifest:** name “Baton Pass”, short name and toolbar title “Baton”, and a new description.
 - **Everything on screen:** Handoff → Baton, Capsule(s) → Baton(s): New Baton, Recent Batons, All Batons, Save Baton, the stats row, sidebar, settings, the line under the composer, the rescue card, toolbar tooltips, notifications and status messages. The main button now reads **“Pass the baton ↗”**.

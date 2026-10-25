@@ -16,7 +16,7 @@ See [LIVE_VALIDATION_2026-10-21.md](LIVE_VALIDATION_2026-10-21.md) for narrowly 
 - Packaged content fixtures: 12 virtualized turns in order, restored scroll position, streaming update, cross-tab quota update, non-interactive below-composer usage strip and draft insertion without submit. See sibling ui-previews/content-checks.json.
 - Supabase project qeoduozlznznptwsfzbt: inspected empty public schema, applied owner-scoped handoff_backups migration, verified RLS enabled and anon read privileges denied. Transactional fixtures tested owner-only visibility, cross-owner update denial and cross-owner insert rejection; rolled back all fixtures.
 - Retrieved the project's publishable key and configured it in the extension. No service-role or Google client secret is present. Google provider is now enabled and live Google sign-in passed. Earlier isolated fixtures still test the disabled-provider recovery path.
-- Capsule Infinity's MIT notice is included in source and the loadable build for the adapted dashboard/component styling.
+- Third-party notices are included in source and the loadable build. (The early dashboard styling borrowed from another MIT extension was replaced in 0.3.25, so its notice was removed in 1.1.0.)
 
 ## Not passed or not run
 

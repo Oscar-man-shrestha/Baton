@@ -88,7 +88,7 @@ describe('Baton naming', () => {
     expect(order.querySelector('.lanes-section .chat-toggles #toggle-bar')?.closest('[hidden]')).toBeNull();
     expect(order.querySelector('.lanes-section .chat-toggles #toggle-pass')?.closest('[hidden]')).toBeNull();
     const doc = new JSDOM(popup).window.document;
-    // Not Capsule Infinity's layout: no stat tiles, one primary pass action, lanes above the list.
+    // Baton's own layout: no stat tiles, one primary pass action, lanes above the list.
     expect(doc.querySelector('.stats')?.tagName).toBe('P');
     expect(doc.querySelector('.quick-actions .pass-primary')?.id).toBe('capture');
     expect(doc.querySelector('#lanes')!.compareDocumentPosition(doc.querySelector('#recent-list')!) & 4).toBeTruthy();
