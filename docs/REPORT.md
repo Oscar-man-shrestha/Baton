@@ -551,4 +551,3 @@ The store submission steps are in [PUBLISHING.md](PUBLISHING.md).
 - [evaluation/README.md](../evaluation/README.md): benchmark and live-check method
 - [docs/research/](research/): market, free-tier and handoff-methods research
 - [docs/setup/](setup/): Supabase, Google sign-in, feedback and Drive setup
-- [docs/archive/](archive/): earlier reports, phase status and verification logs

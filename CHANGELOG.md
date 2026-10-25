@@ -797,7 +797,7 @@ Not equivalent to their hosted product yet:
 
 ### Design reference
 
-Used the user's Stitch connection to generate and inspect screen `7e3a281a2b894a62bbb03bb3954ad873` in project `5032924933235062153`. Reference image: sibling `stitch-designs/simple-popup-reference.png`. Applied the simpler hierarchy, charcoal/violet palette, compact usage and restrained interactions. Did not copy fictional model labels, quota values, memory counters, or cloud/privacy claims from the generated mockup. No remote UI assets or API key are shipped.
+Used the user's Stitch connection to generate and inspect a reference screen. Reference image: sibling `stitch-designs/simple-popup-reference.png`. Applied the simpler hierarchy, charcoal/violet palette, compact usage and restrained interactions. Did not copy fictional model labels, quota values, memory counters, or cloud/privacy claims from the generated mockup. No remote UI assets or API key are shipped.
 
 Compared Claude Monitor's [optional composer bar](https://github.com/claude-monitor/claude-monitor-browser-extension/blob/main/extension/page/bar.js) and [feature explanation](https://claude-monitor.com/), reviewed 2026-10-21. Its private usage requests and response interception are not enabled in Handoff under the existing restrictions and unresolved conditional authorization. A display pattern cannot make hidden quotas observable.
 
