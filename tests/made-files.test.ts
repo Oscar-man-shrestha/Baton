@@ -74,3 +74,12 @@ describe('files the AI wrote travel with the handoff', () => {
     expect(result.skipped).toEqual(['empty.ino']);
   });
 });
+
+describe('ChatGPT writing blocks (the real reply, Oct 2026: canvas is deprecated)', () => {
+  it('keeps the content under its title and drops the markup', async () => {
+    const { writingBlocks } = await import('../src/core/lossless');
+    const reply = 'Canvas has been deprecated, but you can use a writing block for this short Python script.\n\n:::writing{variant="standard" id="58321" title="Hello and Current Date"}\n```python\nfrom datetime import date\n\nprint("Hello!")\nprint("Current date:", date.today())\n```\n:::\n\n**How it works:**\n- `date.today()` gets the current date.';
+    expect(writingBlocks(reply)).toBe('Canvas has been deprecated, but you can use a writing block for this short Python script.\n\n**Hello and Current Date**\n```python\nfrom datetime import date\n\nprint("Hello!")\nprint("Current date:", date.today())\n```\n\n**How it works:**\n- `date.today()` gets the current date.');
+    expect(writingBlocks('No blocks here.')).toBe('No blocks here.');
+  });
+});

@@ -139,6 +139,17 @@ export function claudeTurns(conversation: ClaudeConversation, report?: (made: Ma
   return numbered(turns);
 }
 
+/**
+ * ChatGPT's writing blocks (which replaced canvas in 2026): `:::writing{variant=… id=… title="T"}` … `:::` inside the
+ * reply. The content is kept as it is, under its title; the markup goes.
+ */
+export function writingBlocks(text: string): string {
+  return text.replace(/^:::(\w+)\{([^}\n]*)\}[ \t]*\n([\s\S]*?)\n:::[ \t]*$/gm, (_match, _kind: string, attributes: string, body: string) => {
+    const title = attributes.match(/\btitle="([^"]*)"/)?.[1];
+    return title ? `**${title}**\n${body}` : body;
+  });
+}
+
 /** ChatGPT: the path to the current message; consecutive reply parts (around searches and tools) become one reply. */
 export function chatgptTurns(conversation: GptConversation): Turn[] {
   const mapping = conversation.mapping || {};
@@ -146,7 +157,8 @@ export function chatgptTurns(conversation: GptConversation): Turn[] {
   const seen = new Set<string>();
   for (let at = conversation.current_node; at && mapping[at] && !seen.has(at); at = mapping[at].parent || undefined) { seen.add(at); const message = mapping[at].message; if (message) path.unshift(message); }
   const turns: Omit<Turn, 'index'>[] = [];
-  // Canvas: the assistant writes a document (canmore.create_textdoc) and edits the open one (canmore.update_textdoc).
+  // Canvas (older chats; ChatGPT replaced it with writing blocks in 2026): the assistant writes a document
+  // (canmore.create_textdoc) and edits the open one (canmore.update_textdoc).
   const made = new MadeFiles();
   let canvas = '';
   for (const message of path) {
@@ -166,7 +178,8 @@ export function chatgptTurns(conversation: GptConversation): Turn[] {
     if ((role !== 'user' && role !== 'assistant') || message.metadata?.is_visually_hidden_from_conversation) continue;
     if (!['text', 'multimodal_text'].includes(message.content.content_type)) continue;
     // Citation markers (private-use characters around “cite…”) are not part of the answer.
-    const text = (message.content.parts || []).filter((part): part is string => typeof part === 'string').join('\n').replace(/[^]*/g, '').replace(/[-]/g, '').trim();
+    let text = (message.content.parts || []).filter((part): part is string => typeof part === 'string').join('\n').replace(/[^]*/g, '').replace(/[-]/g, '').trim();
+    text = writingBlocks(text);
     const attached = message.metadata?.attachments || [];
     const files = attached.map(file => file.name || '');
     const refs: FileRef[] = attached.filter(file => file.id && file.name).map(file => ({ name: file.name!, type: file.mime_type, size: file.size, url: file.id!, via: 'chatgpt' as const }));
