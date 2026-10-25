@@ -178,6 +178,11 @@ chrome.tabs.onUpdated?.addListener((_id, change, tab) => {
   if (tab.active && (activeWindowId === undefined || tab.windowId === activeWindowId) && (change.url || change.status === 'complete')) refreshChat();
 });
 const usageDialog = document.querySelector('#usage-dialog') as HTMLDialogElement;
+// The page never scrolls (only the inner list does): undo any scroll a browser forces on it, from a focus jump to
+// scroll-into-view, so the popup can't slide away and go black.
+const keepPageStill = () => { for (const element of [document.documentElement, document.body]) if (element.scrollTop || element.scrollLeft) { element.scrollTop = 0; element.scrollLeft = 0; } };
+document.addEventListener('scroll', event => { if (event.target === document) keepPageStill(); }, { capture: true, passive: true });
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('focusin', () => requestAnimationFrame(keepPageStill)));
 document.querySelector('#show-usage')?.addEventListener('click', () => { usageDialog.showModal(); void showUsage(); });
 document.querySelector('#close-usage')?.addEventListener('click', () => usageDialog.close());
 // Shared by the Usage window's Refresh all and the dashboard's Refresh usage button.
