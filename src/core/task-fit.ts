@@ -99,7 +99,8 @@ export const rankingsSchema = z.object({
   version: z.number().int().min(1),
   updated: z.string().max(32),
   bestFor: z.record(z.string(), providerList),
-  reasons: z.record(z.string(), z.record(z.string(), z.string().max(60))).default({}),
+  // Shown as plain text; no links or web addresses, so a tampered file can't point anyone elsewhere.
+  reasons: z.record(z.string(), z.record(z.string(), z.string().max(60).refine(text => !/https?:|www\.|\b[a-z0-9-]+\.(?:com|net|org|io|ai|app|xyz|ru|cn)\b/i.test(text)))).default({}),
   keywords: z.record(z.string(), z.array(z.string().min(2).max(40)).max(80)).default({})
 });
 export type Rankings = { version: number; updated: string; bestFor: Record<Topic, ProviderId[]>; reasons: Partial<Record<Topic, Partial<Record<ProviderId, string>>>>; keywords: Partial<Record<Topic, string[]>> };

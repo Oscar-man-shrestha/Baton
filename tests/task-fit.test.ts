@@ -104,3 +104,11 @@ describe('keywords plus the on-device model, on prompts neither was tuned or tra
     expect(combineTopic('general', { label: 'nonsense', confidence: 0.9 })).toBe('general');
   });
 });
+
+describe('a tampered rankings file', () => {
+  it('is refused when a reason carries a link or web address', () => {
+    for (const reason of ['free at https://evil.example', 'visit www.example.net', 'claim it at baton-pass.xyz', 'now on gift-card.com'])
+      expect(parseRankings(file({ reasons: { code: { gemini: reason } } }), bundledRankings)).toBeUndefined();
+    expect(parseRankings(file(), bundledRankings)?.reasons.code?.gemini).toBe('new model is best at code');
+  });
+});
