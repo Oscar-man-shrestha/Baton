@@ -40,7 +40,12 @@ export async function googleSignInAvailable(): Promise<boolean> {
   const settings = await response.json();
   return settings.external?.google === true;
 }
-export const signInDidNotReturn = (callback: string) => `Google sign-in didn't come back to Baton. If you picked your account and then saw a page that wouldn't load, add ${callback} to Supabase → Authentication → URL Configuration → Redirect URLs. If you closed the window, try again.`;
+/** Users can't change the Google or Supabase setup, so outside development builds a failed sign-in reads plainly. */
+export const backupUnavailable = 'Google backup isn’t available in this copy of Baton. Your batons are saved on this device, and Download full backup below works anytime.';
+export function signInMessage(message: string, developer: boolean): string {
+  return developer || message === 'Sign-in was cancelled.' ? message : backupUnavailable;
+}
+export const signInDidNotReturn =(callback: string) => `Google sign-in didn't come back to Baton. If you picked your account and then saw a page that wouldn't load, add ${callback} to Supabase → Authentication → URL Configuration → Redirect URLs. If you closed the window, try again.`;
 export async function signInGoogle(): Promise<string> {
   if (!await googleSignInAvailable()) throw new Error('Google sign-in is not enabled in this Supabase project yet. Local batons are saved normally.');
   const supabase = client();

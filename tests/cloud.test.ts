@@ -51,3 +51,14 @@ describe('optional Supabase integration', () => {
     await cloud.disconnectCloud(); expect(state.signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 });
+
+describe('sign-in messages users see', () => {
+  it('hide Supabase and redirect setup outside development builds, but keep a cancel as it is', async () => {
+    const { signInMessage, signInDidNotReturn, backupUnavailable } = await import('../src/core/cloud');
+    const technical = signInDidNotReturn('https://extension.chromiumapp.org/supabase');
+    expect(signInMessage(technical, false)).toBe(backupUnavailable);
+    expect(backupUnavailable).not.toMatch(/supabase|redirect|callback|console/i);
+    expect(signInMessage('Sign-in was cancelled.', false)).toBe('Sign-in was cancelled.');
+    expect(signInMessage(technical, true)).toBe(technical);
+  });
+});

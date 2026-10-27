@@ -909,22 +909,28 @@ let cloudReady = false;
 const backupStatus = document.querySelector('#backup-status') as HTMLElement;
 // Why the last Google sign-in failed, kept until the account dialog has shown it.
 let signInError: string | undefined;
+// The Google/Supabase setup panel and its detailed errors are for whoever runs the build (npm run dev), not for users.
+const developerBuild = import.meta.env.DEV;
+const googleSetup = document.querySelector('#google-setup') as HTMLDetailsElement;
+googleSetup.hidden = !developerBuild;
 async function refreshGoogleSetup() {
   if (!cloudReady || !cloudConfigured) return;
   const button = document.querySelector('#google-sign-in') as HTMLButtonElement;
   button.disabled = true;
-  cloudStatus.textContent = 'Checking Google sign-in setup…';
+  cloudStatus.textContent = developerBuild ? 'Checking Google sign-in setup…' : 'Checking Google backup…';
   try {
     const cloud = await import('../../src/core/cloud');
-    const setup = cloud.googleOAuthSetup();
-    (document.querySelector('#google-callback') as HTMLInputElement).value = setup.googleCallback;
-    (document.querySelector('#extension-callback') as HTMLInputElement).value = setup.extensionCallback;
     const available = await cloud.googleSignInAvailable();
     button.disabled = !available;
-    (document.querySelector('#google-setup') as HTMLDetailsElement).open = !available || !!signInError;
-    cloudStatus.textContent = available ? signInError || 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' :'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local batons are already saved.';
+    if (developerBuild) {
+      const setup = cloud.googleOAuthSetup();
+      (document.querySelector('#google-callback') as HTMLInputElement).value = setup.googleCallback;
+      (document.querySelector('#extension-callback') as HTMLInputElement).value = setup.extensionCallback;
+      googleSetup.open = !available || !!signInError;
+      cloudStatus.textContent = available ? signInError || 'Google is enabled. Confirm the extension callback is allowlisted, then sign in.' : 'Enable Google in Supabase Authentication → Providers. Paste your Google client ID and secret there, then add the extension callback under URL Configuration. Local batons are already saved.';
+    } else cloudStatus.textContent = available ? (signInError ? cloud.signInMessage(signInError, false) : 'Sign in with Google to back up your batons and restore them in another browser.') : cloud.backupUnavailable;
     signInError = undefined;
-  } catch { button.disabled = false; cloudStatus.textContent = 'Could not check Google setup. Try Check Google setup again. Local batons are safe.'; }
+  } catch { button.disabled = false; cloudStatus.textContent = developerBuild ? 'Could not check Google setup. Try Check Google setup again. Local batons are safe.' : 'Couldn’t reach Google backup right now. Your batons are saved on this device; try again later.'; }
 }
 const openAccountDialog = () => { accountDialog.showModal(); void refreshGoogleSetup(); };
 document.querySelector('#retry-google-setup')?.addEventListener('click', () => { void refreshGoogleSetup(); });
@@ -1052,7 +1058,7 @@ const { cloudConfigured, accountLabel } = await import('../../src/core/cloud');
 cloudReady = true;
 const cloudActions = document.querySelector('#cloud-actions') as HTMLElement;
 cloudActions.hidden = !cloudConfigured;
-cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Baton cloud account. Uploads happen only when you press Back up now.' : 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.';
+cloudStatus.textContent = cloudConfigured ? 'Connect Google to back up saved contexts to your Baton cloud account. Uploads happen only when you press Back up now.' : developerBuild ? 'Google backup is waiting for your Supabase project setup. Local saving and full backup work without an account.' : 'Google backup isn’t available in this copy of Baton. Your batons are saved on this device, and Download full backup below works anytime.';
 const cloudCard = document.querySelector('#cloud-card') as HTMLElement;
 const cloudCardStatus = document.querySelector('#cloud-card-status') as HTMLElement;
 const cloudCardAction = document.querySelector('#cloud-card-action') as HTMLButtonElement;
@@ -1117,7 +1123,7 @@ if (cloudConfigured) await showCloudAccount(await accountLabel());
 const storedSignInError = (await chrome.storage.session.get('cloudSignInError')).cloudSignInError as string | undefined;
 if (storedSignInError) {
   await chrome.storage.session.remove('cloudSignInError');
-  if (cloudConfigured && !cloudAccount) { signInError = cloudCardStatus.textContent = storedSignInError; openAccountDialog(); }
+  if (cloudConfigured && !cloudAccount) { signInError = storedSignInError; cloudCardStatus.textContent = (await import('../../src/core/cloud')).signInMessage(storedSignInError, developerBuild); openAccountDialog(); }
 }
 cloudCardAction.addEventListener('click', () => (document.querySelector(cloudAccount ? '#cloud-backup' : '#google-sign-in') as HTMLButtonElement).click());
 for (const [id, action] of [
@@ -1132,9 +1138,10 @@ for (const [id, action] of [
     button.disabled = true; cloudCardAction.disabled = true; cloudStatus.textContent = 'Working…';
     try { cloudStatus.textContent = await action(); }
     catch (error) {
-      cloudStatus.textContent = cloudCardStatus.textContent = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.';
+      const message = error instanceof Error ? error.message : 'Could not complete the cloud action. Try again.';
+      cloudStatus.textContent = cloudCardStatus.textContent = id === 'google-sign-in' ? (await import('../../src/core/cloud')).signInMessage(message, developerBuild) : message;
       // The top Sign in button starts this with the dialog closed; open it so the reason is visible.
-      if (id === 'google-sign-in') { await chrome.storage.session.remove('cloudSignInError'); if (!accountDialog.open) { signInError = cloudStatus.textContent; openAccountDialog(); } }
+      if (id === 'google-sign-in') { await chrome.storage.session.remove('cloudSignInError'); if (!accountDialog.open) { signInError = message; openAccountDialog(); } }
     }
     finally { button.disabled = false; cloudCardAction.disabled = false; }
   });
