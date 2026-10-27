@@ -325,10 +325,12 @@ export async function fetchStoredFile(ref: FileRef, timeout = 20000): Promise<Bl
   if (ref.via === 'chatgpt') {
     const session = await (await fetch('/api/auth/session', { credentials: 'include', signal })).json() as { accessToken?: string };
     const chat = location.pathname.match(/\/c\/([0-9a-f-]{36})/)?.[1] || '';
-    const link = await (await fetch(`/backend-api/files/download/${url}?conversation_id=${chat}&inline=false`, { credentials: 'include', signal, headers: { authorization: `Bearer ${session.accessToken}` } })).json() as { download_url?: string };
+    const link = await (await fetch(`/backend-api/files/download/${encodeURIComponent(url)}?conversation_id=${chat}&inline=false`, { credentials: 'include', signal, headers: { authorization: `Bearer ${session.accessToken}` } })).json() as { download_url?: string };
     if (!link.download_url) throw new Error('No download link');
     url = link.download_url;
   }
+  // Only the site's own paths or https links: a link stored in the chat never reaches another scheme.
+  if (!/^\/(?!\/)/.test(url) && new URL(url).protocol !== 'https:') throw new Error('Not an https file link');
   const response = await fetch(url, { credentials: 'include', signal });
   if (!response.ok) throw new Error(String(response.status));
   return response.blob();

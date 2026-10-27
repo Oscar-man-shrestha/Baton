@@ -122,3 +122,20 @@ describe('Grok: the reply on screen decides the branch', () => {
     expect(grokTurns(responses, 'a-old').map(turn => turn.text)).toEqual(['Write a script', 'First version', 'Shorter please', 'Shorter version']);
   });
 });
+
+describe('fetching a file of the stored chat', () => {
+  it('follows only the site’s own paths and https links', async () => {
+    const { vi } = await import('vitest');
+    const { fetchStoredFile } = await import('../src/core/lossless');
+    const fetched: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => { fetched.push(url); return new Response('data'); });
+    try {
+      await expect(fetchStoredFile({ url: '//evil.example/x' } as never)).rejects.toThrow();
+      await expect(fetchStoredFile({ url: 'http://files.example/x' } as never)).rejects.toThrow();
+      await expect(fetchStoredFile({ url: 'data:text/plain,hi' } as never)).rejects.toThrow();
+      await fetchStoredFile({ url: '/api/files/1' } as never);
+      await fetchStoredFile({ url: 'https://files.example/notes.pdf' } as never);
+      expect(fetched).toEqual(['/api/files/1', 'https://files.example/notes.pdf']);
+    } finally { vi.unstubAllGlobals(); }
+  });
+});

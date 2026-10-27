@@ -5,7 +5,7 @@ create table if not exists public.handoff_backups (
   updated_at timestamptz not null default now()
 );
 alter table public.handoff_backups enable row level security;
-revoke all on public.handoff_backups from anon;
+revoke all on public.handoff_backups from anon, authenticated;
 grant select, insert, update, delete on public.handoff_backups to authenticated;
 drop policy if exists "Owners manage their backup" on public.handoff_backups;
 create policy "Owners manage their backup" on public.handoff_backups

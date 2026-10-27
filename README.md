@@ -113,7 +113,7 @@ Your chats stay in your browser. No account, no analytics, no server in between.
 | Must-keep facts that reach the next AI (offline benchmark, 6 chats) | **100%** (version 1.0: 80%) |
 | Real ChatGPT and Claude replies to Baton handoffs that continued the work | **12 / 12** |
 | Real slips caught by the reply check on those replies | **1 of 1**, with no false alarms |
-| Automated tests | **349** passing |
+| Automated tests | **350** passing |
 
 How it was measured: [project report §9](docs/REPORT.md#9-quality-and-evaluation) and [evaluation/README.md](evaluation/README.md).
 
@@ -208,7 +208,7 @@ Baton reads each chat as the service stores it, so most page changes don't affec
 
 ```bash
 npm run dev          # browser with Baton loaded, reloads on change
-npm test             # 349 tests (Vitest)
+npm test             # 350 tests (Vitest)
 npm run typecheck    # TypeScript
 npm run eval:handoff # handoff fidelity benchmark
 npm run eval         # score live replies from real AIs
