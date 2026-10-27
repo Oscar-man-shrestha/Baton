@@ -26,6 +26,7 @@ import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
 import { chatFeature, chatSegments, countSegments, workSegments, type Segment, serviceCountSegments } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, sentToday, type LimitHit } from '../src/core/message-counts';
+import { clampSpot, dragThreshold, fromSpot, readSpots, spotsKey, toSpot, type Spots } from '../src/core/drag-spot';
 
 export default defineContentScript({
   matches: ['https://chatgpt.com/*', 'https://claude.ai/*', 'https://gemini.google.com/*', 'https://chat.deepseek.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*'],
@@ -55,6 +56,8 @@ export default defineContentScript({
       if (next !== hits) { latestHits = next; await chrome.storage.local.set({ [key]: next }); }
     };
     let composerUsageEnabled = true;
+    // Set once the user drags the Baton button or usage bar on this site; until then both sit in their automatic place.
+    let dragSpots: Spots = {};
     const statusHost = document.createElement('div');
     statusHost.id = 'handoff-composer-status';
     statusHost.setAttribute('role', 'note');
@@ -63,7 +66,7 @@ export default defineContentScript({
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
     // A premium pill under the composer: baton mark, then ring-gauge segments “SESSION ◔ 54% left · 3h 1m”.
-    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:10px;max-width:100%;box-sizing:border-box;height:26px;padding:0 12px 0 9px;border-radius:999px;background:linear-gradient(180deg,rgba(44,43,60,.94),rgba(25,24,35,.94));border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 22px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);color:#f4f3fb;font:500 11px/1 system-ui,-apple-system,"SF Pro Text",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1px;white-space:nowrap;overflow:hidden}.body{display:inline-flex;align-items:center;gap:10px;min-width:0;overflow:hidden}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.45)}.seg{display:inline-flex;align-items:center;gap:6px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:12px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.22),transparent);margin-right:4px}.k{font-size:8.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#a3a1ba}.v{font-weight:700;color:#fff}.u{color:#bdbbd1;font-weight:500;margin-left:-3px}.n{color:#8f8da6;font-weight:500}.ring{flex:none;width:13px;height:13px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 3.6px,#000 4.2px);mask:radial-gradient(circle,transparent 3.6px,#000 4.2px)}.ok{--c:#34d1b0}.mid{--c:#f5b94a}.low{--c:#ff6b6b}.quiet{color:#8f8da6;font-weight:500}.x{all:unset;pointer-events:auto;cursor:pointer;flex:none;display:grid;place-items:center;width:16px;height:16px;margin:0 -6px 0 -2px;border-radius:50%;color:#a3a1ba;font:600 12px/1 system-ui,sans-serif;opacity:.7;transition:opacity .15s,background .15s}.line:hover .x,.x:focus-visible{opacity:1}.x:hover{background:rgba(255,255,255,.12);color:#fff}.x:focus-visible{outline:2px solid #b8a5ff;outline-offset:1px}.line{pointer-events:auto}@media(prefers-color-scheme:light){.line{background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(246,245,251,.97));border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 6px 18px rgba(30,25,70,.12),inset 0 1px 0 #fff}.v{color:#16151f}.k{color:#6d6a86}.u{color:#4b4963}.n,.quiet{color:#7d7a95}.ring{background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(30,25,70,.12) 0)}.seg+.seg:before{background:linear-gradient(180deg,transparent,rgba(30,25,70,.2),transparent)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.x{color:#6d6a86}.x:hover{background:rgba(30,25,70,.08);color:#16151f}.ok{--c:#14a387}.mid{--c:#d98a0b}.low{--c:#e04848}}.line.tight .u,.line.tight .seg+.seg .n{display:none}.line.tighter .seg:nth-child(n+4),.line.tightest .seg:nth-child(n+3){display:none}';
+    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:10px;max-width:100%;box-sizing:border-box;height:26px;padding:0 12px 0 9px;border-radius:999px;background:linear-gradient(180deg,rgba(44,43,60,.94),rgba(25,24,35,.94));border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 22px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);color:#f4f3fb;font:500 11px/1 system-ui,-apple-system,"SF Pro Text",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1px;white-space:nowrap;overflow:hidden}.body{display:inline-flex;align-items:center;gap:10px;min-width:0;overflow:hidden}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.45)}.seg{display:inline-flex;align-items:center;gap:6px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:12px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.22),transparent);margin-right:4px}.k{font-size:8.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#a3a1ba}.v{font-weight:700;color:#fff}.u{color:#bdbbd1;font-weight:500;margin-left:-3px}.n{color:#8f8da6;font-weight:500}.ring{flex:none;width:13px;height:13px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 3.6px,#000 4.2px);mask:radial-gradient(circle,transparent 3.6px,#000 4.2px)}.ok{--c:#34d1b0}.mid{--c:#f5b94a}.low{--c:#ff6b6b}.quiet{color:#8f8da6;font-weight:500}.x{all:unset;pointer-events:auto;cursor:pointer;flex:none;display:grid;place-items:center;width:16px;height:16px;margin:0 -6px 0 -2px;border-radius:50%;color:#a3a1ba;font:600 12px/1 system-ui,sans-serif;opacity:.7;transition:opacity .15s,background .15s}.line:hover .x,.x:focus-visible{opacity:1}.x:hover{background:rgba(255,255,255,.12);color:#fff}.x:focus-visible{outline:2px solid #b8a5ff;outline-offset:1px}.line{pointer-events:auto}@media(prefers-color-scheme:light){.line{background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(246,245,251,.97));border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 6px 18px rgba(30,25,70,.12),inset 0 1px 0 #fff}.v{color:#16151f}.k{color:#6d6a86}.u{color:#4b4963}.n,.quiet{color:#7d7a95}.ring{background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(30,25,70,.12) 0)}.seg+.seg:before{background:linear-gradient(180deg,transparent,rgba(30,25,70,.2),transparent)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.x{color:#6d6a86}.x:hover{background:rgba(30,25,70,.08);color:#16151f}.ok{--c:#14a387}.mid{--c:#d98a0b}.low{--c:#e04848}}.line.tight .u,.line.tight .seg+.seg .n{display:none}.line.tighter .seg:nth-child(n+4),.line.tightest .seg:nth-child(n+3){display:none}.line{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}:host([data-dragging]) .line{cursor:grabbing}';
     // The pill is built once: brand, a body that is refilled only when its content changes, and the ×.
     // Rebuilding the × on every page mutation (streaming replies) used to lose the press.
     const statusText = document.createElement('span');
@@ -344,10 +347,10 @@ export default defineContentScript({
     passHost.style.cssText = 'position:fixed;z-index:2147483002;display:none;width:40px;height:40px;isolation:isolate;background:none!important;border:0!important;box-shadow:none!important;filter:none!important;mix-blend-mode:normal!important;opacity:1!important;transform:none!important;overflow:visible!important;clip-path:none!important;mask:none!important;contain:none!important';
     const passShadow = passHost.attachShadow({ mode: 'closed' });
     const passStyle = document.createElement('style');
-    passStyle.textContent = ':host{all:initial}.pass{all:unset;position:relative;box-sizing:border-box;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:radial-gradient(circle at 32% 26%,#c9b8ff 0,#8b6cff 46%,#5b3fd8 100%);border:1px solid rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(139,108,255,.55),0 0 10px 2px rgba(150,120,255,.5),0 3px 8px rgba(40,20,110,.45);transition:transform .18s,box-shadow .18s}.pass:before{content:"";position:absolute;inset:-6px;border-radius:50%;border:1.5px solid rgba(196,181,255,.85);box-shadow:0 0 8px rgba(150,120,255,.6),inset 0 0 6px rgba(150,120,255,.35);pointer-events:none;animation:batonHalo 2.6s ease-in-out 4}.pass:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 0 0 3px rgba(139,108,255,.7),0 0 14px 3px rgba(150,120,255,.6),0 4px 10px rgba(40,20,110,.5)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:8px}:host([data-compact]) .pass{width:28px;height:28px}:host([data-compact]) .pass:before{inset:-4px}:host([data-compact]) .brand{width:14px;height:4.5px}@keyframes batonHalo{50%{opacity:.35;transform:scale(1.12)}}.brand{width:19px;height:6px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#fff 0 3px,rgba(255,255,255,.55) 3px 4px);box-shadow:0 0 6px rgba(255,255,255,.55)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}.next{display:grid;gap:4px;margin:2px 2px 10px}.next span{font-size:11px;font-weight:700;color:#cfcde0}.next input{all:unset;box-sizing:border-box;width:100%;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}.next input:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.next input::placeholder{color:#8e8ba6}.next small{color:#a3a1ba;font-size:10px}.opt.account{margin-top:4px;border-top:1px solid rgba(255,255,255,.08);border-radius:0 0 9px 9px;padding-top:10px}.swap{font-style:normal;font-size:13px;color:#b8a5ff;width:10px;text-align:center}.basis{font-style:italic;margin-top:-4px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tasks{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 8px}.chip{all:unset;cursor:pointer;font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#cfcde0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.chip:hover,.chip:focus-visible{background:rgba(255,255,255,.12)}.chip[aria-pressed=true]{background:#b8a5ff;color:#1b1430;border-color:transparent}@media(prefers-color-scheme:light){.pass{border-color:rgba(255,255,255,.6);box-shadow:0 0 0 2px rgba(102,80,222,.45),0 0 10px 2px rgba(102,80,222,.35),0 3px 8px rgba(60,40,150,.3)}.pass:before{border-color:rgba(102,80,222,.7);box-shadow:0 0 8px rgba(102,80,222,.4)}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}.chip{color:#3d3b52;background:rgba(30,25,70,.05);border-color:rgba(30,25,70,.1)}.next span{color:#3d3b52}.next input{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.next small{color:#6d6a86}.chip[aria-pressed=true]{background:#6650de;color:#fff}}@media(prefers-reduced-motion:reduce){.pass,.pass:before{transition:none;animation:none}}';
+    passStyle.textContent = ':host{all:initial}.pass{all:unset;position:relative;box-sizing:border-box;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:radial-gradient(circle at 32% 26%,#c9b8ff 0,#8b6cff 46%,#5b3fd8 100%);border:1px solid rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(139,108,255,.55),0 0 10px 2px rgba(150,120,255,.5),0 3px 8px rgba(40,20,110,.45);transition:transform .18s,box-shadow .18s}.pass:before{content:"";position:absolute;inset:-6px;border-radius:50%;border:1.5px solid rgba(196,181,255,.85);box-shadow:0 0 8px rgba(150,120,255,.6),inset 0 0 6px rgba(150,120,255,.35);pointer-events:none;animation:batonHalo 2.6s ease-in-out 4}.pass:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 0 0 3px rgba(139,108,255,.7),0 0 14px 3px rgba(150,120,255,.6),0 4px 10px rgba(40,20,110,.5)}.pass:focus-visible{outline:2px solid #b8a5ff;outline-offset:8px}:host([data-compact]) .pass{width:28px;height:28px}:host([data-compact]) .pass:before{inset:-4px}:host([data-compact]) .brand{width:14px;height:4.5px}@keyframes batonHalo{50%{opacity:.35;transform:scale(1.12)}}.brand{width:19px;height:6px;border-radius:3px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#fff 0 3px,rgba(255,255,255,.55) 3px 4px);box-shadow:0 0 6px rgba(255,255,255,.55)}.menu{position:fixed;width:272px;box-sizing:border-box;padding:10px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.98),rgba(24,23,33,.98));border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);color:#f4f3fb;font:500 12px/1.35 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}.menu[hidden]{display:none}.menu h2{all:unset;display:block;font-size:13px;font-weight:700;margin:2px 4px 2px}.menu p{margin:0 4px 8px;color:#a3a1ba;font-size:10.5px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt b{font-weight:650}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.row{display:flex;gap:6px;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.row button{all:unset;flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;color:#cfcde0;font-size:11px}.row button:hover,.row button:focus-visible{background:rgba(255,255,255,.07)}.status{margin:8px 4px 2px;color:#cfcde0;font-size:10.5px}.status:empty{display:none}.next{display:grid;gap:4px;margin:2px 2px 10px}.next span{font-size:11px;font-weight:700;color:#cfcde0}.next input{all:unset;box-sizing:border-box;width:100%;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}.next input:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.next input::placeholder{color:#8e8ba6}.next small{color:#a3a1ba;font-size:10px}.opt.account{margin-top:4px;border-top:1px solid rgba(255,255,255,.08);border-radius:0 0 9px 9px;padding-top:10px}.swap{font-style:normal;font-size:13px;color:#b8a5ff;width:10px;text-align:center}.basis{font-style:italic;margin-top:-4px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tasks{display:flex;flex-wrap:wrap;gap:4px;margin:0 2px 8px}.chip{all:unset;cursor:pointer;font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#cfcde0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.chip:hover,.chip:focus-visible{background:rgba(255,255,255,.12)}.chip[aria-pressed=true]{background:#b8a5ff;color:#1b1430;border-color:transparent}@media(prefers-color-scheme:light){.pass{border-color:rgba(255,255,255,.6);box-shadow:0 0 0 2px rgba(102,80,222,.45),0 0 10px 2px rgba(102,80,222,.35),0 3px 8px rgba(60,40,150,.3)}.pass:before{border-color:rgba(102,80,222,.7);box-shadow:0 0 8px rgba(102,80,222,.4)}.menu{background:linear-gradient(180deg,#fff,#f7f6fb);border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 18px 40px rgba(30,25,70,.18)}.menu p,.opt small{color:#6d6a86}.opt:hover:not([aria-disabled=true]),.row button:hover{background:rgba(30,25,70,.06)}.row{border-color:rgba(30,25,70,.1)}.row button,.status{color:#3d3b52}.tag{background:#6650de;color:#fff}.chip{color:#3d3b52;background:rgba(30,25,70,.05);border-color:rgba(30,25,70,.1)}.next span{color:#3d3b52}.next input{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.next small{color:#6d6a86}.chip[aria-pressed=true]{background:#6650de;color:#fff}}.pass{touch-action:none}:host([data-dragging]) .pass{cursor:grabbing}@media(prefers-reduced-motion:reduce){.pass,.pass:before{transition:none;animation:none}}';
     const passButton = document.createElement('button');
     passButton.type = 'button'; passButton.className = 'pass';
-    passButton.title = 'Baton: continue this chat in another AI'; passButton.setAttribute('aria-label', 'Pass the baton to another AI'); passButton.setAttribute('aria-haspopup', 'menu');
+    passButton.title = 'Baton: continue this chat in another AI (drag to move)'; passButton.setAttribute('aria-label', 'Pass the baton to another AI'); passButton.setAttribute('aria-haspopup', 'menu');
     const passMark = document.createElement('i'); passMark.className = 'brand'; passMark.setAttribute('aria-hidden', 'true'); passButton.append(passMark);
     const passMenu = document.createElement('div'); passMenu.className = 'menu'; passMenu.setAttribute('role', 'menu'); passMenu.hidden = true;
     passShadow.append(passStyle, passButton, passMenu);
@@ -433,6 +436,12 @@ export default defineContentScript({
       hideButton.title = 'Turn it back on in Baton → Show on AI chat pages';
       hideButton.addEventListener('click', () => { passEnabled = false; closePassMenu(); passHost.style.display = 'none'; void chrome.storage.local.set({ passButtonEnabled: false }); });
       row.append(copy, hideButton);
+      if (dragSpots.pass || dragSpots.bar) {
+        const back = document.createElement('button'); back.type = 'button'; back.textContent = 'Move back';
+        back.title = 'Put the button and usage bar back in their usual place on this site';
+        back.addEventListener('click', () => { dragSpots = {}; statusPlacement = ''; closePassMenu(); void chrome.storage.local.remove(spotsKey(id)).catch(() => {}); scheduleStatus(); });
+        row.append(back);
+      }
       passMenu.append(status, row);
       passMenu.hidden = false; passButton.setAttribute('aria-expanded', 'true');
       // Open upwards from the button when there is room, otherwise downwards; keep it on screen.
@@ -448,10 +457,41 @@ export default defineContentScript({
         if (guess && !passMenu.hidden && !menuTyping && passMenu.innerHTML === opened && suggest(asked, id, saved, Date.now(), undefined, guess).topic !== 'general') await openPassMenu(undefined, guess);
       }
     };
-    passButton.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); if (!passMenu.hidden) closePassMenu(); else void openPassMenu().catch(() => {}); });
+    passButton.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); if (passDragged()) return; if (!passMenu.hidden) closePassMenu(); else void openPassMenu().catch(() => {}); });
     ctx.addEventListener(document, 'click', event => { if (!passMenu.hidden && !event.composedPath().includes(passHost)) closePassMenu(); }, { capture: true });
     ctx.addEventListener(document, 'keydown', event => { if (event.key === 'Escape' && !passMenu.hidden) { closePassMenu(); passButton.focus(); } }, { capture: true });
     ctx.onInvalidated(() => passHost.remove());
+    // The button and the bar can be dragged anywhere on the window; the spot is kept per site, as a share of the window.
+    const makeDraggable = (host: HTMLElement, handle: HTMLElement, which: keyof Spots) => {
+      let start: { x: number; y: number; left: number; top: number; pointer: number } | undefined;
+      let moved = false;
+      handle.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        const rect = host.getBoundingClientRect();
+        start = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, pointer: event.pointerId }; moved = false;
+      });
+      handle.addEventListener('pointermove', event => {
+        if (!start || event.pointerId !== start.pointer) return;
+        const dx = event.clientX - start.x, dy = event.clientY - start.y;
+        if (!moved && Math.hypot(dx, dy) < dragThreshold) return;
+        if (!moved) { moved = true; handle.setPointerCapture(event.pointerId); host.toggleAttribute('data-dragging', true); closePassMenu(); }
+        event.preventDefault();
+        const rect = host.getBoundingClientRect();
+        const [left, top] = clampSpot(start.left + dx, start.top + dy, rect.width, rect.height, innerWidth, innerHeight);
+        host.style.left = `${left}px`; host.style.top = `${top}px`;
+        dragSpots = { ...dragSpots, [which]: toSpot(left, top, innerWidth, innerHeight) };
+      });
+      const finish = (event: PointerEvent) => {
+        if (!start || event.pointerId !== start.pointer) return;
+        start = undefined; host.removeAttribute('data-dragging');
+        if (moved) { statusPlacement = ''; void chrome.storage.local.set({ [spotsKey(id)]: dragSpots }).catch(() => {}); scheduleStatus(); }
+      };
+      handle.addEventListener('pointerup', finish); handle.addEventListener('pointercancel', finish);
+      // True once for the click that ends a drag, so letting go doesn't open the menu.
+      return () => { const was = moved; moved = false; return was; };
+    };
+    const passDragged = makeDraggable(passHost, passButton, 'pass');
+    makeDraggable(statusHost, statusText, 'bar');
     // Free spot check shared by the usage pill and the Baton button: no visible text, controls or the composer itself.
     const interactiveSelector = 'button,input,textarea,select,[contenteditable="true"],[role="button"],a';
     const ownText = (element: Element) => Array.from(element.childNodes).some(node => node.nodeType === 3 && !!node.textContent?.trim());
@@ -492,6 +532,12 @@ export default defineContentScript({
       // Hidden by the user, but a menu opened with the shortcut stays until it closes.
       if (!passEnabled) { if (passMenu.hidden) passHost.style.display = 'none'; return; }
       const size = 40, compact = 28;
+      if (dragSpots.pass) {
+        passHost.removeAttribute('data-compact'); passHost.style.width = passHost.style.height = `${size}px`;
+        const [left, top] = fromSpot(dragSpots.pass, size, size, innerWidth, innerHeight);
+        passHost.style.left = `${left}px`; passHost.style.top = `${top}px`; passHost.style.visibility = ''; passHost.style.display = 'block';
+        return;
+      }
       const overlapsPill = (left: number, top: number, side: number) => !!pill && left < pill.right + 4 && left + side > pill.left - 4 && top < pill.bottom + 4 && top + side > pill.top - 4;
       // Last spot, as for the bar: a compact button in the one-line “can make mistakes” notice right above the box
       // (ChatGPT in a long chat with a narrow window: no room below or beside the box, and the notice spans the width).
@@ -503,7 +549,7 @@ export default defineContentScript({
       passHost.style.width = passHost.style.height = `${spot[2]}px`;
       passHost.style.left = `${spot[0]}px`; passHost.style.top = `${spot[1]}px`; passHost.style.visibility = '';
     };
-    void chrome.storage.local.get('passButtonEnabled').then(saved => { passEnabled = saved.passButtonEnabled !== false; scheduleStatus(); });
+    void chrome.storage.local.get(['passButtonEnabled', spotsKey(id)]).then(saved => { passEnabled = saved.passButtonEnabled !== false; dragSpots = readSpots(saved[spotsKey(id)]); statusPlacement = ''; scheduleStatus(); });
     let statusFrame = 0;
     let lastPrompt = '';
     let lastPromptTokens = 0;
@@ -606,19 +652,20 @@ export default defineContentScript({
       if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); nextBody.append(tokens); }
       if (nextBody.innerHTML !== statusBody.innerHTML) statusBody.replaceChildren(...Array.from(nextBody.childNodes));
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';
+      statusText.title += '\nDrag to move it.';
       statusHost.setAttribute('aria-label', `Baton: ${statusText.textContent}`);
       // Measure the real pill, then try: below the box (left-aligned), below a row of controls under the box
       // (Claude's Project / model row), then above the box. A spot is taken only where the pill would not cover
       // visible text or a control; empty full-width wrappers (Gemini's and DeepSeek's centred disclaimers) are fine.
       // Nothing moved and nothing changed: keep the pill where it is (no re-measure, no flicker).
-      const placementKey = [surfaceRect.left, surfaceRect.top, surfaceRect.bottom, surfaceRect.width, innerWidth, innerHeight, statusBody.innerHTML].join('|');
+      const placementKey = [surfaceRect.left, surfaceRect.top, surfaceRect.bottom, surfaceRect.width, innerWidth, innerHeight, statusBody.innerHTML, JSON.stringify(dragSpots.bar)].join('|');
       if (placementKey === statusPlacement && statusHost.style.display === 'block') { placePassButton(surface, surfaceRect, statusHost.getBoundingClientRect()); return; }
       statusPlacement = placementKey;
       statusHost.style.visibility = 'hidden';
       statusHost.style.display = 'block';
       statusHost.style.left = `${pillLeft}px`;
       statusHost.style.top = '0px';
-      statusHost.style.maxWidth = `${pillMaxWidth}px`;
+      statusHost.style.maxWidth = `${dragSpots.bar ? innerWidth - 16 : pillMaxWidth}px`;
       // Too many segments for the room (ChatGPT with Thinking and Work): drop “left” and later resets, not whole words.
       statusText.classList.remove('tight', 'tighter', 'tightest');
       if (statusBody.scrollWidth > statusBody.clientWidth + 1) statusText.classList.add('tight');
@@ -627,6 +674,12 @@ export default defineContentScript({
       if (statusBody.scrollWidth > statusBody.clientWidth + 1) statusText.classList.add('tightest');
       const pill = statusHost.getBoundingClientRect();
       const pillHeight = pill.height || 28;
+      if (dragSpots.bar) {
+        const [left, dragged] = fromSpot(dragSpots.bar, pill.width, pillHeight, innerWidth, innerHeight);
+        statusHost.style.left = `${left}px`; statusHost.style.top = `${dragged}px`; statusHost.style.visibility = '';
+        placePassButton(surface, surfaceRect, statusHost.getBoundingClientRect());
+        return;
+      }
       const conflict = (top: number, overDisclaimer = false) => spotTaken(pillLeft, top, pill.width, pillHeight, surface, 24, overDisclaimer);
       let top = surfaceRect.bottom + 6;
       let hit = conflict(top);
@@ -909,6 +962,7 @@ export default defineContentScript({
     const settingsChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (changes.composerUsageEnabled) composerUsageEnabled = changes.composerUsageEnabled.newValue !== false;
       if (changes.passButtonEnabled) passEnabled = changes.passButtonEnabled.newValue !== false;
+      if (changes[spotsKey(id)]) { dragSpots = readSpots(changes[spotsKey(id)].newValue); statusPlacement = ''; }
       if (changes.selectionButtonEnabled) { selectionChipEnabled = changes.selectionButtonEnabled.newValue !== false; if (!selectionChipEnabled) hideChip(); }
       if (changes.tourState) tourState = changes.tourState.newValue as string | undefined;
       if (changes.tourReplay) tourReplay = changes.tourReplay.newValue === true;
@@ -1130,7 +1184,7 @@ export default defineContentScript({
       if (!reply?.ok) return;
       for (const command of reply.commands as { name: ShortcutCommand; shortcut?: string }[]) keys[command.name] = formatShortcut(command.shortcut, onMac(navigator));
       chipKey.textContent = keys['save-selection'] || '';
-      if (keys['open-pass-menu']) passButton.title = `Baton: continue this chat in another AI (${keys['open-pass-menu']})`;
+      if (keys['open-pass-menu']) passButton.title = `Baton: continue this chat in another AI (${keys['open-pass-menu']}; drag to move)`;
     }).catch(() => {});
     let selectionChipEnabled = true;
     void chrome.storage.local.get('selectionButtonEnabled').then(saved => { selectionChipEnabled = saved.selectionButtonEnabled !== false; });
