@@ -606,7 +606,11 @@ export default defineContentScript({
         const chatMeter = fresh && latestMeter && chatFeature(latestMeter.feature) ? latestMeter : undefined;
         const text = composerStatusText(0, chatMeter);
         const counted = messageSummary(id, latestSends, latestHits, Date.now(), latestStated);
-        if (!text.endsWith('Usage left: unknown')) addSegment({ label: '', value: text.replace(/^Usage left: /, '') });
+        // “Usage left: 0% (service notice)” reads as CHAT  Limit reached; an old reading keeps “last seen”.
+        if (!text.endsWith('Usage left: unknown')) {
+          const [, value = text, source] = text.replace(/^Usage left: /, '').match(/^(.*) \((service notice|last seen)\)$/) || [];
+          addSegment({ label: 'Chat', value: value === '0%' ? 'Limit reached' : value.endsWith('%') ? `${value} left` : value, note: source === 'last seen' ? source : undefined });
+        }
         // With ChatGPT's own allowances on show, the chat count gives them the room (it stays in the bar's tooltip and Baton's panel).
         else if (counted.uncapped) { if (!work.length) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} sent today` }); }
         else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
