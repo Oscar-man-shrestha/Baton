@@ -19,7 +19,7 @@ Only the latest version in the Chrome Web Store gets fixes.
 - Never sends a chat message, never reads cookies or passwords, never signs in or out of an AI service.
 - Session tokens a site's own page uses are used only for one request to that same site and never stored.
 - Captured chats are treated as quoted data in handoffs, inside a random boundary, with an instruction not to follow commands in them; hidden instruction-like text is removed and flagged.
-- The public Supabase key can insert feedback but not read it; backups are protected by per-user row rules, and signed-in users hold only select, insert, update and delete on their own row.
+- The public Supabase key can insert feedback but not read it, and the database limits how much it accepts (per sender, per hour, no repeats; senders kept only as a one-day hash); backups are protected by per-user row rules, and signed-in users hold only select, insert, update and delete on their own row.
 - Baton's buttons and cards on AI pages live in closed shadow roots, so page scripts can't read or click them. The only message a page can send Baton is a usage reading for its own site, checked for origin and size.
 - Drafts open only on https pages of the six sites, with limits on file count and size; chat files download only from the site's own paths or https links.
 - The one file fetched at runtime, `rankings.json`, is data only: fetched without cookies, size-capped, schema-checked, limited to known AIs, never older than the bundled copy, and its short reasons are shown as plain text and may not contain links.

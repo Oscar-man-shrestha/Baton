@@ -4,6 +4,7 @@ All notable changes to Baton Pass, newest first. Each version was released from 
 
 ## 1.1.0 — lossless capture, files in handoffs, reply check, saved selections, shortcuts
 
+- **Feedback spam limits.** The feedback table now refuses floods in the database itself: 3 sends in 10 minutes and 10 a day from one place, 60 an hour in total, and no repeated messages. A refused send offers copy or email instead.
 - **Plain wording for Google backup.** The Google and Supabase setup panel (redirect addresses, callbacks) now shows only in development builds. Users see “Google backup isn’t available in this copy of Baton. Your batons are saved on this device…” instead of setup instructions they can’t act on; a cancelled sign-in still says so.
 - **Save just the part you need.** Select some of a conversation on any of the six AI sites and a small **Save as baton** button appears by it (for a few words or more). A long chat can become one baton per topic.
   - The card shows what will be saved (messages, characters, a short preview), a name you can edit and, if you have folders, a folder.
