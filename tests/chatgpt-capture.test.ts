@@ -21,4 +21,10 @@ describe('ChatGPT capture (Oct 2026 layout)', () => {
   it('finds the composer without #prompt-textarea', () => {
     expect(findEditor(doc, bundledSelectors.providers.chatgpt.editor)?.getAttribute('aria-label')).toBe('Ask ChatGPT');
   });
+  it('never takes a “Writing” block in a reply for the chat box, even when it has focus', () => {
+    const page = new JSDOM(`<main><div data-chatgpt-search-unit-key="t1:1:assistant"><div contenteditable="true" aria-label="Writing">draft</div></div></main><div contenteditable="true" aria-label="Ask ChatGPT"></div>`, { url: 'https://chatgpt.com/c/x' }).window.document;
+    const writing = page.querySelector<HTMLElement>('[aria-label="Writing"]')!;
+    expect(findEditor(page, bundledSelectors.providers.chatgpt.editor)?.getAttribute('aria-label')).toBe('Ask ChatGPT');
+    expect(findEditor(page, bundledSelectors.providers.chatgpt.editor, writing)?.getAttribute('aria-label')).toBe('Ask ChatGPT');
+  });
 });

@@ -46,11 +46,13 @@ function visibleClone(node: Element): Element {
  * The composer the user is using: the one holding the event target or focus, else a visible one.
  * Some pages keep a hidden, empty textarea next to the real editor (Grok), so “first match” is not enough.
  */
+// Editable text inside a message is never the chat box: ChatGPT's “Writing” blocks in a reply are contenteditable.
+const inMessage = '[data-chatgpt-search-unit-key],[data-message-author-role],user-query,model-response,.font-claude-response';
 export function findEditor(doc: Document, selectors: string[], target?: Node | null): HTMLElement | undefined {
-  const within = (node: Node | null | undefined) => { const element = node?.nodeType === 1 ? node as Element : node?.parentElement; for (const selector of selectors) { const hit = element?.closest(selector); if (hit) return hit as HTMLElement; } return undefined; };
+  const within = (node: Node | null | undefined) => { const element = node?.nodeType === 1 ? node as Element : node?.parentElement; for (const selector of selectors) { const hit = element?.closest(selector); if (hit && !hit.closest(inMessage)) return hit as HTMLElement; } return undefined; };
   const direct = within(target) || within(doc.activeElement);
   if (direct) return direct;
-  const all = selectors.flatMap(selector => Array.from(doc.querySelectorAll<HTMLElement>(selector)));
+  const all = selectors.flatMap(selector => Array.from(doc.querySelectorAll<HTMLElement>(selector))).filter(element => !element.closest(inMessage));
   const shown = all.filter(element => !hiddenByAncestor(element) && !element.closest('.hidden, .sr-only'));
   return shown.find(element => element.getClientRects().length > 0) || shown[0] || all[0];
 }
