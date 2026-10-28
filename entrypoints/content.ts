@@ -473,6 +473,7 @@ export default defineContentScript({
       }
       return false;
     };
+    const chatTurnSelector = [...bundledSelectors.providers[id].turns, 'article'].join(',');
     const spotTaken = (left: number, top: number, width: number, height: number, surface: Element, step = 12, overDisclaimer = false): Element | true | undefined => {
       if (top < 0 || left < 0 || top + height > innerHeight - 2 || left + width > innerWidth - 2) return true;
       // Sample across the width and always at the right edge, so a grown pill can't end inside a neighbour.
@@ -483,11 +484,16 @@ export default defineContentScript({
           const element = document.elementsFromPoint(x, y).find(hit => !hit.id.startsWith('handoff-'));
           if (!element || element === document.body || element === document.documentElement) continue;
           if (overDisclaimer && disclaimer(element)) continue;
+          // Chat messages scrolling behind the composer don't take a spot: otherwise the bar and button would hide or
+          // jump each time text slides under them (ChatGPT's box sits right on the conversation in a long chat).
+          const turn = element.closest(chatTurnSelector);
+          if (turn && !turn.contains(surface)) continue;
           if (surface.contains(element) || element.closest(interactiveSelector) || ownText(element) || floatingLayer(element, surface)) return element;
         }
       }
       return undefined;
     };
+    let passPlacement = '';
     const placePassButton = (surface: Element, box: DOMRect, pill?: DOMRect) => {
       // Hidden by the user, but a menu opened with the shortcut stays until it closes.
       if (!passEnabled) { if (passMenu.hidden) passHost.style.display = 'none'; return; }
@@ -495,10 +501,18 @@ export default defineContentScript({
       const overlapsPill = (left: number, top: number, side: number) => !!pill && left < pill.right + 4 && left + side > pill.left - 4 && top < pill.bottom + 4 && top + side > pill.top - 4;
       // Last spot, as for the bar: a compact button in the one-line “can make mistakes” notice right above the box
       // (ChatGPT in a long chat with a narrow window: no room below or beside the box, and the notice spans the width).
-      const spots: [number, number, number, boolean][] = [[box.right - size, box.bottom + 5, size, false], [box.right + 8, box.bottom - size - 6, size, false], [box.right - size, box.top - size - 6, size, false], [box.right - compact, box.top - compact - 2, compact, true]];
+      // With the bar above the box, the button joins it at the right end of that line rather than floating beside the box.
+      const below: [number, number, number, boolean] = [box.right - size, box.bottom + 5, size, false];
+      const above: [number, number, number, boolean] = [box.right - size, box.top - size - 6, size, false];
+      const beside: [number, number, number, boolean] = [box.right + 8, box.bottom - size - 6, size, false];
+      const spots: [number, number, number, boolean][] = [...(pill && pill.bottom <= box.top + 2 ? [above, below] : [below, above]), beside, [box.right - compact, box.top - compact - 2, compact, true]];
+      // Nothing moved: keep the button where it is, so it doesn't flicker while the chat scrolls or streams.
+      const key = [box.left, box.top, box.right, box.bottom, pill?.left, pill?.top, pill?.right, innerWidth, innerHeight].join('|');
+      if (key === passPlacement && passHost.style.display === 'block') return;
+      passPlacement = key;
       passHost.style.visibility = 'hidden'; passHost.style.display = 'block';
       const spot = spots.find(([left, top, side, overDisclaimer]) => !overlapsPill(left, top, side) && !spotTaken(left, top, side, side, surface, 12, overDisclaimer));
-      if (!spot) { if (passMenu.hidden) passHost.style.display = 'none'; passHost.style.visibility = ''; return; }
+      if (!spot) { passPlacement = ''; if (passMenu.hidden) passHost.style.display = 'none'; passHost.style.visibility = ''; return; }
       passHost.toggleAttribute('data-compact', spot[2] === compact);
       passHost.style.width = passHost.style.height = `${spot[2]}px`;
       passHost.style.left = `${spot[0]}px`; passHost.style.top = `${spot[1]}px`; passHost.style.visibility = '';
