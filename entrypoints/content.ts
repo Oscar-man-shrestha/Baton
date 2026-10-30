@@ -951,6 +951,17 @@ export default defineContentScript({
     window.addEventListener('message', tapped);
     if (id !== 'deepseek') void chrome.runtime.sendMessage({ type: 'API_USAGE_REFRESH' }).catch(() => {});
     ctx.onInvalidated(() => window.removeEventListener('message', tapped));
+    // Live usage: read again the moment a reply finishes, and every minute while this chat is on screen
+    // (the background keeps it to once a minute per service and backs off when a service gives nothing).
+    const liveUsage = (after?: 'reply') => { if (id !== 'deepseek' && document.visibilityState === 'visible') void chrome.runtime.sendMessage({ type: 'API_USAGE_REFRESH', after }).catch(() => {}); };
+    let awaitingReply = false, wasWriting = false;
+    ctx.setInterval(() => {
+      const writing = !!document.querySelector('[data-testid="stop-button"], button[aria-label*="Stop" i], [data-is-streaming="true"]');
+      if (awaitingReply && wasWriting && !writing) { awaitingReply = false; liveUsage('reply'); }
+      wasWriting = writing;
+    }, 1500);
+    ctx.setInterval(() => liveUsage(), 61000);
+    ctx.addEventListener(document, 'visibilitychange', () => liveUsage());
     scheduleStatus();
     const captureOlderTurns = async (): Promise<Extraction> => {
       const initial = extract(document, id, bundledSelectors);
@@ -1078,7 +1089,8 @@ export default defineContentScript({
       latestSends = [...(((await chrome.storage.local.get(key))[key] || []) as number[]), at].slice(-300);
       await chrome.storage.local.set({ [key]: latestSends });
       scheduleStatus();
-      // Lets the background refresh this service's usage page shortly after (throttled, user setting).
+      // Lets the background refresh this service's usage shortly after (throttled, user setting); sooner when the reply ends.
+      awaitingReply = true;
       void chrome.runtime.sendMessage({ type: 'REFRESH_AFTER_SEND' }).catch(() => {});
     };
     const scanUserTurns = () => {

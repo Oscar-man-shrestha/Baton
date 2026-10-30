@@ -270,7 +270,12 @@ export default defineBackground(() => {
       let host = '';
       try { host = _sender.url ? new URL(_sender.url).hostname : ''; } catch { return; }
       const provider = providerIds.find(id => bundledSelectors.providers[id].hosts.includes(host));
-      if (provider) void refreshApi(provider).catch(() => {});
+      if (!provider) return;
+      void (async () => {
+        // A reply just finished: its usage counts now, so skip the once-a-minute wait (not the back-off), at most every 15 s.
+        if (message.after === 'reply' && Date.now() - (apiRunAt.get(provider) || 0) >= 15000 && (await chrome.storage.local.get('refreshAfterSend')).refreshAfterSend !== false) apiRunAt.delete(provider);
+        await refreshApi(provider);
+      })().catch(() => {});
       return;
     }
     if (message?.type === 'REFRESH_ALL_USAGE') {
