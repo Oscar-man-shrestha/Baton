@@ -1,7 +1,8 @@
 import type { ProviderId } from './selectors';
 import { estimateMeter, parseReset, type Meter } from './limits';
 
-export type UsageWindow = Meter & { key: string; remainingCount?: number; source: 'provider-page' | 'provider-response'; evidenceKey?: string };
+/** spent / cap: Claude's extra usage this month, in dollars. */
+export type UsageWindow = Meter & { key: string; remainingCount?: number; source: 'provider-page' | 'provider-response'; evidenceKey?: string; spent?: number; cap?: number };
 export function isClaudeUsageUrl(value: string | undefined): boolean {
   if (!value) return false;
   try {
@@ -230,11 +231,19 @@ export function parseClaudeUsage(payload: unknown, at = Date.now()): UsageWindow
   const root = payload as Record<string, any>;
   const data = root.message_limit?.windows;
   // The usage endpoint's windows: five_hour (or session), seven_day (or weekly), and per-model weekly ones.
-  const named = (field: string) => field === 'seven_day' || field === 'weekly' ? 'Weekly' : /_sonnet$/.test(field) ? 'Sonnet weekly' : /_opus$/.test(field) ? 'Opus weekly' : '';
+  // Per-model weeks are named only for known models: the endpoint also has internal names that mean nothing to people.
+  const model = (field: string) => field.match(/_(sonnet|opus|fable|haiku)$/)?.[1];
+  const named = (field: string) => field === 'seven_day' || field === 'weekly' ? 'Weekly' : model(field) ? `${model(field)![0].toUpperCase()}${model(field)!.slice(1)} weekly` : '';
   const entries: (readonly [string, any, boolean])[] = data ? [['Session', data['5h'], true], ['Weekly', data['7d'], true]]
     : [['Session', root.five_hour ?? root.session, false], ...Object.keys(root).filter(field => /^(seven_day|weekly)/.test(field) && named(field)).map(field => [named(field), root[field], false] as const)];
   const number = (value: unknown) => { const parsed = typeof value === 'string' && value.trim() ? Number(value) : value; return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined; };
-  return entries.flatMap(([feature, value, fraction]) => {
+  // Extra usage (pay as you go past the plan): this month's spend and cap, which the endpoint gives in cents.
+  const extra = data ? undefined : root.extra_usage;
+  const spent = number(extra?.used_credits), cap = number(extra?.monthly_limit);
+  const extraWindow = extra?.is_enabled === true && spent !== undefined && spent >= 0 && cap !== undefined && cap > 0
+    ? [{ provider: 'claude' as const, tier: 'banner' as const, confidence: 'high' as const, key: 'claude:Extra usage credit', feature: 'Extra usage credit', percent: Math.min(100, (spent / cap) * 100), remainingPercent: Math.max(0, 100 - (spent / cap) * 100), at, spent: spent / 100, cap: cap / 100, explanation: 'Claude extra usage this month', source: 'provider-response' as const }]
+    : [];
+  return [...entries.flatMap(([feature, value, fraction]) => {
     if (!value || typeof value !== 'object') return [];
     // Used/limit when both are there; else utilization / percent / percentage (0–100 on the usage endpoint).
     const used = number(value.used), limit = number(value.limit);
@@ -247,5 +256,5 @@ export function parseClaudeUsage(payload: unknown, at = Date.now()): UsageWindow
     const rawReset = value.resets_at ?? value.reset_at ?? value.reset;
     const resetAt = typeof rawReset === 'number' && rawReset > 0 ? (rawReset < 1e12 ? rawReset * 1000 : rawReset) : typeof rawReset === 'string' ? Date.parse(rawReset) : undefined;
     return [{ provider: 'claude' as const, tier: 'banner' as const, confidence: 'high' as const, key: `claude:${feature}`, feature, percent, remainingPercent: 100 - percent, at, ...(resetAt && Number.isFinite(resetAt) ? { resetAt } : {}), explanation: 'Claude numeric usage metadata', source: 'provider-response' as const }];
-  });
+  }), ...extraWindow];
 }

@@ -24,7 +24,7 @@ import type { Extraction, Turn } from '../src/core/adapter';
 import { readUsageWindows, activeWindows, mergeUsageWindows, isCurrentReading, isUsagePageUrl, windowLabel, type UsageWindow } from '../src/core/usage-windows';
 import { composerStatusText } from '../src/core/composer-status';
 import { displayLabel, displayWindows, recordReadings, type UsageHistory } from '../src/core/usage-estimate';
-import { chatFeature, chatSegments, countSegments, workSegments, type Segment, serviceCountSegments } from '../src/core/composer-line';
+import { chatFeature, chatSegments, countSegments, extraSegment, workSegments, type Segment, serviceCountSegments } from '../src/core/composer-line';
 import { messageSummary, recordLimitHit, sentToday, type LimitHit } from '../src/core/message-counts';
 
 export default defineContentScript({
@@ -600,7 +600,7 @@ export default defineContentScript({
       const segments = [...chatSegments(chat), ...(id === 'grok' || id === 'perplexity' ? serviceCountSegments(windows) : [])];
       // Claude reports the 5-hour session only with a reply: once it resets, hold its place until the next message.
       if (id === 'claude' && segments.some(segment => segment.label === 'Weekly') && !segments.some(segment => segment.label === 'Session')) addSegment({ label: 'Session', value: '—', note: 'after your next message' });
-      if (segments.length) segments.forEach(addSegment);
+      if (segments.length) { segments.forEach(addSegment); const extra = id === 'claude' ? extraSegment(windows) : undefined; if (extra) addSegment(extra); }
       else {
         // Only a chat notice may stand in: ChatGPT's “latest reading” is often its Work allowance.
         const chatMeter = fresh && latestMeter && chatFeature(latestMeter.feature) ? latestMeter : undefined;

@@ -9,17 +9,45 @@ export const chatFeature = (feature: string) => !/image|file|upload|voice|deep r
 const level = (left: number): Segment['level'] => left < 20 ? 'low' : left < 50 ? 'mid' : 'ok';
 const short = (feature: string) => feature.replace(/\s*usage$/i, '').replace(/^chat$/i, 'Chat');
 
-/** The tightest chat windows first, at most two, as “N% left” with their reset. */
+const windowLength = (feature: string) => /session|5.?h/i.test(feature) ? 5 * 3600000 : /week/i.test(feature) ? 7 * 86400000 : undefined;
+/**
+ * When the pace so far would use the window up well before it resets, how long until then (“1h 5m”). Needs a known
+ * window length (5-hour session, week), some use, and at least 10 minutes of the window gone, so one message can't alarm.
+ */
+export function runsOutIn(win: Pick<DisplayWindow, 'feature' | 'percent' | 'resetAt'>, now = Date.now()): string {
+  const length = windowLength(win.feature);
+  if (!length || win.percent === undefined || win.percent < 5 || win.percent >= 100 || !win.resetAt || win.resetAt <= now) return '';
+  const elapsed = length - (win.resetAt - now);
+  if (elapsed < 10 * 60000) return '';
+  const toFull = (100 - win.percent) / (win.percent / elapsed);
+  return now + toFull < win.resetAt - 10 * 60000 ? resetCountdown(now + toFull, now) : '';
+}
+const order = (feature: string) => /session|5.?h/i.test(feature) ? 0 : /^weekly( usage)?$/i.test(feature) ? 1 : 2;
+/**
+ * The three tightest chat windows, in reading order (session, week, then a model's week), as “N% left” with their
+ * reset, or, when the current pace runs out first, “out in 1h 5m”.
+ */
 export function chatSegments(windows: DisplayWindow[], now = Date.now()): Segment[] {
   // Allowances counted in messages (ChatGPT's Thinking) read as “N left” in countSegments, not as a percentage here.
   return windows.filter(win => chatFeature(win.feature) && win.percent !== undefined && !(win.source === 'provider-response' && win.remainingCount !== undefined))
-    .sort((a, b) => b.percent! - a.percent!).slice(0, 2)
+    .sort((a, b) => b.percent! - a.percent!).slice(0, 3)
+    .sort((a, b) => order(a.feature) - order(b.feature))
     .map(win => {
       const left = Math.max(0, Math.round(100 - win.percent!));
       const estimated = !!win.estimate && win.estimate.perMessage !== undefined && win.estimate.sends > 0;
+      const out = runsOutIn(win, now);
       const reset = resetCountdown(win.resetAt, now);
-      return { label: short(win.feature), value: `${estimated ? '≈' : ''}${left}% left`, left, level: level(left), ...(reset ? { note: reset } : {}) };
+      const note = out ? `out in ${out}` : reset;
+      return { label: short(win.feature), value: `${estimated ? '≈' : ''}${left}% left`, left, level: out ? 'low' : level(left), ...(note ? { note } : {}) };
     });
+}
+/** Claude's extra usage this month, “$12.40 / $50”, when it is turned on. */
+export function extraSegment(windows: DisplayWindow[]): Segment | undefined {
+  const win = windows.find(candidate => candidate.feature === 'Extra usage credit' && candidate.spent !== undefined && candidate.cap);
+  if (!win) return undefined;
+  const money = (value: number) => `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
+  const left = Math.max(0, Math.round(100 - win.percent!));
+  return { label: 'Extra', value: `${money(win.spent!)} / ${money(win.cap!)}`, left, level: level(left) };
 }
 
 /**

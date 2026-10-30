@@ -48,3 +48,28 @@ describe('usage bar under the composer', () => {
     expect(workSegments([codex], now)).toEqual([{ label: 'Codex month', value: '100% left', left: 100, level: 'ok', note: '30d 0h' }]);
   });
 });
+
+import { extraSegment, runsOutIn } from '../src/core/composer-line';
+import { parseClaudeUsage } from '../src/core/usage-windows';
+describe('usage bar: pace, model weeks and extra usage', () => {
+  it('warns when the pace so far runs out well before the reset', () => {
+    // 60% of the 5-hour session gone in its first hour: the rest lasts about 40 minutes, the reset is 4 hours away.
+    expect(runsOutIn(win('Session', 60, { resetAt: now + 240 * min }), now)).toBe('40m');
+    const [session] = chatSegments([win('Session', 60, { resetAt: now + 240 * min })], now);
+    expect([session.note, session.level]).toEqual(['out in 40m', 'low']);
+    // On pace, too early to judge, or barely used: the reset as usual.
+    expect(runsOutIn(win('Session', 37, { resetAt: now + 189 * min }), now)).toBe('');
+    expect(runsOutIn(win('Session', 40, { resetAt: now + 295 * min }), now)).toBe('');
+    expect(runsOutIn(win('Weekly', 3, { resetAt: now + 100 * 3600000 }), now)).toBe('');
+  });
+  it('shows session, week and a model week in reading order', () => {
+    expect(chatSegments([win('Fable weekly', 70), win('Weekly', 40), win('Session', 20), win('Sonnet weekly', 5)], now).map(segment => segment.label)).toEqual(['Session', 'Weekly', 'Fable weekly']);
+  });
+  it('reads Claude model weeks and extra usage spend, and ignores internal names', () => {
+    const windows = parseClaudeUsage({ five_hour: { utilization: 34 }, seven_day: { utilization: 61 }, seven_day_fable: { utilization: 2 }, seven_day_omelette: { utilization: 9 }, extra_usage: { is_enabled: true, monthly_limit: 5000, used_credits: 1240, utilization: 24.8 } }, now);
+    expect(windows.map(w => w.feature)).toEqual(['Session', 'Weekly', 'Fable weekly', 'Extra usage credit']);
+    expect(extraSegment(windows.map(w => ({ ...w })))).toMatchObject({ label: 'Extra', value: '$12.40 / $50' });
+    expect(parseClaudeUsage({ five_hour: { utilization: 1 }, extra_usage: { is_enabled: false, monthly_limit: 5000, used_credits: 0 } }, now).map(w => w.feature)).toEqual(['Session']);
+    expect(chatFeature('Extra usage credit')).toBe(false);
+  });
+});

@@ -4,6 +4,7 @@ All notable changes to Baton Pass, newest first. Each version was released from 
 
 ## 1.1.0 — lossless capture, files in handoffs, reply check, saved selections, shortcuts
 
+- **A fuller usage bar.** Session and weekly limits show together, plus a model's own week when it is tighter (Fable, Opus, Sonnet or Haiku on Claude). When your pace so far would use a limit up well before it resets, the bar says so in red (“out in 40m”) instead of the reset time. On Claude with extra usage turned on, this month's spend shows too (“Extra $12.40 / $50”).
 - **Live usage bar.** The bar reads usage again the moment a reply finishes, and every minute while that chat is on screen (hidden tabs and closed sites aren't checked). Still once a minute at most per service, backing off when a service gives nothing.
 - **No more background tabs for usage.** Opening Baton and sending a message now read usage with your existing sign-in, the way the sites' own pages do, without opening any tab. Only the **Refresh** button you press may still open a usage page for a few seconds, and only when that direct read gave nothing.
 - **Feedback spam limits.** The feedback table now refuses floods in the database itself: 3 sends in 10 minutes and 10 a day from one place, 60 an hour in total, and no repeated messages. A refused send offers copy or email instead.
