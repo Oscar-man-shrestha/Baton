@@ -63,7 +63,7 @@ export default defineContentScript({
     const shadow = statusHost.attachShadow({ mode: 'closed' });
     const statusStyle = document.createElement('style');
     // A premium pill under the composer: baton mark, then ring-gauge segments “SESSION ◔ 54% left · 3h 1m”.
-    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:10px;max-width:100%;box-sizing:border-box;height:26px;padding:0 12px 0 9px;border-radius:999px;background:linear-gradient(180deg,rgba(44,43,60,.94),rgba(25,24,35,.94));border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 22px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);color:#f4f3fb;font:500 11px/1 system-ui,-apple-system,"SF Pro Text",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1px;white-space:nowrap;overflow:hidden}.body{display:inline-flex;align-items:center;gap:10px;min-width:0;overflow:hidden}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.45)}.seg{display:inline-flex;align-items:center;gap:6px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:12px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.22),transparent);margin-right:4px}.k{font-size:8.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#a3a1ba}.v{font-weight:700;color:#fff}.u{color:#bdbbd1;font-weight:500;margin-left:-3px}.n{color:#8f8da6;font-weight:500}.ring{flex:none;width:13px;height:13px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 3.6px,#000 4.2px);mask:radial-gradient(circle,transparent 3.6px,#000 4.2px)}.ok{--c:#34d1b0}.mid{--c:#f5b94a}.low{--c:#ff6b6b}.quiet{color:#8f8da6;font-weight:500}.x{all:unset;pointer-events:auto;cursor:pointer;flex:none;display:grid;place-items:center;width:16px;height:16px;margin:0 -6px 0 -2px;border-radius:50%;color:#a3a1ba;font:600 12px/1 system-ui,sans-serif;opacity:.7;transition:opacity .15s,background .15s}.line:hover .x,.x:focus-visible{opacity:1}.x:hover{background:rgba(255,255,255,.12);color:#fff}.x:focus-visible{outline:2px solid #b8a5ff;outline-offset:1px}.line{pointer-events:auto}@media(prefers-color-scheme:light){.line{background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(246,245,251,.97));border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 6px 18px rgba(30,25,70,.12),inset 0 1px 0 #fff}.v{color:#16151f}.k{color:#6d6a86}.u{color:#4b4963}.n,.quiet{color:#7d7a95}.ring{background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(30,25,70,.12) 0)}.seg+.seg:before{background:linear-gradient(180deg,transparent,rgba(30,25,70,.2),transparent)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.x{color:#6d6a86}.x:hover{background:rgba(30,25,70,.08);color:#16151f}.ok{--c:#14a387}.mid{--c:#d98a0b}.low{--c:#e04848}}.line.tight .u,.line.tight .seg+.seg .n{display:none}.line.tighter .seg:nth-child(n+4),.line.tightest .seg:nth-child(n+3){display:none}';
+    statusStyle.textContent = ':host{all:initial}.line{display:inline-flex;align-items:center;gap:10px;max-width:100%;box-sizing:border-box;height:26px;padding:0 12px 0 9px;border-radius:999px;background:linear-gradient(180deg,rgba(44,43,60,.94),rgba(25,24,35,.94));border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 22px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);color:#f4f3fb;font:500 11px/1 system-ui,-apple-system,"SF Pro Text",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.1px;white-space:nowrap;overflow:hidden}.body{display:inline-flex;align-items:center;gap:10px;min-width:0;overflow:hidden}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px);box-shadow:0 0 6px rgba(176,154,255,.45)}.seg{display:inline-flex;align-items:center;gap:6px;min-width:0}.seg+.seg:before{content:"";flex:none;width:1px;height:12px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.22),transparent);margin-right:4px}.k{font-size:8.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#a3a1ba}.v{font-weight:700;color:#fff}.u{color:#bdbbd1;font-weight:500;margin-left:-3px}.n{color:#8f8da6;font-weight:500}.ring{flex:none;width:13px;height:13px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 3.6px,#000 4.2px);mask:radial-gradient(circle,transparent 3.6px,#000 4.2px)}.ok{--c:#34d1b0}.mid{--c:#f5b94a}.low{--c:#ff6b6b}.quiet{color:#8f8da6;font-weight:500}.x{all:unset;pointer-events:auto;cursor:pointer;flex:none;display:grid;place-items:center;width:16px;height:16px;margin:0 -6px 0 -2px;border-radius:50%;color:#a3a1ba;font:600 12px/1 system-ui,sans-serif;opacity:.7;transition:opacity .15s,background .15s}.line:hover .x,.x:focus-visible{opacity:1}.x:hover{background:rgba(255,255,255,.12);color:#fff}.x:focus-visible{outline:2px solid #b8a5ff;outline-offset:1px}.line{pointer-events:auto}@media(prefers-color-scheme:light){.line{background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(246,245,251,.97));border-color:rgba(30,25,70,.1);color:#1e1d2b;box-shadow:0 6px 18px rgba(30,25,70,.12),inset 0 1px 0 #fff}.v{color:#16151f}.k{color:#6d6a86}.u{color:#4b4963}.n,.quiet{color:#7d7a95}.ring{background:conic-gradient(var(--c) calc(var(--p) * 1%),rgba(30,25,70,.12) 0)}.seg+.seg:before{background:linear-gradient(180deg,transparent,rgba(30,25,70,.2),transparent)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px);box-shadow:none}.x{color:#6d6a86}.x:hover{background:rgba(30,25,70,.08);color:#16151f}.ok{--c:#14a387}.mid{--c:#d98a0b}.low{--c:#e04848}}.line.tight .minor,.line.tight .quiet,.line.tight .pre{display:none}.line.tighter .u,.line.tighter .seg+.seg+.seg .n{display:none}.line.tightest .seg:nth-child(n+4){display:none}';
     // The pill is built once: brand, a body that is refilled only when its content changes, and the ×.
     // Rebuilding the × on every page mutation (streaming replies) used to lose the press.
     const statusText = document.createElement('span');
@@ -579,8 +579,10 @@ export default defineContentScript({
       const extras = windows.filter(win => !chat.includes(win));
       const nextBody = document.createElement('span');
       const piece = (className: string, text: string) => { const node = document.createElement('span'); node.className = className; node.textContent = text; return node; };
-      const addSegment = (segment: Segment) => {
-        const node = document.createElement('span'); node.className = 'seg';
+      // minor: steps aside first when the bar is short of room (chat size, prompt tokens).
+      const addSegment = (segment: Segment & { minor?: boolean; title?: string }) => {
+        const node = document.createElement('span'); node.className = segment.minor ? 'seg minor' : 'seg';
+        if (segment.title) node.title = segment.title;
         if (segment.label) node.append(piece('k', segment.label));
         if (segment.left !== undefined) {
           const ring = document.createElement('span'); ring.className = `ring ${segment.level || 'ok'}`; ring.style.setProperty('--p', String(segment.left)); ring.setAttribute('aria-hidden', 'true'); node.append(ring);
@@ -589,7 +591,12 @@ export default defineContentScript({
           node.append(piece('v', figure)); if (rest.length) node.append(piece('u', rest.join(' ')));
         } else node.append(piece('v', segment.value));
         // Reset countdowns (“3h 20m”, “29d 23h”) read “reset in 3h 20m”; counts like “1 today” stay plain.
-        if (segment.note) node.append(piece('n', /^\d+[dhm]\b/.test(segment.note) ? `reset in ${segment.note}` : segment.note));
+        // When room is short, “reset in” goes first and the countdown stays.
+        if (segment.note) {
+          const note = piece('n', segment.note);
+          if (/^\d+[dhm]\b/.test(segment.note)) note.prepend(piece('pre', 'reset in '));
+          node.append(note);
+        }
         nextBody.append(node);
       };
       // ChatGPT: its Plan limits (Codex/Work, not chat) are the only numbers it publishes, so they follow the chat count.
@@ -613,14 +620,16 @@ export default defineContentScript({
         }
         // With ChatGPT's own allowances on show, the chat count gives them the room (it stays in the bar's tooltip and Baton's panel).
         else if (counted.uncapped) { if (!work.length) addSegment({ label: 'Chat', value: 'No cap', note: `${counted.count} sent today` }); }
-        else if (counted.count || counted.learnedLimit !== undefined) addSegment({ label: 'Chat', value: counted.text, note: 'counted by Baton' });
+        // Short on the bar (“≈6 left · of ~7”); the whole sentence is in the tooltip.
+        else if (counted.left !== undefined) addSegment({ label: 'Chat', value: `≈${counted.left} left`, note: `of ${/stated/.test(counted.text) ? '' : '~'}${counted.learnedLimit}`, title: `${counted.text}. Counted by Baton.` });
+        else if (counted.count) addSegment({ label: 'Chat', value: `${counted.count} sent`, note: `last ${counted.hours < 24 ? `${counted.hours} h` : 'day'}`, title: `${counted.text}. Counted by Baton.` });
         // Nothing reported and nothing counted yet: say so plainly, with today's count from this browser.
         else addSegment({ label: 'Chat', value: 'No limit shown', note: `${sentToday(latestSends, Date.now())} today` });
       }
       work.forEach(addSegment);
       // How big this conversation already is; last in the bar, so it is the first to step aside when space is short.
       const size = chatSize();
-      if (size) addSegment({ label: 'Chat size', value: `${tokenCount(size)} tokens` });
+      if (size) addSegment({ label: 'Chat size', value: `${tokenCount(size)} tokens`, minor: true });
       if (lastPromptTokens) { const tokens = piece('seg quiet', `≈${lastPromptTokens.toLocaleString('en-US')} prompt tokens`); nextBody.append(tokens); }
       if (nextBody.innerHTML !== statusBody.innerHTML) statusBody.replaceChildren(...Array.from(nextBody.childNodes));
       statusText.title = windows.length ? windows.map(win => win.estimate ? `${displayLabel(win)} (estimated from messages sent since the last service reading)` : `${windowLabel(win)} (shown on service page)`).join('\n') : 'Remaining allowance has not been exposed by this service. Prompt tokens are approximate and do not measure your remaining allowance.';

@@ -4,6 +4,7 @@ All notable changes to Baton Pass, newest first. Each version was released from 
 
 ## 1.1.0 — lossless capture, files in handoffs, reply check, saved selections, shortcuts
 
+- **Usage bar keeps what matters when space is short.** ChatGPT's chat count reads “Chat ≈6 left · of ~7” (the full sentence is in its tooltip) instead of a long sentence that pushed Thinking's reset, Codex and uploads off the bar. When room runs out, chat size and prompt tokens step aside first, then the words “reset in”, so every limit keeps its reset time.
 - **A fuller usage bar.** Session and weekly limits show together, plus a model's own week when it is tighter (Fable, Opus, Sonnet or Haiku on Claude). When your pace so far would use a limit up well before it resets, the bar says so in red (“out in 40m”) instead of the reset time. On Claude with extra usage turned on, this month's spend shows too (“Extra $12.40 / $50”).
 - **Live usage bar.** The bar reads usage again the moment a reply finishes, and every minute while that chat is on screen (hidden tabs and closed sites aren't checked). Still once a minute at most per service, backing off when a service gives nothing.
 - **No more background tabs for usage.** Opening Baton and sending a message now read usage with your existing sign-in, the way the sites' own pages do, without opening any tab. Only the **Refresh** button you press may still open a usage page for a few seconds, and only when that direct read gave nothing.
