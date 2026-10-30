@@ -192,7 +192,7 @@ async function refreshAllUsage(button: HTMLButtonElement, message: HTMLElement, 
     const tabs = (await chrome.tabs.query({})).filter(tab => isSupportedChatUrl(tab.url));
     const results = await Promise.allSettled(tabs.map(tab => sendToChat<{ ok?: boolean }>(tab, { type: 'REFRESH_USAGE' })));
     const connected = results.filter(result => result.status === 'fulfilled' && result.value?.ok).length;
-    const pages = await chrome.runtime.sendMessage({ type: 'REFRESH_ALL_USAGE' }) as { ok?: boolean; results?: { provider: ProviderId; status: string }[] } | undefined;
+    const pages = await chrome.runtime.sendMessage({ type: 'REFRESH_ALL_USAGE', openTabs: true }) as { ok?: boolean; results?: { provider: ProviderId; status: string }[] } | undefined;
     await showUsage();
     if (compact) {
       const marks = (pages?.results || []).map(result => `${providerNames[result.provider]} ${result.status === 'read' ? '✓' : '✗'}`).join('  ');

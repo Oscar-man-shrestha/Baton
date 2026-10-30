@@ -135,9 +135,10 @@ export default defineBackground(() => {
   // e.g. signed out or refusing; one good answer resets it.
   const apiRunAt = new Map<ProviderId, number>();
   const apiBackoff = new Map<ProviderId, { fails: number; until: number }>();
-  const refreshApi = async (provider: ProviderId) => {
-    if (!apiProviders.includes(provider) || Date.now() - (apiRunAt.get(provider) || 0) < 60000) return false;
-    if (Date.now() < (apiBackoff.get(provider)?.until || 0)) return false;
+  // force: the user pressed Refresh, so skip the once-a-minute limit and the back-off.
+  const refreshApi = async (provider: ProviderId, force = false) => {
+    if (!apiProviders.includes(provider)) return false;
+    if (!force && (Date.now() - (apiRunAt.get(provider) || 0) < 60000 || Date.now() < (apiBackoff.get(provider)?.until || 0))) return false;
     if ((await chrome.storage.local.get('usageApiRefresh')).usageApiRefresh === false) return false;
     apiRunAt.set(provider, Date.now());
     const { readings, check } = await fetchUsage(provider).catch(error => ({ readings: [] as UsageWindow[], check: { at: Date.now(), route: 'none' as const, steps: [`failed: ${String(error).slice(0, 100)}`], readings: 0 } }));
@@ -158,11 +159,11 @@ export default defineBackground(() => {
       const enabled = (saved.enabledProviders || {}) as Record<string, boolean>;
       const open = (await chrome.tabs.query({})).map(tab => { try { return new URL(tab.url || '').hostname; } catch { return ''; } });
       const inUse = (id: ProviderId) => bundledSelectors.providers[id].hosts.some(host => open.includes(host)) || Math.max(0, ...((saved[`usageSends:${id}`] || []) as number[])) > Date.now() - 3 * 86400000;
-      await Promise.all(apiProviders.filter(id => providerEnabled(id, enabled) && inUse(id)).map(refreshApi));
+      await Promise.all(apiProviders.filter(id => providerEnabled(id, enabled) && inUse(id)).map(id => refreshApi(id)));
     })().catch(() => {});
   });
-  // After a send, refresh that service's usage 30 s later (the reply's usage is then counted): its usage response
-  // when it answers, else its usage page in a background tab.
+  // After a send, refresh that service's usage 30 s later (the reply's usage is then counted), with the same sign-in
+  // request; no tab is opened.
   chrome.alarms.onAlarm.addListener(alarm => {
     if (!alarm.name.startsWith('handoff-usage:')) return;
     const provider = alarm.name.slice('handoff-usage:'.length) as ProviderId;
@@ -170,8 +171,7 @@ export default defineBackground(() => {
     void (async () => {
       await chrome.storage.session.set({ [`refreshAfterSendAt:${provider}`]: Date.now() });
       apiRunAt.delete(provider);
-      if (await refreshApi(provider)) return;
-      await refreshAllUsage([provider], usageDeps());
+      await refreshApi(provider);
     })().catch(() => {});
   });
   // Reset reminders the user asked for from the limit rescue card.
@@ -275,10 +275,16 @@ export default defineBackground(() => {
     }
     if (message?.type === 'REFRESH_ALL_USAGE') {
       if (!_sender.url?.startsWith(chrome.runtime.getURL(''))) return;
-      // Runs here so it finishes even if the popup closes. Background tabs it opens are closed again.
+      // Runs here so it finishes even if the popup closes. Usage is read with the sign-in request, no tab; only a
+      // Refresh the user pressed may still open a usage page in a background tab (closed again) when that gave nothing.
       void (async () => {
         const enabled = ((await chrome.storage.local.get('enabledProviders')).enabledProviders || {}) as Record<string, boolean>;
-        const results = await refreshAllUsage(providerIds.filter(id => providerEnabled(id, enabled)), usageDeps());
+        const manual = message.openTabs === true;
+        const results = await Promise.all(apiProviders.filter(id => providerEnabled(id, enabled)).map(async provider => {
+          if (await refreshApi(provider, manual).catch(() => false)) return { provider, status: 'read' as const, opened: false };
+          if (manual && usagePageUrl(provider)) return (await refreshAllUsage([provider], usageDeps()))[0];
+          return { provider, status: 'no-reading' as const, opened: false };
+        }));
         sendResponse({ ok: true, results });
       })().catch(() => sendResponse({ ok: false }));
       return true;
