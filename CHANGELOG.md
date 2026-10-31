@@ -4,6 +4,7 @@ All notable changes to Baton Pass, newest first. Each version was released from 
 
 ## 1.1.0 — lossless capture, files in handoffs, reply check, saved selections, shortcuts
 
+- **“Side panel” button says what it does.** The popup’s bare ◫ icon is now a labelled “Side panel” button (tooltip: “Keep Baton open beside your chat”).
 - **Plainer Pass menu.** “Best for everyday use first. Pick a task to change the order. Your chat opens there, ready to send.” replaces the ranking jargon; “no limit shown” is now “usage not shown yet” (and is left out when the AI’s note already says “unlimited text chat”); usage reads “44% of usage left”; the bottom options read “Let Claude sum up this chat” and “Switch Claude account”.
 - **Usage bar keeps what matters when space is short.** ChatGPT's chat count reads “Chat ≈6 left · of ~7” (the full sentence is in its tooltip) instead of a long sentence that pushed Thinking's reset, Codex and uploads off the bar. When room runs out, chat size and prompt tokens step aside first, then the words “reset in”, so every limit keeps its reset time.
 - **A fuller usage bar.** Session and weekly limits show together, plus a model's own week when it is tighter (Fable, Opus, Sonnet or Haiku on Claude). When your pace so far would use a limit up well before it resets, the bar says so in red (“out in 40m”) instead of the reset time. On Claude with extra usage turned on, this month's spend shows too (“Extra $12.40 / $50”).
