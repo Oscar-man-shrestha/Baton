@@ -11,7 +11,7 @@ import { formatShortcut, onMac, type ShortcutCommand } from '../src/core/shortcu
 import { newChatUrls, providerNames, reachedLimit } from '../src/core/rescue';
 import { withNextStep } from '../src/core/next-step';
 import { pendingFor, pendingKey, shouldOffer, signInLabel, switchHelp, type PendingProject } from '../src/core/account-continue';
-import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../src/core/task-fit';
+import { addPick, optionLine, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../src/core/task-fit';
 import { buildRescueCard, rescueCardStyle } from '../src/core/rescue-card';
 import { encode } from 'gpt-tokenizer';
 import { estimateMeter, parseStatedLimit, type LimitEvent, type Meter, type StatedLimit } from '../src/core/limits';
@@ -371,8 +371,8 @@ export default defineContentScript({
       const suggested = options.find(option => option.status !== 'limited');
       passMenu.replaceChildren();
       const title = document.createElement('h2'); title.textContent = 'Pass the baton to…';
-      const hint = document.createElement('p'); hint.textContent = `${chosen ? `Ranked for ${topicNames[topic].toLowerCase()}, then usage left.` : topic === 'general' ? 'Ranked for everyday use, then usage left. Pick a task to re-rank.' : `Looks like ${topicNames[topic].toLowerCase()}: ranked for that, then usage left.`} Opens a new chat with your project as a draft; you press Send.`;
-      const basis = document.createElement('p'); basis.className = 'basis'; basis.textContent = asked ? `Based on: “${asked.replace(/\s+/g, ' ').slice(0, 70)}${asked.length > 70 ? '…' : ''}”` : 'No message yet: ranked for everyday use.';
+      const hint = document.createElement('p'); hint.textContent = `${chosen ? `Best for ${topicNames[topic].toLowerCase()} first.` : topic === 'general' ? 'Best for everyday use first. Pick a task to change the order.' : `Looks like ${topicNames[topic].toLowerCase()}, so the best AIs for that come first.`} Your chat opens there, ready to send.`;
+      const basis = document.createElement('p'); basis.className = 'basis'; basis.textContent = asked ? `Based on: “${asked.replace(/\s+/g, ' ').slice(0, 70)}${asked.length > 70 ? '…' : ''}”` : '';
       const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status');
       // The guess can be wrong: one tap on the right task re-ranks the list (and later picks count for that task).
       const tasks = document.createElement('div'); tasks.className = 'tasks'; tasks.setAttribute('role', 'group'); tasks.setAttribute('aria-label', 'Task type');
@@ -386,7 +386,7 @@ export default defineContentScript({
       const nextLabel = document.createElement('span'); nextLabel.textContent = 'What’s next? (optional)';
       const nextInput = document.createElement('input'); nextInput.type = 'text'; nextInput.maxLength = 300; nextInput.value = menuNext;
       nextInput.placeholder = 'e.g. now add the login form'; nextInput.setAttribute('aria-describedby', 'baton-next-hint');
-      const nextHint = document.createElement('small'); nextHint.id = 'baton-next-hint'; nextHint.textContent = 'Added to the end of the draft. Enter passes to the suggested AI.';
+      const nextHint = document.createElement('small'); nextHint.id = 'baton-next-hint'; nextHint.textContent = 'Tell the next AI what to do. Press Enter to pass to the suggested one.';
       nextInput.addEventListener('input', () => { menuNext = nextInput.value; menuTyping = true; });
       // Keys stay in Baton's box: the chat site must not react to typing here.
       for (const type of ['keydown', 'keyup', 'keypress'] as const) nextInput.addEventListener(type, event => {
@@ -395,12 +395,12 @@ export default defineContentScript({
         if (type === 'keydown' && (event as KeyboardEvent).key === 'Escape') { closePassMenu(); passButton.focus(); }
       });
       nextField.append(nextLabel, nextInput, nextHint);
-      passMenu.append(title, hint, basis, tasks, nextField);
+      passMenu.append(title, hint, ...(asked ? [basis] : []), tasks, nextField);
       const run = async (action: () => Promise<string>) => { status.textContent = 'Working…'; try { status.textContent = await action(); } catch (error) { status.textContent = error instanceof Error ? error.message : 'That did not work. Open Baton to try again.'; } };
       for (const option of options) {
         const item = document.createElement('button'); item.type = 'button'; item.className = 'opt'; item.setAttribute('role', 'menuitem');
         const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', laneColor[option.provider]);
-        const text = document.createElement('span'); const name = document.createElement('b'); name.textContent = providerNames[option.provider]; const detail = document.createElement('small'); const why = reason(option.provider); detail.textContent = why && option.status !== 'limited' ? `${why} · ${option.detail}` : option.detail; text.append(name, detail);
+        const text = document.createElement('span'); const name = document.createElement('b'); name.textContent = providerNames[option.provider]; const detail = document.createElement('small'); detail.textContent = optionLine(option, reason(option.provider)); text.append(name, detail);
         item.append(dot, text);
         if (option === suggested) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Suggested'; item.append(tag); }
         if (option.status === 'limited') item.setAttribute('aria-disabled', 'true');
@@ -414,15 +414,15 @@ export default defineContentScript({
       // Opt-in: this AI writes the handoff (it knows the chat best), Baton checks it before it goes anywhere.
       const write = document.createElement('button'); write.type = 'button'; write.className = 'opt account'; write.setAttribute('role', 'menuitem');
       const writeIcon = document.createElement('i'); writeIcon.className = 'swap'; writeIcon.textContent = '✎'; writeIcon.setAttribute('aria-hidden', 'true');
-      const writeText = document.createElement('span'); const writeName = document.createElement('b'); writeName.textContent = `Have ${providerNames[id]} write the handoff`;
-      const writeHint = document.createElement('small'); writeHint.textContent = 'You send the request; Baton checks the reply, then you pick the next AI'; writeText.append(writeName, writeHint);
+      const writeText = document.createElement('span'); const writeName = document.createElement('b'); writeName.textContent = `Let ${providerNames[id]} sum up this chat`;
+      const writeHint = document.createElement('small'); writeHint.textContent = 'You press Send, then choose where to continue'; writeText.append(writeName, writeHint);
       write.append(writeIcon, writeText);
       write.addEventListener('click', () => { closePassMenu(); void startWrittenHandoff(); });
       passMenu.append(write);
       const other = document.createElement('button'); other.type = 'button'; other.className = 'opt account'; other.setAttribute('role', 'menuitem');
       const otherIcon = document.createElement('i'); otherIcon.className = 'swap'; otherIcon.textContent = '↻'; otherIcon.setAttribute('aria-hidden', 'true');
-      const otherText = document.createElement('span'); const otherName = document.createElement('b'); otherName.textContent = `${providerNames[id]}, another account`;
-      const otherHint = document.createElement('small'); otherHint.textContent = 'Save, switch account, continue here'; otherText.append(otherName, otherHint);
+      const otherText = document.createElement('span'); const otherName = document.createElement('b'); otherName.textContent = `Switch ${providerNames[id]} account`;
+      const otherHint = document.createElement('small'); otherHint.textContent = 'Saves your chat so you can carry on in another account'; otherText.append(otherName, otherHint);
       other.append(otherIcon, otherText);
       other.addEventListener('click', () => { void run(() => sameAiOtherAccount(menuNext)); });
       passMenu.append(other);

@@ -166,6 +166,13 @@ export function rankForTopic(options: RescueOption[], order: ProviderId[]): Resc
 /** Storage keys a suggestion needs: usage for every service, enabled services, and the rankings, order and picks. */
 export const suggestionKeys = () => [...providerIds.flatMap(p => [`usageWindows:${p}`, `meter:${p}`, `usageSends:${p}`, `limitHits:${p}`, `statedLimit:${p}`]), 'enabledProviders', 'rankingsRemote', 'rankingsUser', 'taskPicks'];
 
+/** An option's second line: the AI's strength, then its usage. “Usage not shown yet” is dropped when the strength already says there's no cap. */
+export function optionLine(option: RescueOption, reason?: string): string {
+  if (!reason || option.status === 'limited') return option.detail;
+  if (option.status === 'unknown' && /\bno\b.*\bcap\b|unlimited/i.test(reason) && option.detail === 'usage not shown yet') return reason;
+  return `${reason} · ${option.detail}`;
+}
+
 /** One call for the Baton menu and the popup: topic, ranked options, and a short reason per service. */
 export function suggest(text: string, source: ProviderId, saved: Record<string, unknown>, now = Date.now(), chosen?: Topic, model?: ModelGuess) {
   const { rankings } = activeRankings(saved.rankingsRemote);

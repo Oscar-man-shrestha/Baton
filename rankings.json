@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "updated": "2026-10-22",
+  "version": 3,
+  "updated": "2026-10-31",
   "note": "Which AI Baton suggests for each kind of task, best first, for what each service gives FREE users. Baton reads this file from GitHub once a day; edit it to change suggestions without a new release. See RANKINGS.md for the evidence and how to update.",
   "bestFor": {
     "code": ["claude", "deepseek", "chatgpt", "gemini", "grok", "perplexity"],
@@ -12,13 +12,13 @@
     "general": ["chatgpt", "claude", "deepseek", "gemini", "grok", "perplexity"]
   },
   "reasons": {
-    "code": { "claude": "top-rated for code", "deepseek": "strong at code, no hard cap", "chatgpt": "good at code, no text cap" },
+    "code": { "claude": "top-rated for code", "deepseek": "strong at code, rarely limited", "chatgpt": "good at code, unlimited text" },
     "research": { "perplexity": "every answer cites sources", "chatgpt": "top-rated web search", "claude": "strong web search", "gemini": "searches with Google" },
-    "news": { "perplexity": "live web search with sources", "grok": "live web and X posts", "chatgpt": "web search, no text cap", "gemini": "searches with Google" },
-    "writing": { "claude": "natural, careful writing", "chatgpt": "versatile, no text cap" },
+    "news": { "perplexity": "live web search with sources", "grok": "live web and X posts", "chatgpt": "web search, unlimited text", "gemini": "searches with Google" },
+    "writing": { "claude": "natural, careful writing", "chatgpt": "versatile, unlimited text" },
     "math": { "deepseek": "strong step-by-step reasoning", "chatgpt": "strong reasoning", "claude": "careful reasoning" },
     "image": { "gemini": "most free images", "chatgpt": "high quality, few free images", "grok": "some free images" },
-    "general": { "chatgpt": "no cap on text chat", "claude": "thoughtful answers", "deepseek": "no hard cap" }
+    "general": { "chatgpt": "unlimited text chat", "claude": "careful, thoughtful answers", "deepseek": "rarely limited" }
   },
   "keywords": {}
 }

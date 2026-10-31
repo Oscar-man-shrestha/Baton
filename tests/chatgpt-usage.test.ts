@@ -41,6 +41,6 @@ describe('ChatGPT usage page', () => {
     const saved = { 'usageWindows:chatgpt': windows };
     expect(windows[0].percent).toBe(100);
     expect(reachedLimit(saved, 'chatgpt', now)).toBeUndefined();
-    expect(rescueOptions('claude', saved, {}, now).find(option => option.provider === 'chatgpt')?.detail).toBe('no limit shown');
+    expect(rescueOptions('claude', saved, {}, now).find(option => option.provider === 'chatgpt')?.detail).toBe('usage not shown yet');
   });
 });

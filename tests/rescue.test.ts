@@ -31,14 +31,14 @@ describe('limit rescue', () => {
     };
     const options = rescueOptions('chatgpt', saved, { deepseek: false, grok: false, perplexity: false }, now);
     expect(options.map(option => [option.provider, option.status, option.detail])).toEqual([
-      ['gemini', 'room', '63% left'],
+      ['gemini', 'room', '63% of usage left'],
       ['claude', 'limited', 'limit reached · resets in 1h 0m']
     ]);
     expect(rescueOptions('gemini', saved, { deepseek: false, grok: false, perplexity: false }, now).map(option => option.provider)).toEqual(['chatgpt', 'claude']);
   });
   it('never invents a balance for a service that shows none', () => {
     const [chatgpt] = rescueOptions('claude', {}, {}, now);
-    expect(chatgpt).toEqual({ provider: 'chatgpt', status: 'unknown', detail: 'no limit shown' });
+    expect(chatgpt).toEqual({ provider: 'chatgpt', status: 'unknown', detail: 'usage not shown yet' });
   });
   it('ignores stale readings', () => {
     expect(rescueOptions('chatgpt', { 'usageWindows:gemini': [win('gemini', 'Session', 37, { at: now - 7200000 })] }, {}, now)[0].status).toBe('unknown');
@@ -73,7 +73,7 @@ describe('limit rescue card', () => {
     expect(card.textContent).toContain('Claude limit reached');
     expect(card.textContent).toContain('Back in 2h 0m');
     const labels = Array.from(card.querySelectorAll('.options button')).map(button => button.textContent);
-    expect(labels).toEqual(['Continue in Gemini63% left', 'Continue in ChatGPTlimit reached · resets in 1h 0m']);
+    expect(labels).toEqual(['Continue in Gemini63% of usage left', 'Continue in ChatGPTlimit reached · resets in 1h 0m']);
     expect((card.querySelectorAll('.options button')[1] as HTMLButtonElement).disabled).toBe(true);
     expect(card.textContent).toContain('Claude, another account');
     expect(card.textContent).toContain('Remind me when it resets');

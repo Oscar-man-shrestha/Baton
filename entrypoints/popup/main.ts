@@ -2,7 +2,7 @@ import { renderBrief, wrapHandoff, draftBudget, goalFromUserText, redact } from 
 import { textFile, transcriptName } from '../../src/core/files';
 import { shouldNudge, type Meter } from '../../src/core/limits';
 import { encode } from 'gpt-tokenizer';
-import { addPick, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
+import { addPick, optionLine, promptTopic, suggest, suggestionKeys, topicNames, topics, type ModelGuess, type TaskPicks, type Topic } from '../../src/core/task-fit';
 import { bundledSelectors, providerIds, type ProviderId } from '../../src/core/selectors';
 import { iconSvg, type IconName } from './icons';
 import { listProjects, mergeBrief, pruneExpired, saveProject, deleteProject, listFolders, createFolder, moveToFolder } from '../../src/core/projects';
@@ -126,8 +126,8 @@ const showNext = async () => {
     if (!reply?.ok) { nextSection.hidden = true; return; }
     nextSection.hidden = false;
     const sameAi = document.querySelector('#next-same-ai') as HTMLElement; sameAi.hidden = false;
-    (document.querySelector('#next-same-ai-label') as HTMLElement).textContent = `${providerNames[activeProvider]}, another account`;
-    nextBasis.textContent = reply.asked ? `${nextChosen ? 'Ranked for' : 'Looks like'} ${topicNames[reply.topic].toLowerCase()} · based on “${reply.asked.replace(/\s+/g, ' ').slice(0, 60)}${reply.asked.length > 60 ? '…' : ''}”` : 'No message yet: ranked for everyday use.';
+    (document.querySelector('#next-same-ai-label') as HTMLElement).textContent = `Switch ${providerNames[activeProvider]} account`;
+    nextBasis.textContent = reply.asked ? `${nextChosen ? 'Best for' : 'Looks like'} ${topicNames[reply.topic].toLowerCase()} · based on “${reply.asked.replace(/\s+/g, ' ').slice(0, 60)}${reply.asked.length > 60 ? '…' : ''}”` : 'Best for everyday use first. Pick a task to change the order.';
     nextTasks.replaceChildren(...topics.map(topic => {
       const chip = document.createElement('button'); chip.type = 'button'; chip.textContent = topicNames[topic]; chip.setAttribute('aria-pressed', String(topic === reply.topic));
       chip.addEventListener('click', () => { nextChosen = topic; void showNext(); });
@@ -140,7 +140,7 @@ const showNext = async () => {
       const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', nextColor[option.provider]);
       const who = document.createElement('span'); who.className = 'who';
       const name = document.createElement('b'); name.textContent = providerNames[option.provider];
-      const detail = document.createElement('small'); detail.textContent = option.reason && option.status !== 'limited' ? `${option.reason} · ${option.detail}` : option.detail;
+      const detail = document.createElement('small'); detail.textContent = optionLine(option, option.reason);
       who.append(name, detail); item.append(dot, who);
       if (index === 0 && option.status !== 'limited') { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Best'; item.append(tag); }
       if (option.status !== 'limited') {

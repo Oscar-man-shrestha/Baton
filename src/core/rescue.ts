@@ -54,10 +54,10 @@ export function rescueOptions(source: ProviderId, saved: Record<string, unknown>
         const detail = `≈${counted.left} of ${counted.learnedLimit} left (counted)`;
         return counted.left > 0 ? { provider: id, status: 'room', remainingPercent: counted.left / counted.learnedLimit * 100, detail } : { provider: id, status: 'unknown', detail };
       }
-      return { provider: id, status: 'unknown', detail: 'no limit shown' };
+      return { provider: id, status: 'unknown', detail: 'usage not shown yet' };
     }
     const remainingPercent = Math.min(...left);
-    return { provider: id, status: 'room', remainingPercent, detail: `${Number(remainingPercent.toFixed(1))}% left` };
+    return { provider: id, status: 'room', remainingPercent, detail: `${Number(remainingPercent.toFixed(1))}% of usage left` };
   });
   const order = { room: 0, unknown: 1, limited: 2 };
   return options.sort((a, b) => order[a.status] - order[b.status] || (b.remainingPercent ?? 0) - (a.remainingPercent ?? 0) || (a.resetAt ?? Infinity) - (b.resetAt ?? Infinity));

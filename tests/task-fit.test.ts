@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { activeRankings, addPick, bundledRankings, combineTopic, fetchRankings, parseRankings, promptTopic, rankForTopic, topicOrder } from '../src/core/task-fit';
+import { activeRankings, addPick, bundledRankings, combineTopic, fetchRankings, optionLine, parseRankings, promptTopic, rankForTopic, topicOrder } from '../src/core/task-fit';
 
 const opt = (provider: string, status: 'room' | 'unknown' | 'limited', remainingPercent?: number) => ({ provider, status, detail: '', ...(remainingPercent !== undefined ? { remainingPercent } : {}) }) as any;
-const file = (extra: Record<string, unknown> = {}) => ({ version: 2, updated: '2026-11-01', bestFor: { code: ['gemini', 'claude'] }, reasons: { code: { gemini: 'new model is best at code' } }, ...extra });
+const file = (extra: Record<string, unknown> = {}) => ({ version: 3, updated: '2026-11-01', bestFor: { code: ['gemini', 'claude'] }, reasons: { code: { gemini: 'new model is best at code' } }, ...extra });
 
 describe('suggestions by prompt topic', () => {
   it('guesses the topic from the prompt words', () => {
@@ -110,5 +110,14 @@ describe('a tampered rankings file', () => {
     for (const reason of ['free at https://evil.example', 'visit www.example.net', 'claim it at baton-pass.xyz', 'now on gift-card.com'])
       expect(parseRankings(file({ reasons: { code: { gemini: reason } } }), bundledRankings)).toBeUndefined();
     expect(parseRankings(file(), bundledRankings)?.reasons.code?.gemini).toBe('new model is best at code');
+  });
+});
+
+describe('option line', () => {
+  it('reads plainly: strength then usage, with no “usage not shown yet” after a no-cap strength', () => {
+    expect(optionLine({ provider: 'chatgpt', status: 'unknown', detail: 'usage not shown yet' }, 'unlimited text chat')).toBe('unlimited text chat');
+    expect(optionLine({ provider: 'claude', status: 'room', remainingPercent: 44, detail: '44% of usage left' }, 'careful, thoughtful answers')).toBe('careful, thoughtful answers · 44% of usage left');
+    expect(optionLine({ provider: 'gemini', status: 'unknown', detail: 'usage not shown yet' })).toBe('usage not shown yet');
+    expect(optionLine({ provider: 'grok', status: 'limited', detail: 'limit reached' }, 'live web and X posts')).toBe('limit reached');
   });
 });
