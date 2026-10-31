@@ -48,11 +48,11 @@ export type CheckStatus = { tone: 'ok' | 'stale' | 'idle' | 'off'; headline: str
 /** The status box under a usage card: whether Baton's last check with your sign-in found new figures, in plain words. */
 export function usageCheckSummary(name: string, check: UsageCheck | undefined, options: { off?: boolean; lastReading?: number; now?: number; time?: (at: number) => string } = {}): CheckStatus {
   const time = options.time || clockTime;
-  if (options.off) return { tone: 'off', headline: 'Sign-in check is off', detail: 'Turn it on under Usage → Read usage with my sign-in.' };
+  if (options.off) return { tone: 'off', headline: 'Automatic check is off', detail: 'Turn it on under Usage → Check usage automatically.' };
   if (!check) return { tone: 'idle', headline: 'Not checked yet', detail: `Baton checks when you open a ${name} chat.` };
   const next = check.retryAt && check.retryAt > (options.now ?? Date.now()) ? ` · next check ${time(check.retryAt)}` : '';
   if (check.readings) return { tone: 'ok', headline: 'Up to date', detail: `Checked ${time(check.at)}` };
-  return { tone: 'stale', headline: options.lastReading ? `No new figures since ${time(options.lastReading)}` : `${name} shared no figures`, detail: `Checked ${time(check.at)}${next}` };
+  return { tone: 'stale', headline: options.lastReading ? `No new figures since ${time(options.lastReading)}` : `${name} hasn’t shown your usage yet`, detail: `Checked ${time(check.at)}${next}` };
 }
 
 export type CheckField = { name: string; filled: boolean };

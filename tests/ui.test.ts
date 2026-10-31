@@ -73,8 +73,8 @@ describe('Baton naming', () => {
       expect(visible).not.toMatch(/\bCapsules?\b|\bHandoff\b/);
     }
     const popup = readFileSync(new URL('../entrypoints/popup/index.html', import.meta.url), 'utf8');
-    expect(popup).toContain('Write a baton');
-    for (const text of ['Pass the baton', 'Other AIs', 'Capture this chat', 'id="lanes"']) expect(popup).toContain(text);
+    expect(popup).toContain('Write your own');
+    for (const text of ['Pass the baton', 'Other AIs', 'Save this chat', 'id="lanes"']) expect(popup).toContain(text);
     const order = new JSDOM(popup).window.document;
     // The current AI's card comes first; every other AI is inside the closed “Other AIs” drop-down.
     expect(order.querySelector('#active-usage')!.compareDocumentPosition(order.querySelector('#other-lanes')!) & 4).toBeTruthy();

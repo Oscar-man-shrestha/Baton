@@ -7,8 +7,8 @@
  */
 export const shortcutCommands = [
   { name: 'open-pass-menu', key: 'U', description: 'Pass this chat to another AI (opens the Pass menu)' },
-  { name: 'capture-chat', key: 'K', description: 'Keep this chat as a baton' },
-  { name: 'save-selection', key: 'X', description: 'Save the selected part of the chat as a baton' },
+  { name: 'capture-chat', key: 'K', description: 'Save this chat' },
+  { name: 'save-selection', key: 'X', description: 'Save the selected part of the chat' },
   { name: '_execute_action', key: 'E', description: 'Open Baton' },
   { name: 'write-handoff', key: '', description: 'Have this AI write the handoff (Baton checks it)' },
   { name: 'open-side-panel', key: '', description: 'Open Baton in the side panel' }

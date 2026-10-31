@@ -73,7 +73,7 @@ const setView = (view: 'capture' | 'saved') => {
   document.querySelector('#tab-capture')?.setAttribute('aria-pressed', String(view === 'capture'));
   document.querySelector('#tab-saved')?.setAttribute('aria-pressed', String(view === 'saved'));
 };
-document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false;  setView('capture'); status.textContent = 'Capture a chat or create a new context.'; });
+document.querySelector('#tab-capture')?.addEventListener('click', () => { flow.hidden = true; captureCard.hidden = false;  setView('capture'); status.textContent = 'Save a chat or write your own.'; });
 document.querySelector('#tab-saved')?.addEventListener('click', () => setView('saved'));
 // The Baton logo and All Batons' Back button both lead home, like the ⌂ button.
 const goHome = () => (document.querySelector('#tab-capture') as HTMLButtonElement).click();
@@ -106,7 +106,7 @@ void chrome.action.getBadgeText({}).then(text => { if (text === '✓') return ch
     status.textContent = provider ? '' : isSupportedChatUrl(tab?.url) ? 'Connecting to your AI chat…' : 'Open an AI chat to get started.';
     (document.querySelector('#source-label') as HTMLElement).textContent = provider ? `${providerNames[provider]} · active tab` : 'Open a supported AI conversation';
   }
-}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Capture this chat, or paste a baton.'; });
+}, () => { if (!captureStarted) status.textContent = 'Could not connect yet. Try Save this chat, or write your own.'; });
 // “Pass the baton to”: this chat's suggestions, live from the chat page (your latest message decides the task).
 type NextOption = { provider: ProviderId; status: 'room' | 'unknown' | 'limited'; detail: string; reason?: string };
 const nextSection = document.querySelector('#next-section') as HTMLElement;
@@ -147,9 +147,9 @@ const showNext = async () => {
         const go = document.createElement('button'); go.type = 'button'; go.className = 'go'; go.textContent = 'Pass →';
         go.setAttribute('aria-label', `Pass the baton to ${providerNames[option.provider]}`);
         go.addEventListener('click', async () => {
-          go.disabled = true; nextStatus.textContent = 'Saving your baton and opening a draft…';
+          go.disabled = true; nextStatus.textContent = 'Saving your chat and opening the next AI…';
           const result = await sendToChat<{ ok: boolean; text: string }>(tab!, { type: 'PASS_TO', provider: option.provider, topic: reply.topic, next: (document.querySelector('#next-step') as HTMLInputElement).value }).catch(() => undefined);
-          nextStatus.textContent = result?.text || 'That did not work. Use Capture this chat instead.'; go.disabled = false;
+          nextStatus.textContent = result?.text || 'That did not work. Use Save this chat instead.'; go.disabled = false;
         });
         item.append(go);
       }
@@ -338,12 +338,12 @@ function renderActiveUsage(saved: Record<string, any>) {
     container.append(row);
   }
   // ChatGPT's page covers Codex/Work and credits only; say plainly that chat itself shows no limit.
-  if (activeProvider === 'chatgpt' && readings.length && !readings.some(reading => estimable(reading))) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = 'Chat: ChatGPT has no chat limit. Thinking and feature allowances come from ChatGPT; 5-hour and weekly are for Codex and Work.'; container.prepend(line); }
+  if (activeProvider === 'chatgpt' && readings.length && !readings.some(reading => estimable(reading))) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = 'ChatGPT has no limit on text chat. The 5-hour and weekly limits below are for Codex and Work.'; container.prepend(line); }
   const counted = countedLine(saved, activeProvider);
   if (counted) { const line = document.createElement('p'); line.className = 'usage-unavailable'; line.textContent = counted; container.append(line); }
-  if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'No percentage shared on this page'; container.append(empty); }
-  note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Read Claude’s usage page to connect available session and weekly figures. Free accounts may not expose them.' : activeProvider === 'gemini' ? 'Read Gemini’s Usage limits page to show its 5-hour and weekly figures.' : activeProvider === 'chatgpt' ? 'Read ChatGPT’s Usage page for Codex and Work limits and credits. Chat itself has no usage page; Baton shows chat limits when ChatGPT reports one.' : 'Usage will appear when the service displays a limit. Prompt tokens do not measure your remaining allowance.';
-  (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? 'Read usage ↗' : 'Refresh';
+  if (!readings.length && !counted) { const empty = document.createElement('p'); empty.className = 'usage-unavailable'; empty.textContent = 'Send a message and your usage will appear'; container.append(empty); }
+  note.textContent = readings.length ? `${readings.some(reading => (reading as DisplayWindow).estimate) ? 'Last service reading' : 'Service reading'} · ${new Date(Math.min(...readings.map(reading => reading.at!))).toLocaleTimeString()}.${readings.some(reading => (reading as DisplayWindow).estimate) ? ' Values marked ≈ are estimated from messages you sent since.' : ''} Refresh to check again.` : activeProvider === 'claude' ? 'Claude reports your session and weekly use with each reply.' : activeProvider === 'gemini' ? 'Gemini’s usage page shows its 5-hour and weekly limits.' : activeProvider === 'chatgpt' ? 'ChatGPT has no limit on text chat. Its usage page covers Codex and Work.' : 'Usage appears when the AI shows a limit.';
+  (document.querySelector('#read-active-usage') as HTMLButtonElement).textContent = usagePageUrl(activeProvider) ? `Open ${providerNames[activeProvider]}’s usage page ↗` : 'Refresh';
   // Baton's own usage check with the user's sign-in: when it last ran and what the service answered.
   const check = saved[`usageApiCheck:${activeProvider}`] as UsageCheck | undefined;
   if (['chatgpt', 'claude', 'gemini'].includes(activeProvider)) {
@@ -467,7 +467,7 @@ contextMode.addEventListener('change', () => {
   reviewed = false; reviewPanel.open = false;
   showDraftBudget();
 });
-document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Compact handoff selected. The full baton is still saved.'; });
+document.querySelector('#use-compact')?.addEventListener('click', () => { contextMode.value = 'compact'; contextMode.dispatchEvent(new Event('change')); status.textContent = 'Short summary selected. The whole chat is still saved.'; });
 // Batons can be deleted one at a time, a selection, or all at once. Every delete first shows what it removes.
 type LibraryItem = { id: string; url: string; variants?: string[]; name: string; brief: Brief; folder?: string };
 let libraryItems: LibraryItem[] = [];
@@ -491,7 +491,7 @@ let pendingDelete: LibraryItem[] = [];
 const askDelete = (list: LibraryItem[]) => {
   if (!list.length) return;
   pendingDelete = list;
-  (document.querySelector('#delete-title') as HTMLElement).textContent = list.length === 1 ? 'Delete this baton?' : list.length === libraryItems.length ? `Delete all ${list.length} batons?` : `Delete ${list.length} batons?`;
+  (document.querySelector('#delete-title') as HTMLElement).textContent = list.length === 1 ? 'Delete this saved chat?' : list.length === libraryItems.length ? `Delete all ${list.length} saved chats?` : `Delete ${list.length} saved chats?`;
   (document.querySelector('#delete-what') as HTMLElement).textContent = list.length === 1 ? `“${list[0].name}”` : list.slice(0, 3).map(item => `“${item.name.slice(0, 40)}”`).join(', ') + (list.length > 3 ? ` and ${list.length - 3} more` : '');
   (document.querySelector('#delete-confirm') as HTMLElement).textContent = list.length === 1 ? 'Delete' : `Delete ${list.length}`;
   deleteDialog.showModal();
@@ -503,7 +503,7 @@ deleteDialog.addEventListener('close', async () => {
   await deleteBatons(pendingDelete);
   pendingDelete = []; selectedBatons.clear(); selectingBatons = false;
   await showLibrary();
-  status.hidden = false; status.textContent = `${count} baton${count === 1 ? '' : 's'} deleted from this browser.`;
+  status.hidden = false; status.textContent = `${count} saved chat${count === 1 ? '' : 's'} deleted from this browser.`;
 });
 document.querySelector('#delete-backup-first')?.addEventListener('click', () => { (document.querySelector('#backup-all') as HTMLButtonElement | null)?.click(); });
 const updateBatonTools = () => {
@@ -540,7 +540,7 @@ let pendingMove: LibraryItem[] = [];
 const askMove = async (list: LibraryItem[]) => {
   if (!list.length) return;
   pendingMove = list;
-  (document.querySelector('#move-title') as HTMLElement).textContent = list.length === 1 ? 'Move this baton to a folder' : `Move ${list.length} batons to a folder`;
+  (document.querySelector('#move-title') as HTMLElement).textContent = list.length === 1 ? 'Move this saved chat to a folder' : `Move ${list.length} saved chats to a folder`;
   (document.querySelector('#move-what') as HTMLElement).textContent = list.length === 1 ? `“${list[0].name}”` : list.slice(0, 3).map(item => `“${item.name.slice(0, 40)}”`).join(', ') + (list.length > 3 ? ` and ${list.length - 3} more` : '');
   const current = new Set(list.map(item => item.folder || ''));
   const only = current.size === 1 ? [...current][0] : undefined;
@@ -564,13 +564,13 @@ moveDialog.querySelector('form')?.addEventListener('submit', async event => {
   const picked = moveFolders.querySelector<HTMLInputElement>('input:checked');
   if (!moveNew.value.trim() && !picked) { moveError.textContent = 'Choose a folder or type a new folder name.'; return; }
   try { await fileBatons(pendingMove, moveNew.value.trim() || picked!.value); moveDialog.close(); pendingMove = []; }
-  catch { moveError.textContent = 'Could not move these batons. Try again.'; }
+  catch { moveError.textContent = 'Could not move these chats. Try again.'; }
 });
 const fileBatons = async (list: LibraryItem[], name: string) => {
   const folder = await moveToFolder(list, name);
   selectedBatons.clear(); selectingBatons = false;
   await showLibrary();
-  status.hidden = false; status.textContent = `${list.length} baton${list.length === 1 ? '' : 's'} ${folder ? `moved to ${folder}` : `taken out of ${list.length === 1 ? 'its folder' : 'their folders'}`}.`;
+  status.hidden = false; status.textContent = `${list.length} saved chat${list.length === 1 ? '' : 's'} ${folder ? `moved to ${folder}` : `taken out of ${list.length === 1 ? 'its folder' : 'their folders'}`}.`;
 };
 // Drag a baton (or, while selecting, every ticked baton) onto a folder to file it, or onto “All batons” to take it out.
 const dragType = 'application/x-baton-keys';
@@ -581,13 +581,13 @@ const dropTarget = (target: HTMLElement, folder: string) => {
     event.preventDefault(); target.classList.remove('drop');
     const keys: unknown = JSON.parse(event.dataTransfer?.getData(dragType) || '[]');
     const list = libraryItems.filter(item => Array.isArray(keys) && keys.includes(batonKey(item)) && (item.folder || '') !== folder);
-    if (list.length) void fileBatons(list, folder).catch(() => { status.hidden = false; status.textContent = 'Could not move these batons. Try again.'; });
+    if (list.length) void fileBatons(list, folder).catch(() => { status.hidden = false; status.textContent = 'Could not move these chats. Try again.'; });
   });
 };
 const folderRow = (folder: string, count: number) => {
   const row = document.createElement('button'); row.type = 'button'; row.className = 'folder-row'; row.dataset.folder = folder;
   const text = document.createElement('span'); const name = document.createElement('strong'); name.textContent = folder;
-  const meta = document.createElement('small'); meta.textContent = count ? `${count} baton${count === 1 ? '' : 's'}` : 'Empty · drag batons here';
+  const meta = document.createElement('small'); meta.textContent = count ? `${count} saved` : 'Empty · drag saved chats here';
   text.append(name, meta);
   row.insertAdjacentHTML('afterbegin', iconSvg('folder', 20)); row.append(text); row.insertAdjacentHTML('beforeend', iconSvg('chevron', 16));
   row.setAttribute('aria-label', `Open folder ${folder}, ${meta.textContent}`);
@@ -597,11 +597,11 @@ const folderRow = (folder: string, count: number) => {
 const folderCrumb = (folder: string, count: number) => {
   const bar = document.createElement('div'); bar.className = 'folder-crumb';
   const back = document.createElement('button'); back.type = 'button'; back.className = 'link-button folder-back'; back.innerHTML = iconSvg('back', 14);
-  back.append('All batons'); back.title = 'Back to all batons. Drop a baton here to take it out of this folder.';
+  back.append('All batons'); back.title = 'Back to all saved chats. Drop one here to take it out of this folder.';
   back.addEventListener('click', () => { openFolder = undefined; void showLibrary(); });
   dropTarget(back, '');
   const name = document.createElement('strong'); name.insertAdjacentHTML('afterbegin', iconSvg('folder', 16)); name.append(folder);
-  const meta = document.createElement('small'); meta.textContent = `${count} baton${count === 1 ? '' : 's'}`;
+  const meta = document.createElement('small'); meta.textContent = `${count} saved`;
   bar.append(back, name, meta); return bar;
 };
 const draggable = (row: HTMLElement, item: LibraryItem) => {
@@ -633,7 +633,7 @@ const folderChip = (folder: string, count: number) => {
   const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'folder-chip'; chip.dataset.folder = folder;
   const name = document.createElement('span'); name.textContent = folder; const meta = document.createElement('small'); meta.textContent = String(count);
   chip.insertAdjacentHTML('afterbegin', iconSvg('folder', 14)); chip.append(name, meta);
-  chip.title = `Open ${folder}. Drop a baton here to file it.`;
+  chip.title = `Open ${folder}. Drop a saved chat here to file it.`;
   chip.addEventListener('click', () => { openFolder = folder; void showLibrary(); setView('saved'); });
   dropTarget(chip, folder); return chip;
 };
@@ -654,9 +654,9 @@ const showLibrary = async () => {
   const folders = await listFolders();
   (document.querySelector('#folder-count') as HTMLElement).textContent = String(folders.length);
   // “1 folder”, “2 folders”: the word after each count follows its number.
-  for (const [id, word] of [['#chat-count', 'baton'], ['#folder-count', 'folder'], ['#thread-count', 'chat']] as const) {
+  for (const [id, one, many] of [['#chat-count', 'saved', 'saved'], ['#folder-count', 'folder', 'folders'], ['#thread-count', 'chat', 'chats']] as const) {
     const count = document.querySelector(id) as HTMLElement; const label = count.nextSibling;
-    if (label?.nodeType === 3) label.textContent = ` ${word}${count.textContent === '1' ? '' : 's'}`;
+    if (label?.nodeType === 3) label.textContent = ` ${count.textContent === '1' ? one : many}`;
   }
   const folderOptions = document.querySelector('#folder-options') as HTMLElement; folderOptions.replaceChildren();
   for (const folder of folders) { const option = document.createElement('option'); option.value = folder; folderOptions.append(option); }
@@ -710,7 +710,7 @@ const showLibrary = async () => {
           modeDrafts.full = item.draft; contextMode.options[1].disabled = false; contextMode.value = 'full'; previousMode = 'full';
           if (item.snapshotText) completeContext = { text: item.snapshotText, draft: item.draft, tokens: encode(item.draft).length, redactions: [] };
           copyTranscript.disabled = !item.snapshotText; downloadContext.disabled = !item.snapshotText;
-          (document.querySelector('#capture-summary') as HTMLElement).textContent = 'Saved baton snapshot · later chat updates do not overwrite this copy';
+          (document.querySelector('#capture-summary') as HTMLElement).textContent = 'Saved copy · later changes to the chat don’t change it';
         } else modeDrafts.compact = item.draft;
         showDraftBudget();
       }
@@ -726,9 +726,9 @@ const showLibrary = async () => {
       if (laneId) row.style.setProperty('--lane', laneColors[laneId]);
       const open = button.cloneNode(true) as HTMLButtonElement; open.className = 'capsule-open'; open.addEventListener('click', () => { if (selectingBatons) toggleBaton(batonKey(item)); else button.click(); });
       const actions = document.createElement('div'); actions.className = 'capsule-actions';
-      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'icon-button'; copy.innerHTML = iconSvg('copy'); copy.title = 'Copy baton'; copy.setAttribute('aria-label', `Copy ${item.name}`);
-      copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Baton copied. Paste it into your next AI chat.'; });
-      const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button danger'; remove.innerHTML = iconSvg('trash'); remove.title = 'Delete baton'; remove.setAttribute('aria-label', `Delete ${item.name}`);
+      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'icon-button'; copy.innerHTML = iconSvg('copy'); copy.title = 'Copy'; copy.setAttribute('aria-label', `Copy ${item.name}`);
+      copy.addEventListener('click', async () => { await navigator.clipboard.writeText(redact(item.draft || wrapHandoff(renderBrief(item.brief).text)).text); status.hidden = false; status.textContent = 'Copied. Paste it into your next AI chat.'; });
+      const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button danger'; remove.innerHTML = iconSvg('trash'); remove.title = 'Delete'; remove.setAttribute('aria-label', `Delete ${item.name}`);
       remove.addEventListener('click', () => askDelete([item]));
       const file = document.createElement('button'); file.type = 'button'; file.className = 'icon-button'; file.innerHTML = iconSvg('folderMove'); file.title = 'Move to folder'; file.setAttribute('aria-label', `Move ${item.name} to a folder`);
       file.addEventListener('click', () => { void askMove([item]); });
@@ -756,7 +756,7 @@ capsuleDialog.querySelector('form')?.addEventListener('submit', async event => {
   try {
     await saveProject({ id: crypto.randomUUID(), name, folder: folder || undefined, threads: [], updatedAt: Date.now(), draft: redact(text).text, draftMode: 'compact', brief: briefSchema.parse({ goal: name, status: 'User-written baton', next_step: 'Continue from the saved context.' }) });
     capsuleDialog.close(); capsuleDialog.querySelector('form')?.reset(); await showLibrary(); status.textContent = `Saved ${name}.`;
-  } catch { (document.querySelector('#capsule-error') as HTMLElement).textContent = 'Could not save this baton. Your text is still here; try again.'; }
+  } catch { (document.querySelector('#capsule-error') as HTMLElement).textContent = 'Could not save this. Your text is still here; try again.'; }
 });
 const enabled = (settings.enabledProviders && typeof settings.enabledProviders === 'object' ? settings.enabledProviders : {}) as Record<string, boolean>;
 for (const option of Array.from(destination.options)) {
@@ -779,11 +779,11 @@ captureButton.addEventListener('click', async () => {
     const data = await sendToChat<any>(tab, { type: 'EXTRACT', includeOlder: includeOlder.checked });
     if (data?.error) throw new Error(data.error);
     if (!data?.turnCount && !data?.artifactCount) {
-      status.textContent = 'Connected. This chat has no messages yet. Baton is watching from here; send a message, then capture again.';
+      status.textContent = 'Connected. This chat has no messages yet. Baton is watching from here; send a message, then save again.';
       return;
     }
     if (!data?.hasUserTurn && data?.provider === 'gemini' && tab.url && new URL(tab.url).pathname === '/app') {
-      status.textContent = 'Connected to Gemini. No user message is visible yet. Baton is watching from here; send a message, then capture again.';
+      status.textContent = 'Connected to Gemini. No user message is visible yet. Baton is watching from here; send a message, then save again.';
       return;
     }
     if (!data?.hasUserTurn) throw new Error('The original user message was not captured. Try older-message capture, or paste your request into the draft yourself.');
@@ -824,13 +824,13 @@ captureButton.addEventListener('click', async () => {
     (document.querySelector('#same-ai-other-label') as HTMLElement).textContent = `Continue in ${providerNames[source as ProviderId] || 'this AI'} with another account`;
     recommendation.textContent = choices[0] ? `Suggested: ${destination.selectedOptions[0].text} for ${topicNames[currentTopic].toLowerCase()}. You can change this.` : 'No other service is enabled. You can copy the draft.';
     const visibleWarnings = [data.warning, ...rendered.receipt.warnings].filter(Boolean);
-    status.textContent = `${data.turnCount} visible messages captured. ${visibleWarnings.length ? visibleWarnings.join(' ') : 'Review the draft before continuing.'}`;
+    status.textContent = `${data.turnCount} messages saved. ${visibleWarnings.length ? visibleWarnings.join(' ') : 'Review the draft before continuing.'}`;
     meterLabel.textContent = `Usage balance: ${meter.tier === 'banner' && meter.remainingPercent !== undefined ? `${meter.remainingPercent}% shown by ${source}` : meter.tier === 'banner' && meter.remainingTokens !== undefined ? `${meter.remainingTokens.toLocaleString()} tokens shown by ${source}` : meter.tier === 'banner' && meter.percent === 100 ? 'limit reached, shown by service' : 'unknown'}. ${meter.resetAt ? `Approximate reset: ${new Date(meter.resetAt).toLocaleString()}.` : 'Reset time unknown.'}`;
     receipt.textContent = `Brief: about ${rendered.receipt.approximateTokens} tokens. Dropped: ${rendered.receipt.dropped.join(', ') || 'none'}. Redactions: ${rendered.receipt.redactions.join(', ') || 'none'}. ${rendered.receipt.warnings.join(' ')}`;
     const promptTokens = encode(data.pendingPrompt || '').length;
     cost.textContent = promptTokens ? `Unsent prompt: about ${promptTokens} tokens. ${meter.estimatedReplyCost === undefined ? 'Share of remaining allowance unknown.' : `A rough reply may equal about ${meter.estimatedReplyCost}% of the token count in a past chat that showed a limit; actual allowance unknown.`} ${shouldNudge(meter) ? 'Consider preparing a brief before the limit.' : ''}` : 'No unsent prompt found. Reply cost is unknown.';
-  } catch (error) { status.textContent = `Capture failed: ${String(error)}. You can paste a brief instead.`; }
-  finally { captureButton.disabled = false; captureButton.textContent = 'Capture this chat →'; showDraftBudget(); }
+  } catch (error) { status.textContent = `Could not save this chat: ${String(error)}. You can write your own instead.`; }
+  finally { captureButton.disabled = false; captureButton.textContent = 'Save this chat →'; showDraftBudget(); }
 });
 
 for (const [selector, positive] of [['#positive', true], ['#negative', false]] as const) document.querySelector(selector)?.addEventListener('click', async () => {
@@ -842,7 +842,7 @@ for (const [selector, positive] of [['#positive', true], ['#negative', false]] a
 document.querySelector('#save')?.addEventListener('click', async () => {
   const name = (document.querySelector('#project') as HTMLInputElement).value.trim();
   const folder = (document.querySelector('#folder') as HTMLInputElement).value.trim().slice(0, 80);
-  if (!name || !draft.value.trim()) { status.textContent = 'Enter a project name and some context first.'; return; }
+  if (!name || !draft.value.trim()) { status.textContent = 'Enter a name and some notes first.'; return; }
   const projects = await listProjects();
   const existing = projects.find(p => p.name.toLowerCase() === name.toLowerCase() && (p.folder || '').toLowerCase() === folder.toLowerCase());
   const captured = currentBrief || briefSchema.parse({ goal: name, status: 'User-written context. Review the saved draft.', next_step: 'Continue using the user-reviewed context.' });
@@ -875,14 +875,14 @@ document.querySelector('#copy')?.addEventListener('click', async () => { const s
 copyTranscript.addEventListener('click', async () => {
   if (!completeContext) return;
   await navigator.clipboard.writeText(completeContext.text);
-  status.textContent = 'Full captured text copied, with secret redaction. Review it before sharing.';
+  status.textContent = 'Whole chat copied. Passwords and keys are hidden. Check it before sharing.';
 });
 downloadContext.addEventListener('click', () => {
   if (!completeContext) return;
   const url = URL.createObjectURL(new Blob([completeContext.text], { type: 'text/markdown;charset=utf-8' }));
   const link = document.createElement('a'); link.href = url; link.download = 'handoff-context.md'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  status.textContent = 'Captured context downloaded as Markdown.';
+  status.textContent = 'Chat downloaded as a Markdown file.';
 });
 
 document.querySelector('#view-all')?.addEventListener('click', () => setView('saved'));
@@ -892,7 +892,7 @@ document.querySelector('#new-folder')?.addEventListener('click', () => { newFold
 document.querySelector('#cancel-folder')?.addEventListener('click', () => folderDialog.close());
 folderDialog.querySelector('form')?.addEventListener('submit', async event => {
   event.preventDefault();
-  try { await createFolder(newFolderName.value); folderDialog.close(); status.textContent = 'Folder created. Press Select on your batons, then Move to folder.'; await showLibrary(); }
+  try { await createFolder(newFolderName.value); folderDialog.close(); status.textContent = 'Folder created. Press Select on your saved chats, then Move to folder.'; await showLibrary(); }
   catch (error) { newFolderName.setCustomValidity(String(error)); newFolderName.reportValidity(); }
 });
 newFolderName.addEventListener('input', () => newFolderName.setCustomValidity(''));
@@ -1128,7 +1128,7 @@ if (storedSignInError) {
 cloudCardAction.addEventListener('click', () => (document.querySelector(cloudAccount ? '#cloud-backup' : '#google-sign-in') as HTMLButtonElement).click());
 for (const [id, action] of [
   ['google-sign-in', async () => { const result = await chrome.runtime.sendMessage({ type: 'CLOUD_SIGN_IN' }); if (!result?.ok) throw new Error(result?.error || 'Sign-in could not finish. Reopen Baton after authorization.'); await showCloudAccount(result.email, `${result.email} · not backed up yet`); return `Connected as ${result.email}. Nothing uploaded yet.`; }],
-  ['cloud-backup', async () => { await (await import('../../src/core/cloud')).backupCloud(); await showCloudAccount(cloudAccount); return 'Saved contexts backed up to your account.'; }],
+  ['cloud-backup', async () => { await (await import('../../src/core/cloud')).backupCloud(); await showCloudAccount(cloudAccount); return 'Saved chats backed up to your account.'; }],
   ['cloud-restore', async () => { const cloud = await import('../../src/core/cloud'); const preview = await cloud.inspectCloud(); if (!confirm(`Restore ${preview.contexts} conversations and ${preview.projects} projects from ${preview.updatedAt}? Newer local copies will be kept.`)) return 'Restore cancelled.'; await cloud.restoreCloud(preview); await showLibrary(); return 'Cloud backup restored.'; }],
   ['cloud-disconnect', async () => { await (await import('../../src/core/cloud')).disconnectCloud(); await showCloudAccount(undefined); return 'Disconnected. Local data and cloud backup were kept.'; }],
   ['cloud-delete', async () => { if (!confirm('Delete the cloud backup for this account? Local data will be kept.')) return 'Deletion cancelled.'; await (await import('../../src/core/cloud')).deleteCloudBackup(); return 'Cloud backup deleted. Local data kept.'; }]

@@ -61,7 +61,7 @@ export default defineBackground(() => {
   });
   const chatPatterns = [...new Set(providerIds.flatMap(id => bundledSelectors.providers[id].hosts.map(host => `https://${host}/*`)))];
   chrome.runtime.onInstalled.addListener(() => {
-    chrome.contextMenus?.removeAll(() => chrome.contextMenus.create({ id: 'baton-save-selection', title: 'Save selection as a baton', contexts: ['selection'], documentUrlPatterns: chatPatterns }, () => void chrome.runtime.lastError));
+    chrome.contextMenus?.removeAll(() => chrome.contextMenus.create({ id: 'baton-save-selection', title: 'Save selection with Baton', contexts: ['selection'], documentUrlPatterns: chatPatterns }, () => void chrome.runtime.lastError));
   });
   // The chat page shows the keys the browser actually assigned (in its tooltips and the save card).
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

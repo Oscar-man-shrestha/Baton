@@ -282,7 +282,7 @@ export default defineContentScript({
       const card = document.createElement('section'); card.className = 'card'; card.setAttribute('aria-label', 'Baton checked the first reply');
       const top = document.createElement('div'); top.className = 'top';
       const title = document.createElement('strong'); title.textContent = `Baton checked ${providerNames[id]}’s first reply`;
-      const sub = document.createElement('small'); sub.textContent = 'Compared with the handoff. These are guesses from the text, so read the reply too.'; title.append(sub);
+      const sub = document.createElement('small'); sub.textContent = 'Compared with what you passed. These are guesses from the text, so read the reply too.'; title.append(sub);
       const close = document.createElement('button'); close.type = 'button'; close.className = 'close'; close.textContent = '×'; close.setAttribute('aria-label', 'Close');
       const hide = () => { rescueHost.style.display = 'none'; card.remove(); replyCheckShown = false; };
       close.addEventListener('click', hide);
@@ -428,7 +428,7 @@ export default defineContentScript({
       passMenu.append(other);
       const row = document.createElement('div'); row.className = 'row';
       const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy project';
-      copy.addEventListener('click', () => { void run(async () => { const draft = withNextStep(await rescueDraft(), menuNext); await navigator.clipboard.writeText(draft); return 'Project copied and saved as a baton. Paste it into any AI.'; }); });
+      copy.addEventListener('click', () => { void run(async () => { const draft = withNextStep(await rescueDraft(), menuNext); await navigator.clipboard.writeText(draft); return 'Copied and saved. Paste it into any AI.'; }); });
       const hideButton = document.createElement('button'); hideButton.type = 'button'; hideButton.textContent = 'Hide this button';
       hideButton.title = 'Turn it back on in Baton → Show on AI chat pages';
       hideButton.addEventListener('click', () => { passEnabled = false; closePassMenu(); passHost.style.display = 'none'; void chrome.storage.local.set({ passButtonEnabled: false }); });
@@ -1154,11 +1154,11 @@ export default defineContentScript({
     const selectStyle = document.createElement('style');
     selectStyle.textContent = ':host{all:initial}.chip{all:unset;position:fixed;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px 0 10px;box-sizing:border-box;border-radius:999px;cursor:pointer;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.55);box-shadow:0 8px 22px rgba(0,0,0,.34),0 0 12px rgba(139,108,255,.3);color:#f4f3fb;font:600 12px/1 system-ui,-apple-system,sans-serif;white-space:nowrap}.chip:hover{border-color:#b8a5ff}.chip:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.chip[hidden],.card[hidden],.toast[hidden]{display:none}.brand{flex:none;width:13px;height:4px;border-radius:2px;transform:rotate(-35deg);background:repeating-linear-gradient(90deg,#b8a5ff 0 3px,rgba(255,255,255,.45) 3px 4px)}.card{position:fixed;width:300px;box-sizing:border-box;padding:12px;border-radius:14px;background:linear-gradient(180deg,rgba(40,39,55,.99),rgba(24,23,33,.99));border:1px solid rgba(139,108,255,.5);box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 22px rgba(139,108,255,.22);color:#f4f3fb;font:500 12px/1.4 system-ui,-apple-system,sans-serif}.card h2{all:unset;display:block;font-size:13.5px;font-weight:700;margin:0 2px 2px}.card p{margin:0 2px 10px;color:#a3a1ba;font-size:10.5px}label{display:grid;gap:4px;margin:0 0 8px}label span{font-size:11px;font-weight:700;color:#cfcde0}input,select{all:unset;box-sizing:border-box;width:100%;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f4f3fb;font:500 12.5px/1.3 system-ui,-apple-system,sans-serif}select{cursor:pointer}option{color:#1e1d2b}input:focus,select:focus{border-color:#b8a5ff;box-shadow:0 0 0 3px rgba(184,165,255,.2)}.row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.row button{all:unset;cursor:pointer;padding:7px 13px;border-radius:9px;font-weight:700;font-size:12px}.save{background:#b8a5ff;color:#1b1430}.cancel{color:#cfcde0;background:rgba(255,255,255,.07)}.row button:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}.row button[disabled]{opacity:.5;cursor:default}.status{margin:8px 2px 0!important;color:#cfcde0!important;font-size:11px!important}.status:empty{display:none}.card .preview{font-style:italic;color:#cfcde0;font-size:11px;line-height:1.45;overflow-wrap:anywhere}.card .label{display:block;margin:2px 2px 6px;font-size:11px;font-weight:700;color:#cfcde0}.next{margin-bottom:8px}.opt{all:unset;box-sizing:border-box;display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:8px;width:100%;padding:7px 8px;border-radius:9px;cursor:pointer}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(255,255,255,.07)}.opt[aria-disabled=true]{opacity:.45;cursor:default}.dot{width:8px;height:8px;border-radius:50%;background:var(--c)}.opt .name{display:block;font-weight:650;font-size:12px}.opt small{display:block;color:#a3a1ba;font-size:10px}.tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1b1430;background:#b8a5ff;border-radius:999px;padding:2px 7px}.chip kbd{font:600 10px/1 system-ui,sans-serif;color:#a3a1ba;margin-left:2px}.chip kbd:empty{display:none}.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:min(420px,calc(100vw - 32px));box-sizing:border-box;padding:9px 14px;border-radius:12px;background:linear-gradient(180deg,rgba(44,43,60,.97),rgba(25,24,35,.97));border:1px solid rgba(139,108,255,.45);box-shadow:0 12px 30px rgba(0,0,0,.4);color:#f4f3fb;font:500 12.5px/1.4 system-ui,-apple-system,sans-serif}@media(prefers-color-scheme:light){.card .preview,.card .label{color:#3d3b52}.opt:hover:not([aria-disabled=true]),.opt:focus-visible{background:rgba(30,25,70,.06)}.opt small,.chip kbd{color:#6d6a86}.tag{background:#6650de;color:#fff}.chip,.toast{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.45);box-shadow:0 6px 18px rgba(30,25,70,.16)}.brand{background:repeating-linear-gradient(90deg,#6650de 0 3px,rgba(0,0,0,.2) 3px 4px)}.card{background:linear-gradient(180deg,#fff,#f7f6fb);color:#1e1d2b;border-color:rgba(102,80,222,.4);box-shadow:0 18px 40px rgba(30,25,70,.2)}.card p{color:#6d6a86}label span,.status{color:#3d3b52!important}input,select{background:#fff;border-color:rgba(30,25,70,.18);color:#1e1d2b}.save{background:#6650de;color:#fff}.cancel{color:#3d3b52;background:rgba(30,25,70,.06)}}';
     const selectChip = document.createElement('button'); selectChip.type = 'button'; selectChip.className = 'chip'; selectChip.hidden = true;
-    selectChip.title = 'Save just this part of the chat as a baton';
+    selectChip.title = 'Save just this part of the chat, to carry to another AI';
     const chipMark = document.createElement('i'); chipMark.className = 'brand'; chipMark.setAttribute('aria-hidden', 'true');
     const chipKey = document.createElement('kbd');
-    selectChip.append(chipMark, 'Save as baton', chipKey);
-    const selectCard = document.createElement('div'); selectCard.className = 'card'; selectCard.setAttribute('role', 'dialog'); selectCard.setAttribute('aria-label', 'Save the selection as a baton'); selectCard.hidden = true;
+    selectChip.append(chipMark, 'Save selection', chipKey);
+    const selectCard = document.createElement('div'); selectCard.className = 'card'; selectCard.setAttribute('role', 'dialog'); selectCard.setAttribute('aria-label', 'Save the selection'); selectCard.hidden = true;
     const toast = document.createElement('div'); toast.className = 'toast'; toast.setAttribute('role', 'status'); toast.hidden = true;
     selectShadow.append(selectStyle, selectChip, selectCard, toast);
     document.body.append(selectHost);
@@ -1213,7 +1213,7 @@ export default defineContentScript({
       if (type === 'keydown' && (event as KeyboardEvent).key === 'Escape') { event.preventDefault(); closeSaveCard(); }
     });
     // Step 2, once saved: pass the selection on, ranked like the Pass menu for what it is about.
-    const showPassOptions = async (saved: Project, asked: string, text = { heading: '✓ Saved as a baton', note: '' }) => {
+    const showPassOptions = async (saved: Project, asked: string, text = { heading: '✓ Saved', note: '' }) => {
       const { topic, options, reason } = suggest(asked, id, await chrome.storage.local.get(suggestionKeys()), Date.now());
       const suggested = options.find(option => option.status !== 'limited');
       selectCard.replaceChildren();
@@ -1266,7 +1266,7 @@ export default defineContentScript({
       const nameField = document.createElement('label');
       const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.maxLength = 160; nameInput.value = selectionName(question ? [question, ...turns] : turns);
       nameField.append(cardText('span', 'Name'), nameInput);
-      selectCard.append(cardText('h2', 'Save as baton'), summary, preview, nameField);
+      selectCard.append(cardText('h2', 'Save selection'), summary, preview, nameField);
       const folders = await listFolders().catch(() => [] as string[]);
       const folderSelect = document.createElement('select');
       if (folders.length) {
@@ -1333,7 +1333,7 @@ export default defineContentScript({
       const handoff = completeWrittenBrief(reply, check, job.latest);
       try {
         const saved = await saveWrittenBrief(handoff, job.turns, pageUrl(), document.title);
-        await showPassOptions(saved, job.latest, { heading: '✓ Handoff written and checked', note: `${checkSummary(check, providerNames[id])} Saved as a baton.` });
+        await showPassOptions(saved, job.latest, { heading: '✓ Summary written and checked', note: `${checkSummary(check, providerNames[id])} Saved.` });
       } catch { writingCard('Could not save the handoff', 'Try again, or copy the reply yourself.', [['Close', 'cancel', closeSaveCard]]); }
     };
     const watchForHandoff = () => {
@@ -1372,13 +1372,13 @@ export default defineContentScript({
       if (command === 'write-handoff') { void startWrittenHandoff(); return; }
       if (command === 'save-selection') {
         const current = pageSelection();
-        if (!current) { showToast(`Select part of the conversation first, then press ${keys['save-selection'] || 'the shortcut'} again (or right-click → Save selection as a baton).`); return; }
+        if (!current) { showToast(`Select part of the conversation first, then press ${keys['save-selection'] || 'the shortcut'} again (or right-click → Save selection with Baton).`); return; }
         void openSaveCard(current.range, current.text).catch(() => showToast('Could not read the selection. Try selecting it again.'));
         return;
       }
       if (command === 'capture-chat') {
-        showToast('Saving this chat as a baton…');
-        void saveVisibleChat().then(({ check }) => showToast(`Saved this chat as a baton: ${check.text}.${check.gaps ? ' Scroll through the chat, then save again.' : ''} For older messages too, use Capture in Baton.`), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Capture in Baton.'));
+        showToast('Saving this chat…');
+        void saveVisibleChat().then(({ check }) => showToast(`Chat saved: ${check.text}.${check.gaps ? ' Scroll through the chat, then save again.' : ''} For older messages too, use Save this chat in Baton.`), error => showToast(error instanceof Error ? error.message : 'Could not save this chat. Try Save this chat in Baton.'));
         return;
       }
       if (command === 'open-pass-menu') {

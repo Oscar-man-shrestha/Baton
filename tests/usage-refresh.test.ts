@@ -58,7 +58,7 @@ describe('usage check status and details', () => {
   const empty = { at: 100, route: 'tab', steps: ['organizations 200', 'usage 200', 'claude-usage fields: five_hour=null, seven_day=null, limits(a,b), plan'], readings: 0 };
   it('says in plain words whether the last check found new figures', () => {
     expect(usageCheckSummary('Claude', empty, { lastReading: 50, time, now: 100 })).toEqual({ tone: 'stale', headline: 'No new figures since T50', detail: 'Checked T100' });
-    expect(usageCheckSummary('Claude', { ...empty, retryAt: 300 }, { time, now: 100 })).toEqual({ tone: 'stale', headline: 'Claude shared no figures', detail: 'Checked T100 · next check T300' });
+    expect(usageCheckSummary('Claude', { ...empty, retryAt: 300 }, { time, now: 100 })).toEqual({ tone: 'stale', headline: 'Claude hasn’t shown your usage yet', detail: 'Checked T100 · next check T300' });
     expect(usageCheckSummary('Gemini', { ...empty, readings: 2 }, { time })).toEqual({ tone: 'ok', headline: 'Up to date', detail: 'Checked T100' });
     expect(usageCheckSummary('ChatGPT', undefined, { time }).headline).toBe('Not checked yet');
     expect(usageCheckSummary('Claude', empty, { off: true, time }).tone).toBe('off');

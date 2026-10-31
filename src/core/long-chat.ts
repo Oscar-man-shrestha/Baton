@@ -20,8 +20,8 @@ export function longChat(tokens: number, messages: number): LongChat | undefined
   if (!level) return undefined;
   const size = `${tokens >= 1000 ? `≈${Math.round(tokens / 1000)}k` : `≈${tokens}`} tokens, ${messages} messages`;
   return level === 'strong'
-    ? { level, tokens, messages, heading: 'This chat is very long', text: `${size}. In chats this long, answers often miss things said early on. A fresh chat that starts from a handoff keeps what matters.` }
-    : { level, tokens, messages, heading: 'This chat is getting long', text: `${size}. Answers can start to slip around this length. When you reach a good stopping point, a fresh chat with a handoff keeps what matters.` };
+    ? { level, tokens, messages, heading: 'This chat is very long', text: `${size}. In chats this long, answers often miss things said early on. Starting fresh with a short summary keeps what matters.` }
+    : { level, tokens, messages, heading: 'This chat is getting long', text: `${size}. Answers can start to slip around this length. When you reach a good stopping point, starting fresh with a short summary keeps what matters.` };
 }
 
 /** “Not now” holds until the chat is half as long again, or reaches the stronger level. */
