@@ -35,16 +35,16 @@ WHAT MAKES THE HANDOFF GOOD
 • "Messages: 64 (32 yours, 32 replies), in order": you see what was captured.
 
 USAGE LIMITS IN ONE PLACE
-• A small bar under the chat box shows what each AI has left and when it resets, from the figures the service itself reports.
+• A small bar under the chat box shows what each AI has left and when it resets, from the figures the service itself reports. It updates when a reply finishes.
 • When you hit a limit, Baton suggests where to continue, ranked for your task.
 • A tip suggests a fresh chat when a conversation gets long enough that answers start to slip.
 
-BATONS
-• Save a chat (or just the part you select) as a baton, file it in folders, and pass it on later. Keyboard shortcuts and a side panel included.
+SAVED CHATS
+• Save a chat (or just the part you select), file it in folders, and pass it on later. Keyboard shortcuts and a side panel included.
 
 PRIVATE BY DESIGN
 • Your chats stay in your browser. No account needed, no analytics.
-• Baton never reads cookies or passwords and never signs you in or out.
+• Baton never reads cookies or passwords and never signs you in or out. It uses your existing sign-in only to ask each AI for your usage figures.
 • Optional Google sign-in only for your own backup.
 
 Baton Pass is independent and not affiliated with OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
@@ -79,15 +79,15 @@ Baton lets you continue an AI chat in another AI chat service: it saves the conv
 
 | Permission | Justification to paste |
 |---|---|
-| `storage` | Keeps the user's saved chats (batons), summaries, settings and usage readings in the browser on their device. |
+| `storage` | Keeps the user's saved chats, summaries, settings and usage readings in the browser on their device. |
 | `activeTab` | Connects Baton to the AI chat tab the user is using when they open Baton's popup. |
 | `scripting` | Starts Baton's packaged content script on an AI chat tab that was already open before Baton was installed or updated, so the user does not have to reload the page. No remote code. |
 | `sidePanel` | Opens Baton's library in the browser side panel when the user asks. |
-| `alarms` | Schedules the delayed usage refresh after the user sends a message and the reset reminders the user asks for. |
+| `alarms` | Schedules usage refreshes: shortly after the user sends a message, and every 5 minutes for AI services the user is using (switchable off in settings). |
 | `offscreen` | Runs Baton's bundled on-device model (all-MiniLM-L6-v2, WebAssembly) in a hidden extension page to suggest which AI fits a prompt. Nothing is sent anywhere. |
-| `contextMenus` | Adds one right-click item, "Save selection as a baton", on the six AI chat sites. |
-| `identity` | Optional Google sign-in, used only when the user chooses to back up their batons. |
-| Host permissions (chatgpt.com, claude.ai, gemini.google.com, chat.deepseek.com, grok.com, www.perplexity.ai) | Reads the conversation and usage figures on these AI sites, types the reviewed draft into the chosen AI's chat box and attaches the user's files there. No other website is accessed. |
+| `contextMenus` | Adds one right-click item, "Save selection with Baton", on the six AI chat sites. |
+| `identity` | Optional Google sign-in, used only when the user chooses to back up their saved chats. |
+| Host permissions (chatgpt.com, claude.ai, gemini.google.com, chat.deepseek.com, grok.com, www.perplexity.ai) | Reads the conversation on these AI sites, types the reviewed draft into the chosen AI's chat box and attaches the user's files there. Asks ChatGPT, Claude and Gemini for the user's usage figures with the user's existing sign-in, using the same requests their own pages make; only the numbers are kept, on the device. No other website is accessed. |
 | Host permission `qeoduozlznznptwsfzbt.supabase.co` | Baton's own backend, used only for the optional backup the user starts and for feedback the user chooses to send. |
 | `notifications` (optional) | Requested only when the user turns on desktop usage alerts. |
 
