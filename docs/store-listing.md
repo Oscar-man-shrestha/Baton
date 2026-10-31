@@ -21,10 +21,10 @@ Continue any AI chat where you left off: save your project, see usage limits, an
 **Description**
 
 ```
-Hit your ChatGPT, Claude or Gemini limit in the middle of a project? Baton carries the whole conversation to another AI so you can keep going, without re-explaining anything.
+Hit a usage limit in the middle of an AI chat? Baton carries the whole conversation to another AI so you can keep going, without re-explaining anything.
 
 HOW IT WORKS
-• A glowing Baton button sits by the chat box on ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity.
+• A glowing Baton button sits next to the chat box on the AI chat sites Baton supports.
 • Pick another AI. It opens with your project typed in as a draft. You read it and press Send. Baton never sends anything for you.
 
 WHAT MAKES THE HANDOFF GOOD
@@ -47,7 +47,10 @@ PRIVATE BY DESIGN
 • Baton never reads cookies or passwords and never signs you in or out. It uses your existing sign-in only to ask each AI for your usage figures.
 • Optional Google sign-in only for your own backup.
 
-Baton Pass is independent and not affiliated with OpenAI, Anthropic, Google, DeepSeek, xAI or Perplexity. ChatGPT, Claude, Gemini, DeepSeek, Grok and Perplexity are trademarks of their owners.
+WORKS WITH
+Six popular AI chat sites, including ChatGPT and Claude, in your browser.
+
+Baton Pass is an independent extension, not affiliated with or endorsed by the makers of these services. All product names are trademarks of their owners.
 ```
 
 **Images** (all in `store/`, rendered by `npm run render:store` from `store/src/*.html`)
