@@ -108,7 +108,7 @@ Baton lets you continue an AI chat in another AI chat service: it saves the conv
 
 Certify all three statements: data is not sold to third parties; not used or transferred for purposes unrelated to the single purpose; not used to determine creditworthiness or for lending.
 
-**Privacy policy URL:** `https://github.com/Oscar-man-shrestha/Baton/blob/main/PRIVACY.md` (the repository must be public, and `PRIVACY.md` on `main`).
+**Privacy policy URL:** `https://oscar-man-shrestha.github.io/Baton/privacy.html` (built from `PRIVACY.md` by `npm run build:site`; it is live once pushed to `main`).
 
 ## Distribution tab
 
@@ -119,3 +119,26 @@ Visibility **Public**, all regions, free. (Unlisted first is a good way to try t
 ```
 No account is needed. Open https://chatgpt.com (signed in or not), send a message, then click the glowing Baton button next to the chat box and pick another AI: it opens with the conversation typed in as an unsent draft. The toolbar icon opens the library and usage view. Optional Google sign-in is only for backup.
 ```
+
+## Edge Add-ons (extra fields)
+
+**Short description** (same as the manifest summary)
+
+```
+Continue any AI chat where you left off: save your project, see usage limits, and pass it to another AI as a draft.
+```
+
+**Search terms** (up to 7, each under 30 characters; one per box)
+
+```
+AI chat handoff
+usage limit
+continue chat
+ChatGPT
+Claude
+Gemini
+AI productivity
+```
+
+**Notes for certification:** paste the reviewer text from "Test instructions for the reviewer" above. No account is needed.
+

@@ -2,6 +2,12 @@
 
 All notable changes to Baton Pass, newest first. Each version was released from this repository; dates and verification notes are in the entries.
 
+## 1.1.2 — privacy policy on Baton's own website
+
+- **Privacy policy page.** The policy is now at https://oscar-man-shrestha.github.io/Baton/privacy.html, built from `PRIVACY.md` by `npm run build:site`, so the store, Google's sign-in screen and Baton's welcome page link to Baton's own address instead of a GitHub file. Two menu names in it now match the app (“Let this AI sum up this chat”, “Save selection with Baton”), and the `alarms` line describes the usage refresh.
+- **Checked: works next to other usage extensions.** Baton's Claude usage reading was run together with another Claude usage extension's page script, in both loading orders, against a free-account reply: both read the session and weekly figures, and Claude's page got the full reply.
+- **Edge Add-ons ready.** PUBLISHING.md and store-listing.md have the Edge steps and fields (short description, search terms, and the extra Supabase redirect Edge's own extension ID needs).
+
 ## 1.1.1 — live on the Chrome Web Store
 
 - **Baton Pass is on the Chrome Web Store.** The website's Add to Chrome buttons, the README and the tester guide now point to the store listing instead of the beta zip.

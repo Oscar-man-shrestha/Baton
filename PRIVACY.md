@@ -40,7 +40,7 @@ You can export everything to a backup file, set saved batons to expire after 7, 
 | When | What is sent | To whom |
 |---|---|---|
 | You pass a chat to another AI and press Send there | The draft you reviewed, plus any files Baton attached (your uploads, files the AI made in that chat, and for long chats a Markdown copy of the chat) | The AI service you chose. Attaching a file may upload it to that service as soon as it is attached, as when you add a file yourself |
-| You choose “Have this AI write the handoff” and press Send | Baton's request, typed into that chat's box | The service you are on |
+| You choose “Let this AI sum up this chat” and press Send | Baton's request, typed into that chat's box | The service you are on |
 | You sign in with Google and press **Back up now** (optional) | A snapshot of your batons, summaries, drafts and folders | Baton's Supabase project (`qeoduozlznznptwsfzbt.supabase.co`), protected by per-user access rules; **not end-to-end encrypted** |
 | You press **Send** on a feedback screen, or tap an answer on the one-time check-in card | The kind of feedback, an optional reason and message, which AI site it concerns, and (if left on) Baton's version and your browser's name. Never chats | Baton's feedback table (insert-only: the public key can add answers, not read them). To stop spam, the table keeps a one-way hash of your network address (not the address itself) for one day, then deletes it |
 | Once a day, automatically | A plain download request for `rankings.json` from Baton's GitHub repository; no cookies, nothing about you, your chats or prompts | GitHub (raw.githubusercontent.com) |
@@ -69,9 +69,9 @@ Local use needs no account. Optional Google sign-in is used only for Baton's own
 | `storage` | Keeping your batons, settings and usage readings on your device |
 | `activeTab`, `scripting` | Connecting Baton to an AI tab that was already open when Baton was installed or updated |
 | `sidePanel` | Opening Baton in the browser's side panel |
-| `alarms` | Delayed usage refresh and the reset reminders you ask for |
+| `alarms` | Usage refreshes shortly after you send a message and every 5 minutes for the AI sites you are using (can be switched off), and the reset reminders you ask for |
 | `offscreen` | Running the on-device task model in a hidden extension page |
-| `contextMenus` | One right-click item, “Save selection as a baton”, on the six AI sites |
+| `contextMenus` | One right-click item, “Save selection with Baton”, on the six AI sites |
 | `identity` and access to Baton's Supabase address | Optional Google sign-in and backup |
 | `notifications` (optional, asked when you turn on alerts) | Desktop alerts for usage limits and resets |
 
@@ -81,7 +81,7 @@ Baton is not directed at children under 13 and does not knowingly collect their 
 
 ## Changes to this policy
 
-Changes are published in this file (with a new effective date) and noted in the [changelog](CHANGELOG.md). A change that sends new data anywhere will be described before it ships.
+Changes are published in this file (with a new effective date) and noted in the [changelog](https://github.com/Oscar-man-shrestha/Baton/blob/main/CHANGELOG.md). A change that sends new data anywhere will be described before it ships.
 
 ## Contact
 

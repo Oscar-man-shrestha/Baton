@@ -33,7 +33,7 @@ That writes `.output/handoff-extension-<version>-chrome.zip` (about 23 MB; most 
 - [ ] `CHANGELOG.md` has the release at the top.
 - [ ] Load `.output/chrome-mv3` in a clean browser profile (`chrome://extensions` → Developer mode → Load unpacked) and pass one chat on two of the six sites, signed in.
 - [ ] If a permission changed: `docs/store-listing.md` and `PRIVACY.md` describe it.
-- [ ] `PRIVACY.md` is on the public `main` branch (the store links to it).
+- [ ] After editing `PRIVACY.md`, run `npm run build:site` and push, so `docs/privacy.html` (the page the store links to) matches.
 - [ ] `git tag v<version>` and push the tag (see section 5).
 
 ## 2. Chrome Web Store (first submission)
@@ -58,10 +58,13 @@ That writes `.output/handoff-extension-<version>-chrome.zip` (about 23 MB; most 
 
 ## 3. Microsoft Edge Add-ons
 
-1. Register at [Microsoft Partner Center](https://partner.microsoft.com/dashboard/microsoftedge/overview) (free).
-2. **Create new extension**, upload the **same zip**.
-3. Reuse the texts and images from store-listing.md (Edge asks for the same fields plus a search-terms list: `ChatGPT, Claude, Gemini, AI chat, handoff, usage limit, context`).
-4. Submit. Reviews take up to about a week.
+1. Register at [Microsoft Partner Center](https://partner.microsoft.com/dashboard/microsoftedge/overview) with batonforai@gmail.com (free; choose an individual account).
+2. **Create new extension** and upload the **same zip** as the Chrome Web Store.
+3. **Properties:** category Productivity, privacy policy `https://oscar-man-shrestha.github.io/Baton/privacy.html`, website `https://oscar-man-shrestha.github.io/Baton/`, support contact batonforai@gmail.com, mature content No.
+4. **Store listing (English):** the description and images from [store-listing.md](store-listing.md) (the same keyword-free description the Chrome Web Store accepted). Edge also wants a short description (use the manifest summary) and up to 7 search terms: see "Edge Add-ons" in store-listing.md.
+5. **Submission options → Notes for certification:** paste the reviewer test instructions from store-listing.md.
+6. Publish. Reviews take up to about a week.
+7. **After approval:** Edge gives Baton its own extension ID, so add `https://<edge-extension-id>.chromiumapp.org/supabase` to Supabase → Authentication → URL Configuration → Redirect URLs, or Google backup won't sign in on Edge.
 
 ## 4. Updates
 
@@ -88,7 +91,7 @@ On GitHub: **Releases → Draft a new release**, pick the tag, paste the CHANGEL
 
 | Piece | Where | Must stay reachable because |
 |---|---|---|
-| Privacy policy | `PRIVACY.md` on `main` | The store listing links to it |
+| Privacy policy | `docs/privacy.html` (from `PRIVACY.md`) via GitHub Pages | The store listing and Google sign-in screen link to it |
 | `rankings.json` | repository root on `main` | Installed copies download it daily (they keep their built-in list if it's missing) |
 | Website and uninstall page | `docs/` via GitHub Pages | The uninstall page opens when someone removes Baton |
 | Supabase project | `qeoduozlznznptwsfzbt.supabase.co` | Backups and feedback |
