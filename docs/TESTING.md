@@ -1,26 +1,17 @@
-# Testing Baton Pass before release
+# Testing Baton Pass
 
 Thank you for testing! Baton Pass is a browser extension that moves an AI chat (ChatGPT, Claude, Gemini, DeepSeek, Grok or Perplexity) into another AI, so you can keep going when you hit a limit or want a second opinion. It takes about 20 minutes.
 
 **Safe to try:** Baton never sends a message for you. It only types a draft into the chat box, and you decide whether to press Send. Everything it saves stays in your browser.
 
-## 1. Install the test version (5 minutes)
+## 1. Install Baton (1 minute)
 
-You need **Chrome, Brave or Edge** on a computer. Phones are not supported.
+You need **Chrome, Brave, Edge, Opera, Vivaldi or Arc** on a computer. Phones are not supported.
 
-1. Download **[handoff-extension-1.1.0-chrome.zip](https://github.com/Oscar-man-shrestha/Baton/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip)** (from the [test release](https://github.com/Oscar-man-shrestha/Baton/releases/tag/v1.1.0-beta)).
-2. **Unzip it** into a folder you'll keep, for example `Documents/baton-test`. The browser loads it from there, so don't delete the folder while testing.
-3. Open the extensions page:
-   - Chrome: `chrome://extensions`
-   - Brave: `brave://extensions`
-   - Edge: `edge://extensions`
-4. Turn on **Developer mode** (a switch in the top-right corner; on Edge it's on the left).
-5. Click **Load unpacked** and choose the folder you unzipped (the one that contains `manifest.json`).
-6. Click the puzzle-piece icon in the toolbar and **pin Baton Pass**, so its icon is always visible.
+1. Open **[Baton Pass on the Chrome Web Store](https://chromewebstore.google.com/detail/baton-pass/geklhdkeioejfjlpkgjcgmnhbifabknb)** and press **Add to Chrome** (the button names your browser), then **Add extension**.
+2. Click the puzzle-piece icon in the toolbar and **pin Baton Pass**, so its icon is always visible.
 
-A welcome page opens. That means it worked.
-
-> The browser may show a banner about "developer mode extensions". That's normal for test versions; the store version won't have it.
+A welcome page opens. That means it worked. If you installed an earlier test copy with **Load unpacked**, remove it first on your browser's extensions page so only one Baton runs.
 
 ## 2. What to test
 

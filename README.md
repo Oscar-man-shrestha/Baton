@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Oscar-man-shrestha/Baton/releases/tag/v1.1.0-beta"><b>Download the beta</b></a> ·
+  <a href="https://chromewebstore.google.com/detail/baton-pass/geklhdkeioejfjlpkgjcgmnhbifabknb"><b>Add to Chrome</b></a> ·
   <a href="https://oscar-man-shrestha.github.io/Baton/">Website</a> ·
   <a href="docs/TESTING.md">Tester guide</a> ·
   <a href="docs/REPORT.md">Project report</a> ·

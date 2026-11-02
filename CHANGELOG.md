@@ -2,6 +2,12 @@
 
 All notable changes to Baton Pass, newest first. Each version was released from this repository; dates and verification notes are in the entries.
 
+## 1.1.1 — live on the Chrome Web Store
+
+- **Baton Pass is on the Chrome Web Store.** The website's Add to Chrome buttons, the README and the tester guide now point to the store listing instead of the beta zip.
+- **Rate Baton.** After a 👍 in “How's Baton working for you?”, store installs offer one link to rate Baton on the Chrome Web Store (not shown in unpacked test copies).
+- **Plain check-in wording.** “You've passed 5 batons.” is now “You've moved 5 chats to another AI.”
+
 ## 1.1.0 — lossless capture, files in handoffs, reply check, saved selections, shortcuts
 
 - **Plain words everywhere.** “Baton”, “capture” and “handoff” no longer appear as jargon: **Save this chat**, **Write your own**, **Saved chats** (“14 saved · 1 folder”), **Chat saved · Save again**, **Short summary (recommended)** or **Whole chat, word for word**, **Save selection**, and the usage panel says “Claude hasn’t shown your usage yet · Send a message and your usage will appear” with “Open Claude’s usage page ↗”. The long fine print is one line (“Images and very old messages may not be included. Passwords and keys are hidden.”), and “Read usage with my sign-in” is “Check usage automatically”. The welcome page, shortcuts and right-click menu match. “Pass the baton” stays as the name of the main action.

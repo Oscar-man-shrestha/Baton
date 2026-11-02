@@ -986,7 +986,7 @@ const checkinState = await chrome.storage.local.get(['passCount', 'checkinDone',
 const passCount = Number(checkinState.passCount) || 0;
 if (!checkinState.checkinDone && passCount >= (Number(checkinState.checkinAt) || 5)) {
   checkin.hidden = false;
-  (document.querySelector('#checkin-sub') as HTMLElement).textContent = `You've passed ${passCount} batons.`;
+  (document.querySelector('#checkin-sub') as HTMLElement).textContent = `You've moved ${passCount} chats to another AI.`;
 }
 const answerCheckin = async (up: boolean) => {
   await chrome.storage.local.set({ checkinDone: true });
@@ -995,6 +995,12 @@ const answerCheckin = async (up: boolean) => {
   (document.querySelector('.checkin-row') as HTMLElement).hidden = true;
   const thanks = document.querySelector('#checkin-thanks') as HTMLElement; thanks.hidden = false;
   thanks.textContent = up ? 'Thank you! That helps a lot.' : 'Sorry about that. Tell us what went wrong and we\'ll fix it.';
+  // Store installs only (an unpacked copy has another ID): a happy user is asked once to rate Baton in the store.
+  if (up && chrome.runtime.getManifest().update_url) {
+    const rate = document.createElement('a'); rate.className = 'link-button'; rate.target = '_blank'; rate.rel = 'noopener';
+    rate.href = `https://chromewebstore.google.com/detail/${chrome.runtime.id}/reviews`; rate.textContent = '★ Rate Baton on the Chrome Web Store';
+    thanks.append(' ', rate);
+  }
   if (!up) void chrome.tabs.create({ url: chrome.runtime.getURL('feedback.html?kind=bug') });
 };
 document.querySelector('#checkin-up')?.addEventListener('click', () => { void answerCheckin(true); });
