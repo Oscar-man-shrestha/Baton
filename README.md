@@ -130,9 +130,9 @@ How it was measured: [project report §9](docs/REPORT.md#9-quality-and-evaluatio
 
 ## Install
 
-**Chrome Web Store:** coming soon.
+**[Add Baton Pass from the Chrome Web Store](https://chromewebstore.google.com/detail/baton-pass/geklhdkeioejfjlpkgjcgmnhbifabknb)** (Chrome, Brave, Edge, Opera, Vivaldi and Arc). Updates install automatically.
 
-**Beta (Chrome, Brave, Edge, Opera, Vivaldi or Arc on a computer):**
+**Manual install (beta zip):**
 
 1. Download [`handoff-extension-1.1.0-chrome.zip`](https://github.com/Oscar-man-shrestha/Baton/releases/download/v1.1.0-beta/handoff-extension-1.1.0-chrome.zip) and unzip it into a folder you'll keep.
 2. Open `chrome://extensions` (or `brave://extensions`, `edge://extensions`) and turn on **Developer mode**.
