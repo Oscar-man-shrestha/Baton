@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
-    "gpt-tokenizer": "^3.4.0",
+    "gpt-tokenizer": "^4.1.0",
     "gsap": "^3.15.0",
     "onnxruntime-web": "1.30.0",
     "three": "^0.186.1",
